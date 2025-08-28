@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regulatory Cross-Validation Guidelines - FDA, CE MDR & TRIPOD+AI</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <style>
+        .tutorial-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .tutorial-header {
+            background: linear-gradient(135deg, var(--ki-plum) 0%, var(--ki-dark-plum) 100%);
+            color: white;
+            padding: 60px 40px;
+            border-radius: 16px;
+            margin-bottom: 40px;
+        }
+        
+        .tutorial-header h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        
+        .regulation-badges {
+            display: flex;
+            gap: 20px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .reg-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toc-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .toc-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .toc-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .toc-list a {
+            color: var(--ki-plum);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toc-list a:hover {
+            color: var(--ki-dark-plum);
+        }
+        
+        .guideline-section {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .guideline-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid var(--ki-plum);
+        }
+        
+        .guideline-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--ki-plum);
+            color: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .requirement-box {
+            background: #f8f9fa;
+            border-left: 4px solid var(--ki-plum);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .requirement-box h4 {
+            color: var(--ki-plum);
+            margin-bottom: 10px;
+        }
+        
+        .checklist {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .checklist-item input[type="checkbox"] {
+            margin-top: 4px;
+        }
+        
+        .comparison-table {
+            overflow-x: auto;
+            margin: 30px 0;
+        }
+        
+        .comparison-table table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        .comparison-table th {
+            background: var(--ki-plum);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 500;
+        }
+        
+        .comparison-table td {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .comparison-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+        
+        .source-reference {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .source-reference strong {
+            color: #1565c0;
+        }
+        
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .code-example {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        .code-example pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            color: var(--ki-plum);
+            border-bottom-color: var(--ki-plum);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .download-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .download-button {
+            background: white;
+            color: var(--ki-plum);
+            padding: 12px 30px;
+            border-radius: 24px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Regulatory Guidelines Tutorial</span>
+            </div>
+                        <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="tutorial-container">
+        <!-- Header -->
+        <div class="tutorial-header">
+            <h1>📚 Cross-Validation for Regulatory Compliance</h1>
+            <p style="font-size: 20px; margin-bottom: 10px;">
+                Complete guide to meeting FDA, CE MDR, and TRIPOD+AI requirements for AI/ML medical device validation
+            </p>
+            <p style="opacity: 0.9;">
+                Last updated: January 2025 | Based on latest regulatory guidance documents
+            </p>
+            <div class="regulation-badges">
+                <div class="reg-badge">
+                    <span class="material-icons">verified</span>
+                    FDA AI/ML Guidance 2024
+                </div>
+                <div class="reg-badge">
+                    <span class="material-icons">verified</span>
+                    CE MDR 2017/745
+                </div>
+                <div class="reg-badge">
+                    <span class="material-icons">verified</span>
+                    MDCG 2021-24
+                </div>
+                <div class="reg-badge">
+                    <span class="material-icons">verified</span>
+                    TRIPOD+AI 2024
+                </div>
+            </div>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc-section">
+            <h2>📑 Table of Contents</h2>
+            <ul class="toc-list">
+                <li><a href="#overview"><span class="material-icons">dashboard</span> Overview & Key Principles</a></li>
+                <li><a href="#fda"><span class="material-icons">flag</span> FDA Requirements (USA)</a></li>
+                <li><a href="#ce-mdr"><span class="material-icons">eu</span> CE MDR & MDCG Guidelines (Europe)</a></li>
+                <li><a href="#tripod"><span class="material-icons">science</span> TRIPOD+AI Scientific Standards</a></li>
+                <li><a href="#comparison"><span class="material-icons">compare</span> Comparative Requirements Table</a></li>
+                <li><a href="#implementation"><span class="material-icons">code</span> Implementation Examples</a></li>
+                <li><a href="#checklist"><span class="material-icons">checklist</span> Compliance Checklists</a></li>
+                <li><a href="#sources"><span class="material-icons">library_books</span> Official Sources & References</a></li>
+            </ul>
+        </div>
+
+        <!-- Overview Section -->
+        <div class="guideline-section" id="overview">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">dashboard</span>
+                </div>
+                <div>
+                    <h2>Overview & Key Principles</h2>
+                    <p>Fundamental requirements across all regulatory frameworks</p>
+                </div>
+            </div>
+
+            <div class="requirement-box">
+                <h4>🎯 Universal Principles for Medical AI Validation</h4>
+                <ul>
+                    <li><strong>Patient-Level Data Integrity:</strong> All samples from one patient must stay together</li>
+                    <li><strong>Independent Test Set:</strong> Final validation on completely held-out data</li>
+                    <li><strong>Pre-specification:</strong> Methods defined before seeing data</li>
+                    <li><strong>Transparency:</strong> Complete documentation of all decisions</li>
+                    <li><strong>Reproducibility:</strong> Random seeds, version control, environment specs</li>
+                </ul>
+            </div>
+
+            <div class="success-box">
+                <h4>✅ Three-Level Validation Architecture</h4>
+                <pre>
+Level 1: Development (60-70% of data)
+  └── Training Set: Model fitting
+  
+Level 2: Validation (15-20% of data)  
+  └── Cross-Validation: Hyperparameter tuning & method selection
+  
+Level 3: Testing (15-20% of data)
+  └── Held-Out Test Set: Final unbiased performance estimate
+                </pre>
+            </div>
+        </div>
+
+        <!-- FDA Section -->
+        <div class="guideline-section" id="fda">
+            <div class="guideline-header">
+                <div class="guideline-icon">FDA</div>
+                <div>
+                    <h2>FDA Requirements (USA)</h2>
+                    <p>Food and Drug Administration guidance for AI/ML-based Software as Medical Device (SaMD)</p>
+                </div>
+            </div>
+
+            <div class="source-reference">
+                <strong>📖 Primary Sources:</strong>
+                <ul>
+                    <li><a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-enabled-medical-devices" target="_blank">FDA AI/ML-Enabled Medical Devices</a></li>
+                    <li><a href="https://www.fda.gov/files/medical%20devices/published/US-FDA-Artificial-Intelligence-and-Machine-Learning-Discussion-Paper.pdf" target="_blank">FDA AI/ML Discussion Paper (2019)</a></li>
+                    <li><a href="https://www.fda.gov/media/145022/download" target="_blank">AI/ML Action Plan (2021)</a></li>
+                    <li><a href="https://www.fda.gov/media/153486/download" target="_blank">Clinical Decision Support Software Guidance (2022)</a></li>
+                    <li><a href="https://www.fda.gov/media/122535/download" target="_blank">Good Machine Learning Practice (GMLP) Guiding Principles (2021)</a></li>
+                </ul>
+            </div>
+
+            <div class="requirement-box">
+                <h4>📋 FDA Good Machine Learning Practice (GMLP) - 10 Principles</h4>
+                <ol>
+                    <li><strong>Multi-disciplinary expertise</strong> throughout lifecycle</li>
+                    <li><strong>Good software engineering</strong> and security practices</li>
+                    <li><strong>Clinical study participants and data sets are representative</strong> of intended patient population</li>
+                    <li><strong>Training/tuning/test sets are independent</strong> and selected appropriately</li>
+                    <li><strong>Reference datasets are based on best available methods</strong></li>
+                    <li><strong>Model design is tailored to available data</strong> and reflects intended use</li>
+                    <li><strong>Focus on performance of human-AI team</strong></li>
+                    <li><strong>Testing demonstrates device performance</strong> during clinically relevant conditions</li>
+                    <li><strong>Users provided clear information</strong> on benefits, risks, and limitations</li>
+                    <li><strong>Deployed models monitored</strong> for performance and re-training managed</li>
+                </ol>
+            </div>
+
+            <h3>FDA Cross-Validation Requirements</h3>
+            
+            <div class="tabs">
+                <button class="tab-button active" onclick="showTab('fda-development')">Development Phase</button>
+                <button class="tab-button" onclick="showTab('fda-submission')">510(k) Submission</button>
+                <button class="tab-button" onclick="showTab('fda-denovo')">De Novo Pathway</button>
+                <button class="tab-button" onclick="showTab('fda-pccp')">PCCP Requirements</button>
+            </div>
+
+            <div id="fda-development" class="tab-content active">
+                <div class="requirement-box">
+                    <h4>Development Phase Requirements</h4>
+                    <ul>
+                        <li><strong>Data Partitioning:</strong>
+                            <ul>
+                                <li>Training: 60-70%</li>
+                                <li>Validation/Tuning: 15-20%</li>
+                                <li>Test (locked): 15-20%</li>
+                            </ul>
+                        </li>
+                        <li><strong>Patient Grouping:</strong> Mandatory for multi-sample patient data</li>
+                        <li><strong>Site Diversity:</strong> If multi-site, must validate across sites</li>
+                        <li><strong>Temporal Validation:</strong> For time-dependent conditions</li>
+                        <li><strong>Demographic Analysis:</strong> Performance across age, sex, race/ethnicity</li>
+                    </ul>
+                </div>
+
+                <div class="code-example">
+                    <pre>
+# FDA-Compliant Data Split Example
+from sklearn.model_selection import train_test_split
+
+# First: Separate test set (LOCK THIS AWAY)
+X_dev, X_test, y_dev, y_test, patients_dev, patients_test = train_test_split(
+    X, y, patient_ids,
+    test_size=0.20,  # 20% for final test
+    stratify=y,       # Maintain class balance
+    random_state=42   # Pre-specified seed
+)
+
+# Second: Split development into train/validation
+X_train, X_val, y_train, y_val = train_test_split(
+    X_dev, y_dev,
+    test_size=0.20,   # 20% of 80% = 16% total for validation
+    stratify=y_dev,
+    random_state=42
+)
+
+# Use validation for hyperparameter tuning
+# NEVER touch X_test until final evaluation
+                    </pre>
+                </div>
+            </div>
+
+            <div id="fda-submission" class="tab-content">
+                <div class="requirement-box">
+                    <h4>510(k) Submission Requirements</h4>
+                    <p><strong>Section 13: Software Validation & Verification</strong></p>
+                    <ul>
+                        <li>Complete description of validation methodology</li>
+                        <li>Justification for data split ratios</li>
+                        <li>Patient demographics table for each partition</li>
+                        <li>Performance metrics with 95% confidence intervals</li>
+                        <li>Subgroup analysis results</li>
+                        <li>Failure mode analysis</li>
+                        <li>Comparison to predicate device (if applicable)</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <h4>⚠️ Common FDA Rejection Reasons</h4>
+                    <ul>
+                        <li>Test set contamination (used for ANY decision)</li>
+                        <li>No pre-specified analysis plan</li>
+                        <li>Missing confidence intervals</li>
+                        <li>Inadequate sample size justification</li>
+                        <li>No subgroup analysis for protected classes</li>
+                        <li>Patient data in multiple partitions</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="fda-denovo" class="tab-content">
+                <div class="requirement-box">
+                    <h4>De Novo Classification Requirements</h4>
+                    <ul>
+                        <li><strong>External Validation:</strong> Often required on completely independent dataset</li>
+                        <li><strong>Prospective Study:</strong> May need real-world clinical validation</li>
+                        <li><strong>Special Controls:</strong> Must establish validation standards for device type</li>
+                        <li><strong>Labeling Requirements:</strong> Clear limitations and warnings</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div id="fda-pccp" class="tab-content">
+                <div class="requirement-box">
+                    <h4>Predetermined Change Control Plan (PCCP)</h4>
+                    <p>For AI/ML devices that will be updated post-market:</p>
+                    <ul>
+                        <li><strong>Retraining Protocol:</strong> How will model be retrained?</li>
+                        <li><strong>Performance Monitoring:</strong> Metrics and thresholds</li>
+                        <li><strong>Update Validation:</strong> Cross-validation strategy for updates</li>
+                        <li><strong>Data Drift Detection:</strong> Methods to identify distribution shifts</li>
+                        <li><strong>Version Control:</strong> Track which validation for which version</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- CE MDR Section -->
+        <div class="guideline-section" id="ce-mdr">
+            <div class="guideline-header">
+                <div class="guideline-icon">CE</div>
+                <div>
+                    <h2>CE MDR & MDCG Guidelines (Europe)</h2>
+                    <p>Medical Device Regulation 2017/745 and Medical Device Coordination Group guidance</p>
+                </div>
+            </div>
+
+            <div class="source-reference">
+                <strong>📖 Primary Sources:</strong>
+                <ul>
+                    <li><a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32017R0745" target="_blank">MDR 2017/745 Full Text</a></li>
+                    <li><a href="https://health.ec.europa.eu/system/files/2021-10/md_mdcg_2021_24_en_0.pdf" target="_blank">MDCG 2021-24: Guidance on Classification of Medical Device Software</a></li>
+                    <li><a href="https://health.ec.europa.eu/system/files/2020-09/md_mdcg_2020_1_guidance_clinic_eva_md_software_en_0.pdf" target="_blank">MDCG 2020-1: Clinical Evaluation of Medical Device Software</a></li>
+                    <li><a href="https://health.ec.europa.eu/system/files/2019-10/md_mdcg_2019_11_guidance_qualification_classification_software_en_0.pdf" target="_blank">MDCG 2019-11: Software Qualification and Classification</a></li>
+                    <li><a href="https://health.ec.europa.eu/system/files/2019-10/md_mdcg_2019_16_guidance_cybersecurity_en_0.pdf" target="_blank">MDCG 2019-16: Cybersecurity Guidance</a></li>
+                </ul>
+            </div>
+
+            <div class="requirement-box">
+                <h4>📋 MDR Annex I - Essential Requirements for Software Validation</h4>
+                <p><strong>Chapter II, Section 17.2:</strong> Software validation requirements</p>
+                <ul>
+                    <li>Software shall be validated according to state of the art</li>
+                    <li>Validation shall demonstrate conformity with intended purpose</li>
+                    <li>Lifecycle approach including verification and validation</li>
+                    <li>Clinical evidence required for Class IIa and higher</li>
+                </ul>
+            </div>
+
+            <h3>MDCG 2021-24: AI/ML Specific Requirements</h3>
+            
+            <div class="requirement-box">
+                <h4>Classification Rules for AI/ML Software</h4>
+                <table style="width: 100%; margin-top: 15px;">
+                    <tr>
+                        <th style="background: #2196F3; color: white; padding: 10px;">Class</th>
+                        <th style="background: #2196F3; color: white; padding: 10px;">Description</th>
+                        <th style="background: #2196F3; color: white; padding: 10px;">Validation Requirements</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class I</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Low risk, no direct patient impact</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Basic validation</td>
+                    </tr>
+                    <tr style="background: #f5f5f5;">
+                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class IIa</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Inform clinical decisions</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Clinical evaluation required</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class IIb</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Direct diagnosis/monitoring vital functions</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Extensive clinical validation</td>
+                    </tr>
+                    <tr style="background: #f5f5f5;">
+                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class III</strong></td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Life-supporting/life-saving</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">Highest level validation + clinical trials</td>
+                    </tr>
+                </table>
+            </div>
+
+            <h3>MDCG 2020-1: Clinical Evaluation Requirements</h3>
+
+            <div class="requirement-box">
+                <h4>Clinical Evaluation Process for AI/ML</h4>
+                <ol>
+                    <li><strong>Stage 0 - Scope:</strong> Define clinical claims and intended use</li>
+                    <li><strong>Stage 1 - Data:</strong> Identify pertinent data
+                        <ul>
+                            <li>Clinical data from device under evaluation</li>
+                            <li>Clinical data from equivalent device</li>
+                            <li>Relevant scientific literature</li>
+                        </ul>
+                    </li>
+                    <li><strong>Stage 2 - Appraisal:</strong> Evaluate data quality and relevance</li>
+                    <li><strong>Stage 3 - Analysis:</strong> Demonstrate:
+                        <ul>
+                            <li>Performance (analytical validation)</li>
+                            <li>Clinical performance (clinical validation)</li>
+                            <li>Clinical utility</li>
+                        </ul>
+                    </li>
+                    <li><strong>Stage 4 - Report:</strong> Clinical Evaluation Report (CER)</li>
+                </ol>
+            </div>
+
+            <div class="code-example">
+                <pre>
+# CE MDR Compliant Validation Structure
+class CEMDRValidator:
+    def __init__(self, device_class='IIa'):
+        self.device_class = device_class
+        self.validation_levels = {
+            'I': ['technical_validation'],
+            'IIa': ['technical_validation', 'clinical_validation'],
+            'IIb': ['technical_validation', 'clinical_validation', 'clinical_performance'],
+            'III': ['technical_validation', 'clinical_validation', 'clinical_performance', 'clinical_trial']
+        }
+    
+    def validate(self, X, y, patient_ids):
+        validations = self.validation_levels[self.device_class]
+        
+        if 'technical_validation' in validations:
+            # Analytical performance
+            self.technical_metrics = self.run_technical_validation(X, y)
+        
+        if 'clinical_validation' in validations:
+            # Clinical concordance
+            self.clinical_metrics = self.run_clinical_validation(X, y, patient_ids)
+        
+        if 'clinical_performance' in validations:
+            # Real-world performance
+            self.performance_metrics = self.run_performance_study(X, y, patient_ids)
+        
+        return self.generate_cer()  # Clinical Evaluation Report
+                </pre>
+            </div>
+
+            <h3>Key Differences from FDA</h3>
+            
+            <div class="comparison-table">
+                <table>
+                    <tr>
+                        <th>Aspect</th>
+                        <th>CE MDR</th>
+                        <th>FDA</th>
+                    </tr>
+                    <tr>
+                        <td>Classification System</td>
+                        <td>I, IIa, IIb, III (risk-based)</td>
+                        <td>Class I, II, III + De Novo</td>
+                    </tr>
+                    <tr>
+                        <td>Clinical Evidence</td>
+                        <td>Clinical Evaluation Report (CER)</td>
+                        <td>Clinical validation in 510(k)</td>
+                    </tr>
+                    <tr>
+                        <td>Post-Market</td>
+                        <td>PMCF (Post-Market Clinical Follow-up)</td>
+                        <td>Post-market surveillance + PCCP</td>
+                    </tr>
+                    <tr>
+                        <td>AI/ML Updates</td>
+                        <td>Significant change requires new assessment</td>
+                        <td>PCCP allows predetermined changes</td>
+                    </tr>
+                    <tr>
+                        <td>Notified Body</td>
+                        <td>Required for Class IIa and above</td>
+                        <td>FDA direct review</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- TRIPOD+AI Section -->
+        <div class="guideline-section" id="tripod">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">science</span>
+                </div>
+                <div>
+                    <h2>TRIPOD+AI Scientific Standards</h2>
+                    <p>Transparent Reporting of Multivariable Prediction Models for Individual Prognosis or Diagnosis + AI</p>
+                </div>
+            </div>
+
+            <div class="source-reference">
+                <strong>📖 Primary Sources:</strong>
+                <ul>
+                    <li><a href="https://www.equator-network.org/reporting-guidelines/tripod-statement/" target="_blank">TRIPOD+AI Statement - EQUATOR Network</a></li>
+                    <li><a href="https://www.bmj.com/content/385/bmj-2023-078378" target="_blank">TRIPOD+AI Statement Publication (BMJ 2024)</a></li>
+                    <li><a href="https://www.tripod-statement.org/" target="_blank">Official TRIPOD Statement Website</a></li>
+                    <li><a href="https://www.nature.com/articles/s41591-020-1034-x" target="_blank">CONSORT-AI and SPIRIT-AI Guidelines</a></li>
+                </ul>
+            </div>
+
+            <div class="requirement-box">
+                <h4>📋 TRIPOD+AI Checklist Items for Cross-Validation</h4>
+                <p>Key items specifically addressing validation methodology:</p>
+                <ul>
+                    <li><strong>Item 10b - Data Partitioning:</strong> Describe how data was split (random, temporal, geographic, etc.)</li>
+                    <li><strong>Item 10c - Cross-validation:</strong> Report exact CV method, number of folds, stratification</li>
+                    <li><strong>Item 13b - Patient Clustering:</strong> How multiple measurements per patient were handled</li>
+                    <li><strong>Item 14b - Missing Data:</strong> How missing data was handled in each fold</li>
+                    <li><strong>Item 15b - Model Specification:</strong> Report if model selection used same data as evaluation</li>
+                    <li><strong>Item 16 - Performance Metrics:</strong> Report with confidence intervals for each fold</li>
+                    <li><strong>Item 18b - Model Updating:</strong> Describe any calibration or updating procedures</li>
+                </ul>
+            </div>
+
+            <h3>TRIPOD+AI Validation Requirements</h3>
+
+            <div class="success-box">
+                <h4>✅ Best Practices from TRIPOD+AI</h4>
+                <ol>
+                    <li><strong>Transparent Reporting:</strong>
+                        <ul>
+                            <li>Report performance for EACH fold, not just mean</li>
+                            <li>Include distribution plots of fold performances</li>
+                            <li>Document any folds that failed or had issues</li>
+                        </ul>
+                    </li>
+                    <li><strong>Data Dependencies:</strong>
+                        <ul>
+                            <li>Clearly state clustering (patient, site, time)</li>
+                            <li>Justify independence assumptions</li>
+                            <li>Report effective sample size after clustering</li>
+                        </ul>
+                    </li>
+                    <li><strong>Reproducibility:</strong>
+                        <ul>
+                            <li>Provide all random seeds</li>
+                            <li>Document software versions</li>
+                            <li>Share code when possible</li>
+                        </ul>
+                    </li>
+                    <li><strong>Uncertainty Quantification:</strong>
+                        <ul>
+                            <li>Bootstrap confidence intervals</li>
+                            <li>Calibration plots for each fold</li>
+                            <li>Decision curve analysis</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+
+            <div class="code-example">
+                <pre>
+# TRIPOD+AI Compliant Reporting Example
+import numpy as np
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import roc_auc_score, roc_curve
+import matplotlib.pyplot as plt
+
+def tripod_compliant_cv(X, y, patient_ids, model):
+    """
+    TRIPOD+AI compliant cross-validation with full reporting
+    """
+    # Item 10c: Specify exact CV method
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    
+    # Store results for each fold (Item 16)
+    fold_results = []
+    
+    for fold_idx, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+        # Item 13b: Ensure patient-level splitting
+        train_patients = patient_ids[train_idx]
+        val_patients = patient_ids[val_idx]
+        assert len(np.intersect1d(train_patients, val_patients)) == 0
+        
+        # Train model
+        model.fit(X[train_idx], y[train_idx])
+        
+        # Predictions
+        y_pred_proba = model.predict_proba(X[val_idx])[:, 1]
+        
+        # Calculate metrics for this fold
+        fold_auc = roc_auc_score(y[val_idx], y_pred_proba)
+        
+        # Store detailed results
+        fold_results.append({
+            'fold': fold_idx + 1,
+            'n_train': len(train_idx),
+            'n_val': len(val_idx),
+            'n_patients_train': len(np.unique(train_patients)),
+            'n_patients_val': len(np.unique(val_patients)),
+            'auc': fold_auc,
+            'y_true': y[val_idx],
+            'y_pred': y_pred_proba
+        })
+        
+        print(f"Fold {fold_idx + 1}: AUC = {fold_auc:.3f}")
+    
+    # Item 16: Report aggregate metrics with CI
+    aucs = [r['auc'] for r in fold_results]
+    mean_auc = np.mean(aucs)
+    std_auc = np.std(aucs)
+    ci_lower = np.percentile(aucs, 2.5)
+    ci_upper = np.percentile(aucs, 97.5)
+    
+    print(f"\nOverall Performance:")
+    print(f"Mean AUC: {mean_auc:.3f} (SD: {std_auc:.3f})")
+    print(f"95% CI: [{ci_lower:.3f}, {ci_upper:.3f}]")
+    print(f"Individual fold AUCs: {aucs}")
+    
+    # Create visualization as required by TRIPOD+AI
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    
+    # Plot ROC curve for each fold
+    for idx, result in enumerate(fold_results):
+        ax = axes[idx // 3, idx % 3]
+        fpr, tpr, _ = roc_curve(result['y_true'], result['y_pred'])
+        ax.plot(fpr, tpr, label=f"Fold {idx + 1} (AUC = {result['auc']:.3f})")
+        ax.plot([0, 1], [0, 1], 'k--')
+        ax.set_xlabel('False Positive Rate')
+        ax.set_ylabel('True Positive Rate')
+        ax.legend()
+        ax.set_title(f'Fold {idx + 1}')
+    
+    # Summary plot in last subplot
+    ax = axes[1, 2]
+    ax.boxplot(aucs)
+    ax.set_ylabel('AUC')
+    ax.set_title('Distribution of Fold Performances')
+    
+    plt.tight_layout()
+    plt.savefig('tripod_ai_validation_report.png', dpi=300)
+    
+    return fold_results
+                </pre>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="guideline-section" id="comparison">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">compare</span>
+                </div>
+                <div>
+                    <h2>Comparative Requirements Table</h2>
+                    <p>Side-by-side comparison of validation requirements</p>
+                </div>
+            </div>
+
+            <div class="comparison-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Requirement</th>
+                            <th>FDA</th>
+                            <th>CE MDR/MDCG</th>
+                            <th>TRIPOD+AI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Test Set</strong></td>
+                            <td>✅ Mandatory locked test set (15-20%)</td>
+                            <td>✅ Required for Class IIa+</td>
+                            <td>✅ Strongly recommended</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td><strong>Patient Grouping</strong></td>
+                            <td>✅ Mandatory</td>
+                            <td>✅ Required when applicable</td>
+                            <td>✅ Must report clustering</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cross-Validation Method</strong></td>
+                            <td>Pre-specified, justified</td>
+                            <td>State of the art</td>
+                            <td>Fully documented with code</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td><strong>Confidence Intervals</strong></td>
+                            <td>✅ Required (95% CI)</td>
+                            <td>✅ Required</td>
+                            <td>✅ Required with method specified</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Subgroup Analysis</strong></td>
+                            <td>✅ Mandatory (age, sex, race)</td>
+                            <td>Risk-based requirement</td>
+                            <td>✅ Recommended</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td><strong>External Validation</strong></td>
+                            <td>Often for De Novo</td>
+                            <td>Depends on class</td>
+                            <td>✅ Strongly recommended</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Performance per Fold</strong></td>
+                            <td>Summary statistics ok</td>
+                            <td>Summary statistics ok</td>
+                            <td>✅ Must report each fold</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td><strong>Code Sharing</strong></td>
+                            <td>Not required</td>
+                            <td>Not required</td>
+                            <td>✅ Strongly encouraged</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Update Strategy</strong></td>
+                            <td>PCCP required</td>
+                            <td>New assessment</td>
+                            <td>Document update methods</td>
+                        </tr>
+                        <tr style="background: #f5f5f5;">
+                            <td><strong>Clinical Evidence</strong></td>
+                            <td>Clinical validation study</td>
+                            <td>Clinical Evaluation Report</td>
+                            <td>Clinical utility analysis</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Implementation Examples -->
+        <div class="guideline-section" id="implementation">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">code</span>
+                </div>
+                <div>
+                    <h2>Implementation Examples</h2>
+                    <p>Code templates for regulatory-compliant validation</p>
+                </div>
+            </div>
+
+            <h3>Complete Regulatory-Compliant Validation Pipeline</h3>
+
+            <div class="code-example">
+                <pre>
+"""
+Regulatory-Compliant Cross-Validation Pipeline
+Meets FDA, CE MDR, and TRIPOD+AI requirements
+"""
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report
+from sklearn.preprocessing import StandardScaler
+import json
+from datetime import datetime
+import hashlib
+
+class RegulatoryCompliantValidator:
+    """
+    Implements validation meeting FDA, CE MDR, and TRIPOD+AI standards
+    """
+    
+    def __init__(self, regulatory_standard='all', device_class='IIa'):
+        self.regulatory_standard = regulatory_standard
+        self.device_class = device_class
+        self.validation_plan = self._create_validation_plan()
+        self.audit_trail = []
+        
+    def _create_validation_plan(self):
+        """Pre-specify validation plan (FDA requirement)"""
+        plan = {
+            'created_at': datetime.now().isoformat(),
+            'test_set_ratio': 0.20,
+            'validation_ratio': 0.20,
+            'cv_method': 'stratified_patient_kfold',
+            'n_folds': 5,
+            'random_seed': 42,
+            'stratification': 'outcome',
+            'patient_grouping': True,
+            'confidence_level': 0.95,
+            'subgroups': ['age_group', 'sex', 'race', 'site'],
+            'performance_metrics': [
+                'sensitivity', 'specificity', 'ppv', 'npv',
+                'accuracy', 'auc_roc', 'auc_pr', 'calibration'
+            ]
+        }
+        
+        # Lock the plan with hash (FDA: pre-specification)
+        plan['hash'] = hashlib.sha256(
+            json.dumps(plan, sort_keys=True).encode()
+        ).hexdigest()
+        
+        return plan
+    
+    def split_data(self, X, y, patient_ids, demographics=None):
+        """
+        Three-way split meeting all regulatory requirements
+        """
+        # Log action for audit trail
+        self._log("Data splitting initiated")
+        
+        # FDA: Ensure patient-level splitting
+        unique_patients = np.unique(patient_ids)
+        patient_labels = pd.DataFrame({
+            'patient_id': unique_patients,
+            'label': [y[patient_ids == pid][0] for pid in unique_patients]
+        })
+        
+        # First split: Separate test set (FDA: locked test set)
+        patients_dev, patients_test = train_test_split(
+            patient_labels['patient_id'],
+            test_size=self.validation_plan['test_set_ratio'],
+            stratify=patient_labels['label'],
+            random_state=self.validation_plan['random_seed']
+        )
+        
+        # Create masks
+        dev_mask = np.isin(patient_ids, patients_dev)
+        test_mask = np.isin(patient_ids, patients_test)
+        
+        # Split data
+        X_dev, X_test = X[dev_mask], X[test_mask]
+        y_dev, y_test = y[dev_mask], y[test_mask]
+        patient_ids_dev = patient_ids[dev_mask]
+        patient_ids_test = patient_ids[test_mask]
+        
+        # Lock test set (FDA requirement)
+        self.locked_test_set = {
+            'X': X_test.copy(),
+            'y': y_test.copy(),
+            'patient_ids': patient_ids_test.copy(),
+            'locked_at': datetime.now().isoformat(),
+            'hash': hashlib.sha256(X_test.tobytes() + y_test.tobytes()).hexdigest()
+        }
+        
+        self._log(f"Test set locked: {len(patients_test)} patients, {len(X_test)} samples")
+        
+        # TRIPOD+AI: Report data characteristics
+        self.data_characteristics = {
+            'total_patients': len(unique_patients),
+            'total_samples': len(X),
+            'samples_per_patient': {
+                'mean': len(X) / len(unique_patients),
+                'min': min([sum(patient_ids == pid) for pid in unique_patients]),
+                'max': max([sum(patient_ids == pid) for pid in unique_patients])
+            },
+            'class_distribution': {
+                'overall': pd.Series(y).value_counts().to_dict(),
+                'train': pd.Series(y_dev).value_counts().to_dict(),
+                'test': pd.Series(y_test).value_counts().to_dict()
+            }
+        }
+        
+        return X_dev, y_dev, patient_ids_dev
+    
+    def run_cross_validation(self, X_dev, y_dev, patient_ids_dev, model):
+        """
+        Run cross-validation meeting all standards
+        """
+        # Create patient-aware CV splitter
+        unique_patients = np.unique(patient_ids_dev)
+        patient_labels = np.array([
+            y_dev[patient_ids_dev == pid][0] for pid in unique_patients
+        ])
+        
+        cv = StratifiedKFold(
+            n_splits=self.validation_plan['n_folds'],
+            shuffle=True,
+            random_state=self.validation_plan['random_seed']
+        )
+        
+        fold_results = []
+        
+        for fold_idx, (train_patient_idx, val_patient_idx) in enumerate(
+            cv.split(unique_patients, patient_labels)
+        ):
+            # Get patient IDs for this fold
+            train_patients = unique_patients[train_patient_idx]
+            val_patients = unique_patients[val_patient_idx]
+            
+            # FDA: Verify no patient leakage
+            assert len(np.intersect1d(train_patients, val_patients)) == 0
+            
+            # Get sample indices
+            train_mask = np.isin(patient_ids_dev, train_patients)
+            val_mask = np.isin(patient_ids_dev, val_patients)
+            
+            X_train_fold = X_dev[train_mask]
+            y_train_fold = y_dev[train_mask]
+            X_val_fold = X_dev[val_mask]
+            y_val_fold = y_dev[val_mask]
+            
+            # CE MDR: Preprocessing within fold
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train_fold)
+            X_val_scaled = scaler.transform(X_val_fold)
+            
+            # Train model
+            model_fold = clone(model)
+            model_fold.fit(X_train_scaled, y_train_fold)
+            
+            # Predictions
+            y_pred_proba = model_fold.predict_proba(X_val_scaled)[:, 1]
+            y_pred = (y_pred_proba >= 0.5).astype(int)
+            
+            # Calculate comprehensive metrics
+            tn, fp, fn, tp = confusion_matrix(y_val_fold, y_pred).ravel()
+            
+            fold_metrics = {
+                'fold': fold_idx + 1,
+                'n_train_patients': len(train_patients),
+                'n_val_patients': len(val_patients),
+                'n_train_samples': sum(train_mask),
+                'n_val_samples': sum(val_mask),
+                'sensitivity': tp / (tp + fn) if (tp + fn) > 0 else 0,
+                'specificity': tn / (tn + fp) if (tn + fp) > 0 else 0,
+                'ppv': tp / (tp + fp) if (tp + fp) > 0 else 0,
+                'npv': tn / (tn + fn) if (tn + fn) > 0 else 0,
+                'accuracy': (tp + tn) / (tp + tn + fp + fn),
+                'auc_roc': roc_auc_score(y_val_fold, y_pred_proba),
+                'confusion_matrix': {'tn': int(tn), 'fp': int(fp), 
+                                   'fn': int(fn), 'tp': int(tp)}
+            }
+            
+            fold_results.append(fold_metrics)
+            
+            # TRIPOD+AI: Report each fold
+            print(f"Fold {fold_idx + 1}: AUC={fold_metrics['auc_roc']:.3f}, "
+                  f"Sens={fold_metrics['sensitivity']:.3f}, "
+                  f"Spec={fold_metrics['specificity']:.3f}")
+        
+        # Calculate aggregate metrics with confidence intervals
+        self.cv_results = self._calculate_aggregate_metrics(fold_results)
+        
+        return fold_results
+    
+    def _calculate_aggregate_metrics(self, fold_results):
+        """Calculate mean, std, and CI for all metrics"""
+        metrics = {}
+        
+        for metric_name in ['sensitivity', 'specificity', 'auc_roc', 'accuracy']:
+            values = [f[metric_name] for f in fold_results]
+            
+            # Bootstrap for confidence intervals (TRIPOD+AI requirement)
+            bootstrap_means = []
+            for _ in range(1000):
+                bootstrap_sample = np.random.choice(values, size=len(values), replace=True)
+                bootstrap_means.append(np.mean(bootstrap_sample))
+            
+            metrics[metric_name] = {
+                'mean': np.mean(values),
+                'std': np.std(values),
+                'ci_lower': np.percentile(bootstrap_means, 2.5),
+                'ci_upper': np.percentile(bootstrap_means, 97.5),
+                'fold_values': values  # TRIPOD+AI: Keep individual fold values
+            }
+        
+        return metrics
+    
+    def evaluate_subgroups(self, X_dev, y_dev, patient_ids_dev, demographics, model):
+        """
+        FDA requirement: Subgroup analysis
+        """
+        subgroup_results = {}
+        
+        for subgroup in self.validation_plan['subgroups']:
+            if subgroup not in demographics.columns:
+                continue
+                
+            unique_values = demographics[subgroup].unique()
+            subgroup_results[subgroup] = {}
+            
+            for value in unique_values:
+                # Get samples for this subgroup
+                subgroup_patients = demographics[
+                    demographics[subgroup] == value
+                ]['patient_id'].values
+                
+                mask = np.isin(patient_ids_dev, subgroup_patients)
+                
+                if sum(mask) < 20:  # Skip if too few samples
+                    continue
+                
+                X_subgroup = X_dev[mask]
+                y_subgroup = y_dev[mask]
+                
+                # Simple holdout validation for subgroup
+                if len(np.unique(y_subgroup)) > 1:
+                    # Calculate performance
+                    y_pred_proba = model.predict_proba(X_subgroup)[:, 1]
+                    auc = roc_auc_score(y_subgroup, y_pred_proba)
+                    
+                    subgroup_results[subgroup][value] = {
+                        'n_samples': sum(mask),
+                        'auc': auc,
+                        'prevalence': np.mean(y_subgroup)
+                    }
+        
+        return subgroup_results
+    
+    def final_test_evaluation(self, model):
+        """
+        FDA: Final evaluation on locked test set
+        """
+        # Verify test set hasn't been modified
+        current_hash = hashlib.sha256(
+            self.locked_test_set['X'].tobytes() + 
+            self.locked_test_set['y'].tobytes()
+        ).hexdigest()
+        
+        assert current_hash == self.locked_test_set['hash'], "Test set has been modified!"
+        
+        # Evaluate on test set
+        X_test = self.locked_test_set['X']
+        y_test = self.locked_test_set['y']
+        
+        y_pred_proba = model.predict_proba(X_test)[:, 1]
+        y_pred = (y_pred_proba >= 0.5).astype(int)
+        
+        # Comprehensive metrics
+        tn, fp, fn, tp = confusion_matrix(y_test, y_pred).ravel()
+        
+        test_results = {
+            'sensitivity': tp / (tp + fn),
+            'specificity': tn / (tn + fp),
+            'ppv': tp / (tp + fp),
+            'npv': tn / (tn + fn),
+            'accuracy': (tp + tn) / (tp + tn + fp + fn),
+            'auc_roc': roc_auc_score(y_test, y_pred_proba),
+            'confusion_matrix': {'tn': int(tn), 'fp': int(fp), 
+                               'fn': int(fn), 'tp': int(tp)},
+            'n_samples': len(y_test),
+            'evaluated_at': datetime.now().isoformat()
+        }
+        
+        return test_results
+    
+    def generate_regulatory_report(self):
+        """
+        Generate report meeting all regulatory requirements
+        """
+        report = {
+            'metadata': {
+                'generated_at': datetime.now().isoformat(),
+                'validation_plan_hash': self.validation_plan['hash'],
+                'regulatory_standards': ['FDA', 'CE MDR', 'TRIPOD+AI']
+            },
+            'data_description': self.data_characteristics,
+            'validation_methodology': self.validation_plan,
+            'cross_validation_results': self.cv_results,
+            'test_set_results': self.test_results,
+            'subgroup_analysis': self.subgroup_results,
+            'audit_trail': self.audit_trail
+        }
+        
+        # Save as JSON
+        with open('regulatory_validation_report.json', 'w') as f:
+            json.dump(report, f, indent=2)
+        
+        # Generate formatted report (HTML/PDF)
+        self._generate_formatted_report(report)
+        
+        return report
+    
+    def _log(self, message):
+        """Audit trail for regulatory compliance"""
+        self.audit_trail.append({
+            'timestamp': datetime.now().isoformat(),
+            'message': message
+        })
+    
+    def _generate_formatted_report(self, report):
+        """Generate HTML report for regulatory submission"""
+        # Implementation would generate formatted HTML/PDF report
+        pass
+
+
+# Example usage
+if __name__ == "__main__":
+    # Initialize validator
+    validator = RegulatoryCompliantValidator(
+        regulatory_standard='all',
+        device_class='IIa'
+    )
+    
+    # Load your data
+    X, y, patient_ids, demographics = load_medical_data()
+    
+    # Split data (test set is locked away)
+    X_dev, y_dev, patient_ids_dev = validator.split_data(
+        X, y, patient_ids, demographics
+    )
+    
+    # Run cross-validation
+    from sklearn.ensemble import RandomForestClassifier
+    model = RandomForestClassifier(random_state=42)
+    
+    cv_results = validator.run_cross_validation(
+        X_dev, y_dev, patient_ids_dev, model
+    )
+    
+    # Subgroup analysis (FDA requirement)
+    subgroup_results = validator.evaluate_subgroups(
+        X_dev, y_dev, patient_ids_dev, demographics, model
+    )
+    
+    # Final model training on all development data
+    model.fit(X_dev, y_dev)
+    
+    # Final test set evaluation
+    test_results = validator.final_test_evaluation(model)
+    
+    # Generate regulatory report
+    report = validator.generate_regulatory_report()
+    
+    print("Validation complete. Report generated: regulatory_validation_report.json")
+                </pre>
+            </div>
+        </div>
+
+        <!-- Compliance Checklists -->
+        <div class="guideline-section" id="checklist">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">checklist</span>
+                </div>
+                <div>
+                    <h2>Compliance Checklists</h2>
+                    <p>Ensure your validation meets all requirements</p>
+                </div>
+            </div>
+
+            <h3>FDA 510(k) Submission Checklist</h3>
+            <div class="checklist">
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda1">
+                    <label for="fda1">Pre-specified validation plan documented before data analysis</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda2">
+                    <label for="fda2">Test set (15-20%) locked and never used during development</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda3">
+                    <label for="fda3">Patient-level data splitting (no patient in multiple sets)</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda4">
+                    <label for="fda4">95% confidence intervals for all performance metrics</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda5">
+                    <label for="fda5">Subgroup analysis by age, sex, race/ethnicity</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda6">
+                    <label for="fda6">Failure mode analysis documented</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda7">
+                    <label for="fda7">Software version control and reproducibility documented</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="fda8">
+                    <label for="fda8">PCCP included if continuous learning planned</label>
+                </div>
+            </div>
+
+            <h3>CE MDR Technical Documentation Checklist</h3>
+            <div class="checklist">
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce1">
+                    <label for="ce1">Device classification determined (I, IIa, IIb, or III)</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce2">
+                    <label for="ce2">Clinical Evaluation Report (CER) prepared</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce3">
+                    <label for="ce3">State-of-the-art validation methodology used</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce4">
+                    <label for="ce4">Risk management per ISO 14971</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce5">
+                    <label for="ce5">Usability engineering per IEC 62366</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce6">
+                    <label for="ce6">Post-Market Clinical Follow-up (PMCF) plan</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="ce7">
+                    <label for="ce7">Notified Body selected (for Class IIa+)</label>
+                </div>
+            </div>
+
+            <h3>TRIPOD+AI Reporting Checklist</h3>
+            <div class="checklist">
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod1">
+                    <label for="tripod1">Cross-validation method fully specified</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod2">
+                    <label for="tripod2">Performance reported for each fold individually</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod3">
+                    <label for="tripod3">Patient clustering handled and reported</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod4">
+                    <label for="tripod4">Missing data handling documented</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod5">
+                    <label for="tripod5">Calibration plots included</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod6">
+                    <label for="tripod6">Code and random seeds provided</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="tripod7">
+                    <label for="tripod7">Limitations clearly stated</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sources Section -->
+        <div class="guideline-section" id="sources">
+            <div class="guideline-header">
+                <div class="guideline-icon">
+                    <span class="material-icons">library_books</span>
+                </div>
+                <div>
+                    <h2>Official Sources & References</h2>
+                    <p>Direct links to regulatory documents and guidelines</p>
+                </div>
+            </div>
+
+            <h3>FDA Resources</h3>
+            <ul>
+                <li><a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-aiml-enabled-medical-devices" target="_blank">FDA AI/ML Medical Devices Main Page</a></li>
+                <li><a href="https://www.fda.gov/media/145022/download" target="_blank">AI/ML-Based SaMD Action Plan (2021)</a></li>
+                <li><a href="https://www.fda.gov/media/122535/download" target="_blank">Good Machine Learning Practice Guiding Principles</a></li>
+                <li><a href="https://www.fda.gov/regulatory-information/search-fda-guidance-documents" target="_blank">FDA Guidance Documents Database</a></li>
+            </ul>
+
+            <h3>CE MDR & MDCG Resources</h3>
+            <ul>
+                <li><a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32017R0745" target="_blank">MDR 2017/745 Full Legal Text</a></li>
+                <li><a href="https://health.ec.europa.eu/medical-devices-sector/new-regulations/guidance-mdcg-endorsed-documents-and-other-guidance_en" target="_blank">MDCG Guidance Documents</a></li>
+                <li><a href="https://health.ec.europa.eu/system/files/2021-10/md_mdcg_2021_24_en_0.pdf" target="_blank">MDCG 2021-24: Classification of Medical Device Software</a></li>
+                <li><a href="https://health.ec.europa.eu/system/files/2020-09/md_mdcg_2020_1_guidance_clinic_eva_md_software_en_0.pdf" target="_blank">MDCG 2020-1: Clinical Evaluation Guidance</a></li>
+            </ul>
+
+            <h3>TRIPOD+AI Resources</h3>
+            <ul>
+                <li><a href="https://www.equator-network.org/reporting-guidelines/tripod-statement/" target="_blank">TRIPOD+AI on EQUATOR Network</a></li>
+                <li><a href="https://www.bmj.com/content/385/bmj-2023-078378" target="_blank">TRIPOD+AI Statement (BMJ 2024)</a></li>
+                <li><a href="https://www.tripod-statement.org/" target="_blank">Official TRIPOD Website</a></li>
+                <li><a href="https://www.nature.com/articles/s41591-020-1034-x" target="_blank">CONSORT-AI and SPIRIT-AI Extensions</a></li>
+            </ul>
+
+            <h3>Additional Resources</h3>
+            <ul>
+                <li><a href="https://www.iso.org/standard/59752.html" target="_blank">ISO 13485:2016 - Medical Device Quality Management</a></li>
+                <li><a href="https://www.iso.org/standard/72704.html" target="_blank">ISO 14971:2019 - Risk Management</a></li>
+                <li><a href="https://webstore.iec.ch/publication/21170" target="_blank">IEC 62304:2006+A1:2015 - Medical Device Software</a></li>
+                <li><a href="https://webstore.iec.ch/publication/21863" target="_blank">IEC 62366-1:2015 - Usability Engineering</a></li>
+            </ul>
+        </div>
+
+        <!-- Download Section -->
+        <div class="download-section">
+            <h2>📥 Download Resources</h2>
+            <p>Get templates and checklists for your regulatory submission</p>
+            <div style="margin-top: 20px;">
+                <a href="#" class="download-button" onclick="alert('Template downloads would be available in production version'); return false;">
+                    <span class="material-icons">description</span>
+                    Validation Plan Template
+                </a>
+                <a href="#" class="download-button" onclick="alert('Checklist downloads would be available in production version'); return false;">
+                    <span class="material-icons">checklist</span>
+                    Compliance Checklist
+                </a>
+                <a href="#" class="download-button" onclick="alert('Code templates would be available in production version'); return false;">
+                    <span class="material-icons">code</span>
+                    Python Code Templates
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Trustworthy Cross-Validation Toolkit</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Disclaimer</h4>
+                    <p style="font-size: 12px; opacity: 0.8;">
+                        This tutorial provides educational guidance based on publicly available regulatory documents. 
+                        Always consult with regulatory professionals and refer to the latest official guidelines for your specific submission.
+                    </p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 trustcv. Educational content only.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Mark button as active
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

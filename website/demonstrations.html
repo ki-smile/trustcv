@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Demonstrations - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+    
+    <!-- Plotly for interactive visualizations -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Interactive Demonstrations</span>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">🎯 Interactive Demonstrations</h1>
+            <p class="page-subtitle">
+                Explore real medical scenarios and see how different CV methods perform in practice.
+                Learn through hands-on experimentation with clinical datasets and validation strategies.
+            </p>
+            <div class="header-badges">
+                <span class="badge">8 Interactive Demos</span>
+                <span class="badge">Real Medical Scenarios</span>
+                <span class="badge">Live Visualizations</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demonstrations Section -->
+    <section class="demonstrations">
+        <div class="container">
+            <div class="demo-tabs">
+                <div class="tab-headers">
+                    <button class="tab-header active" onclick="showDemo('data-leakage')">
+                        <span class="material-icons">warning</span>
+                        Data Leakage Demo
+                    </button>
+                    <button class="tab-header" onclick="showDemo('cv-comparison')">
+                        <span class="material-icons">compare_arrows</span>
+                        CV Method Comparison
+                    </button>
+                    <button class="tab-header" onclick="showDemo('temporal-demo')">
+                        <span class="material-icons">schedule</span>
+                        Temporal Validation
+                    </button>
+                    <button class="tab-header" onclick="showDemo('patient-demo')">
+                        <span class="material-icons">group</span>
+                        Patient Grouping
+                    </button>
+                    <button class="tab-header" onclick="showDemo('imaging-demo')">
+                        <span class="material-icons">medical_services</span>
+                        Medical Imaging
+                    </button>
+                    <button class="tab-header" onclick="showDemo('genomics-demo')">
+                        <span class="material-icons">biotech</span>
+                        Genomics & Omics
+                    </button>
+                    <button class="tab-header" onclick="showDemo('drug-discovery')">
+                        <span class="material-icons">science</span>
+                        Drug Discovery
+                    </button>
+                    <button class="tab-header" onclick="showDemo('epidemiology-demo')">
+                        <span class="material-icons">public</span>
+                        Epidemiology
+                    </button>
+                </div>
+                
+                <!-- Data Leakage Demo -->
+                <div id="data-leakage" class="demo-content active">
+                    <div class="demo-info">
+                        <h3>🚨 Data Leakage Consequences</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> ICU mortality prediction using patient vital signs and lab results</p>
+                            <p><strong>Problem:</strong> What happens when future information leaks into training data?</p>
+                            <p><strong>Learning Goal:</strong> Understand why proper temporal validation is critical in ML</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Medical Context:</h4>
+                            <ul>
+                                <li><strong>Dataset:</strong> 2,000 ICU patients with hourly measurements</li>
+                                <li><strong>Features:</strong> Heart rate, blood pressure, lab values, medications</li>
+                                <li><strong>Target:</strong> 24-hour mortality prediction</li>
+                                <li><strong>Challenge:</strong> Temporal dependencies in medical data</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Clinical Importance:</h5>
+                                <p>In real ICU settings, you only have access to historical and current data when making predictions. Using future information creates artificially high performance that won't translate to real-world deployment, potentially leading to dangerous overconfidence in model capabilities.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="leakage-method">Validation Method:</label>
+                            <select id="leakage-method" onchange="runLeakageDemo()">
+                                <option value="wrong">❌ Wrong: Random Split (with leakage)</option>
+                                <option value="correct">✅ Correct: Temporal Split (no leakage)</option>
+                            </select>
+                        </div>
+                        <button class="btn-demo" onclick="runLeakageDemo()">Run Simulation</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div class="results-grid">
+                            <div class="result-card" id="leakage-performance">
+                                <h4>Model Performance</h4>
+                                <div class="metric-display">
+                                    <div class="metric">
+                                        <span class="metric-label">AUC-ROC:</span>
+                                        <span class="metric-value" id="auc-value">-</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Sensitivity:</span>
+                                        <span class="metric-value" id="sensitivity-value">-</span>
+                                    </div>
+                                    <div class="metric">
+                                        <span class="metric-label">Specificity:</span>
+                                        <span class="metric-value" id="specificity-value">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="result-card" id="leakage-explanation">
+                                <h4>Clinical Impact</h4>
+                                <div id="clinical-impact-text">
+                                    Select a validation method to see the clinical implications
+                                </div>
+                            </div>
+                        </div>
+                        <div class="visualization-container">
+                            <div id="leakage-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CV Comparison Demo -->
+                <div id="cv-comparison" class="demo-content">
+                    <div class="demo-info">
+                        <h3>🏥 Cross-Validation Method Comparison</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Multi-site diabetes prediction across 8 hospitals</p>
+                            <p><strong>Problem:</strong> How do different CV methods handle site-specific biases?</p>
+                            <p><strong>Learning Goal:</strong> Choose the right CV method for multi-site clinical studies</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Study Design:</h4>
+                            <ul>
+                                <li><strong>Sites:</strong> 8 hospitals with different patient populations</li>
+                                <li><strong>Patients:</strong> 5,000 total (varying per site)</li>
+                                <li><strong>Features:</strong> Demographics, lab values, medical history</li>
+                                <li><strong>Challenge:</strong> Site-specific effects and patient clustering</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Multi-Site Challenges:</h5>
+                                <p>Different hospitals have varying patient populations, measurement protocols, and care standards. Ignoring these site-specific effects can lead to models that work well in validation but fail when deployed at new sites. Proper grouped validation ensures your model generalizes across different clinical environments.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="cv-method-select">CV Method:</label>
+                            <select id="cv-method-select" onchange="runCVComparison()">
+                                <option value="standard">Standard K-Fold</option>
+                                <option value="stratified">Stratified K-Fold</option>
+                                <option value="grouped">Hospital-Grouped K-Fold</option>
+                                <option value="leave-site-out">Leave-One-Site-Out</option>
+                            </select>
+                        </div>
+                        <button class="btn-demo" onclick="runCVComparison()">Compare Methods</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="cv-comparison-plot"></div>
+                        <div id="cv-comparison-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+
+                <!-- Temporal Demo -->
+                <div id="temporal-demo" class="demo-content">
+                    <div class="demo-info">
+                        <h3>⏰ Temporal Validation in ICU Monitoring</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Real-time sepsis prediction using continuous monitoring</p>
+                            <p><strong>Problem:</strong> How to validate time-series models without look-ahead bias?</p>
+                            <p><strong>Learning Goal:</strong> Implement proper temporal splits for clinical time-series</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Time-Series Characteristics:</h4>
+                            <ul>
+                                <li><strong>Frequency:</strong> 5-minute intervals over 72 hours</li>
+                                <li><strong>Features:</strong> Vital signs, lab trends, medication effects</li>
+                                <li><strong>Prediction horizon:</strong> 4-hour early warning</li>
+                                <li><strong>Challenge:</strong> Temporal autocorrelation and drift</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Real-Time Clinical Decision Making:</h5>
+                                <p>In ICU settings, sepsis prediction models must work in real-time with only historical data available. The prediction horizon (how far ahead we predict) affects both model performance and clinical utility. Earlier predictions are more actionable but typically less accurate.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="temporal-method">Temporal Method:</label>
+                            <select id="temporal-method" onchange="runTemporalDemo()">
+                                <option value="expanding">Expanding Window</option>
+                                <option value="rolling">Rolling Window</option>
+                                <option value="blocked">Blocked Time Series</option>
+                                <option value="purged">Purged K-Fold</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="prediction-horizon">Prediction Horizon (hours):</label>
+                            <input type="range" id="prediction-horizon" min="1" max="12" value="4" onchange="runTemporalDemo()">
+                            <span id="horizon-value">4</span>
+                        </div>
+                        <button class="btn-demo" onclick="runTemporalDemo()">Run Temporal Validation</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="temporal-demo-plot"></div>
+                        <div id="temporal-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+
+                <!-- Patient Grouping Demo -->
+                <div id="patient-demo" class="demo-content">
+                    <div class="demo-info">
+                        <h3>👥 Patient-Level Cross-Validation</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Longitudinal study with multiple visits per patient</p>
+                            <p><strong>Problem:</strong> How to prevent patient-level data leakage?</p>
+                            <p><strong>Learning Goal:</strong> Ensure proper patient grouping in validation</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Study Structure:</h4>
+                            <ul>
+                                <li><strong>Patients:</strong> 800 individuals in cardiology study</li>
+                                <li><strong>Visits:</strong> 3-8 visits per patient over 2 years</li>
+                                <li><strong>Outcome:</strong> Cardiovascular event prediction</li>
+                                <li><strong>Challenge:</strong> Patient-specific risk factors and visit dependencies</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Patient-Level Dependencies:</h5>
+                                <p>Patients have inherent characteristics (genetics, lifestyle, comorbidities) that persist across visits. If visits from the same patient appear in both training and test sets, the model learns patient-specific patterns rather than generalizable clinical features. This leads to overoptimistic performance estimates that don't reflect real-world deployment on new patients.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="grouping-method">Grouping Strategy:</label>
+                            <select id="grouping-method" onchange="runPatientDemo()">
+                                <option value="visit-level">❌ Visit-Level Split (wrong)</option>
+                                <option value="patient-level">✅ Patient-Level Split (correct)</option>
+                                <option value="stratified-patient">✅ Stratified Patient Split</option>
+                            </select>
+                        </div>
+                        <button class="btn-demo" onclick="runPatientDemo()">Demonstrate Patient Grouping</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="patient-demo-plot"></div>
+                        <div id="patient-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+
+                <!-- Medical Imaging Demo ---->
+                <div id="imaging-demo" class="demo-content">
+                    <div class="demo-info">
+                        <h3>🏥 Medical Imaging Cross-Validation</h3>
+                        <div class="demo-description">
+                            <p><strong>Interactive Animation:</strong> See how patient-level data splitting prevents leakage</p>
+                            <p><strong>Problem:</strong> Multiple images per patient require special handling</p>
+                            <p><strong>Learning Goal:</strong> Understand why standard CV fails with medical imaging</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Interactive Canvas Animation -->
+                    <div class="animation-container">
+                        <canvas id="cv-animation-canvas" width="800" height="500"></canvas>
+                        
+                        <div class="animation-controls">
+                            <h4>Select Animation:</h4>
+                            <div class="animation-buttons">
+                                <button class="btn-animation" onclick="window.cvAnimation.start('correct')">
+                                    <span class="material-icons">check_circle</span>
+                                    Correct: Patient-Level Split
+                                </button>
+                                <button class="btn-animation btn-danger" onclick="window.cvAnimation.start('incorrect')">
+                                    <span class="material-icons">error</span>
+                                    Wrong: Random Image Split
+                                </button>
+                                <button class="btn-animation" onclick="window.cvAnimation.start('kfold')">
+                                    <span class="material-icons">view_module</span>
+                                    K-Fold Cross-Validation
+                                </button>
+                                <button class="btn-animation" onclick="window.cvAnimation.start('temporal')">
+                                    <span class="material-icons">timeline</span>
+                                    Temporal Validation
+                                </button>
+                            </div>
+                            <div class="animation-control-buttons">
+                                <button class="btn-control" onclick="window.cvAnimation.stop()">
+                                    <span class="material-icons">pause</span> Stop
+                                </button>
+                                <button class="btn-control" onclick="window.cvAnimation.reset()">
+                                    <span class="material-icons">refresh</span> Reset
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-details">
+                        <h4>Key Concepts Demonstrated:</h4>
+                        <div class="concept-grid">
+                            <div class="concept-card">
+                                <h5>✅ Patient-Level Splitting</h5>
+                                <p>All images from a patient stay together in either training or test set</p>
+                            </div>
+                            <div class="concept-card">
+                                <h5>❌ Data Leakage</h5>
+                                <p>Random splitting causes same patient to appear in both sets</p>
+                            </div>
+                            <div class="concept-card">
+                                <h5>📊 K-Fold Validation</h5>
+                                <p>Each patient group serves as test set exactly once</p>
+                            </div>
+                            <div class="concept-card">
+                                <h5>📅 Temporal Validation</h5>
+                                <p>Train on past, test on future - no look-ahead bias</p>
+                            </div>
+                        </div>
+                        
+                        <div class="clinical-importance">
+                            <h5>🏥 Why This Matters in Clinical Practice:</h5>
+                            <p>When deploying AI in hospitals, models see <strong>new patients</strong>, not new images of existing patients. 
+                            If we don't split data correctly during validation, we get falsely optimistic results that fail in real clinical use.
+                            This animation shows exactly how data leakage happens and how to prevent it.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Genomics & Omics Demo -->
+                <div id="genomics-demo" class="demo-content">
+                    <div class="demo-info">
+                        <h3>🧬 Genomics & Multi-Omics Validation</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Cancer subtype prediction from multi-omics data</p>
+                            <p><strong>Problem:</strong> How to handle high-dimensional data with population stratification?</p>
+                            <p><strong>Learning Goal:</strong> Navigate genetic relatedness and batch effects in omics studies</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Multi-Omics Study:</h4>
+                            <ul>
+                                <li><strong>Samples:</strong> 800 cancer patients, 200 controls</li>
+                                <li><strong>Data Types:</strong> RNA-seq, DNA methylation, copy number variations</li>
+                                <li><strong>Batches:</strong> 5 sequencing batches over 2 years</li>
+                                <li><strong>Population:</strong> Mixed ancestry with potential stratification</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Genomic Medicine Challenges:</h5>
+                                <p>Genomic data contains complex dependencies: population stratification, family relationships, batch effects, and technical artifacts. Standard CV can be misleading if related individuals or similar genetic backgrounds appear in both training and test sets. Proper validation must account for genetic relatedness and ensure generalization across diverse populations.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="genomics-approach">Validation Approach:</label>
+                            <select id="genomics-approach" onchange="runGenomicsDemo()">
+                                <option value="standard">Standard K-Fold</option>
+                                <option value="stratified">Ancestry-Stratified CV</option>
+                                <option value="batch-aware">Batch-Aware CV</option>
+                                <option value="leave-ancestry-out">Leave-One-Population-Out</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="feature-selection">Feature Selection Method:</label>
+                            <select id="feature-selection" onchange="runGenomicsDemo()">
+                                <option value="none">No Selection</option>
+                                <option value="univariate">Univariate Filtering</option>
+                                <option value="lasso">LASSO Regularization</option>
+                                <option value="stability">Stability Selection</option>
+                            </select>
+                        </div>
+                        <button class="btn-demo" onclick="runGenomicsDemo()">Run Genomics Analysis</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="genomics-demo-plot"></div>
+                        <div id="genomics-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+
+                <!-- Drug Discovery Demo -->
+                <div id="drug-discovery" class="demo-content">
+                    <div class="demo-info">
+                        <h3>💊 Drug Discovery Cross-Validation</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Molecular property prediction for drug screening</p>
+                            <p><strong>Problem:</strong> How to ensure CV strategies match real drug discovery workflows?</p>
+                            <p><strong>Learning Goal:</strong> Handle molecular similarity and temporal splits in drug discovery</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Drug Screening Pipeline:</h4>
+                            <ul>
+                                <li><strong>Compounds:</strong> 50,000 molecules from ChEMBL database</li>
+                                <li><strong>Targets:</strong> Bioactivity against 20 protein targets</li>
+                                <li><strong>Features:</strong> Molecular descriptors, fingerprints, 3D structure</li>
+                                <li><strong>Challenge:</strong> Molecular scaffolds and temporal discovery bias</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Drug Discovery Reality:</h5>
+                                <p>In pharmaceutical research, you want models that work on truly novel compounds, not just structural analogs of known drugs. If training and test sets contain similar molecular scaffolds, the model learns scaffold-specific patterns rather than generalizable structure-activity relationships. This leads to poor performance on innovative compounds with novel scaffolds.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="drug-cv-method">CV Strategy:</label>
+                            <select id="drug-cv-method" onchange="runDrugDemo()">
+                                <option value="random">Random Split</option>
+                                <option value="scaffold">Scaffold Split</option>
+                                <option value="temporal">Temporal Split</option>
+                                <option value="target-based">Target-Based CV</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="similarity-threshold">Similarity Threshold:</label>
+                            <input type="range" id="similarity-threshold" min="0.3" max="0.9" step="0.1" value="0.6" onchange="runDrugDemo()">
+                            <span id="similarity-value">0.6</span>
+                        </div>
+                        <button class="btn-demo" onclick="runDrugDemo()">Test Drug Discovery Model</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="drug-discovery-plot"></div>
+                        <div id="drug-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+
+                <!-- Epidemiology Demo -->
+                <div id="epidemiology-demo" class="demo-content">
+                    <div class="demo-info">
+                        <h3>🌍 Epidemiological Cross-Validation</h3>
+                        <div class="demo-description">
+                            <p><strong>Scenario:</strong> Infectious disease outbreak prediction</p>
+                            <p><strong>Problem:</strong> How to handle spatiotemporal dependencies in population health data?</p>
+                            <p><strong>Learning Goal:</strong> Apply proper CV for epidemiological surveillance models</p>
+                        </div>
+                        <div class="demo-details">
+                            <h4>Outbreak Surveillance System:</h4>
+                            <ul>
+                                <li><strong>Coverage:</strong> 200 cities across 10 countries over 5 years</li>
+                                <li><strong>Data:</strong> Case counts, mobility, climate, demographics</li>
+                                <li><strong>Prediction:</strong> 2-week ahead outbreak probability</li>
+                                <li><strong>Challenge:</strong> Spatial clustering and temporal transmission patterns</li>
+                            </ul>
+                            <div class="clinical-importance">
+                                <h5>🏥 Public Health Impact:</h5>
+                                <p>Epidemiological models must generalize across different populations, geographic regions, and time periods. Standard CV ignores spatial autocorrelation and temporal transmission dynamics. Proper validation ensures models work for early outbreak detection in new regions and emerging disease variants, critical for public health preparedness.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-controls">
+                        <div class="control-group">
+                            <label for="epi-cv-type">Validation Strategy:</label>
+                            <select id="epi-cv-type" onchange="runEpiDemo()">
+                                <option value="standard">Standard Time Series CV</option>
+                                <option value="spatial-block">Spatial Block CV</option>
+                                <option value="leave-country-out">Leave-One-Country-Out</option>
+                                <option value="spatiotemporal">Spatiotemporal Block CV</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label for="prediction-window">Prediction Window (days):</label>
+                            <input type="range" id="prediction-window" min="7" max="28" value="14" onchange="runEpiDemo()">
+                            <span id="window-value">14</span>
+                        </div>
+                        <button class="btn-demo" onclick="runEpiDemo()">Simulate Outbreak Prediction</button>
+                    </div>
+                    
+                    <div class="demo-results">
+                        <div id="epidemiology-plot"></div>
+                        <div id="epi-explanation" class="explanation-text"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Section -->
+    <section class="page-navigation">
+        <div class="container">
+            <div class="nav-cards">
+                <div class="nav-card">
+                    <h3>📚 Take the Quiz</h3>
+                    <p>Test your understanding with our interactive CV knowledge quiz</p>
+                    <a href="quiz.html" class="btn-primary">Start Quiz</a>
+                </div>
+                <div class="nav-card">
+                    <h3>📓 Jupyter Notebooks</h3>
+                    <p>Dive deeper with hands-on coding tutorials</p>
+                    <a href="notebooks.html" class="btn-secondary">View Notebooks</a>
+                </div>
+                <div class="nav-card">
+                    <h3>🏠 Back to Home</h3>
+                    <p>Return to the main trustcv homepage</p>
+                    <a href="index.html" class="btn-secondary">Home</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/main.js"></script>
+    <script src="js/cv-visualizations.js"></script>
+    <script src="js/cv-temporal.js"></script>
+    <script src="js/cv-grouped.js"></script>
+    <script src="js/cv-spatial.js"></script>
+    <script src="js/tutorials.js"></script>
+    <script src="js/cv-animation.js"></script>
+    
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('navMenu');
+            const toggle = document.querySelector('.nav-toggle');
+            
+            if (menu && toggle && !menu.contains(event.target) && !toggle.contains(event.target)) {
+                menu.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

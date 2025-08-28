@@ -1,0 +1,30 @@
+# Include documentation
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include AUTHORS.md
+include requirements.txt
+include requirements-dev.txt
+include requirements-frameworks.txt
+
+# Include all package data
+recursive-include trustcv *.py
+
+# Include example scripts
+recursive-include examples *.py
+
+# Include test files
+recursive-include tests *.py
+
+# Exclude unnecessary files
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude *~
+
+# Exclude development files
+exclude .gitignore
+exclude .git
+exclude pyproject.toml
+exclude PYPI_DEPLOYMENT_GUIDE.md

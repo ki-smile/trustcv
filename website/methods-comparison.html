@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Methods Comparison - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">CV Methods Comparison</span>
+            </div>
+                        <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">📊 Cross-Validation Methods Comparison</h1>
+            <p class="page-subtitle">
+                Comprehensive overview of 29+ cross-validation methods organized by category and medical application area.
+                Use this guide to select the most appropriate validation strategy for your medical machine learning project.
+            </p>
+            <div class="header-badges">
+                <span class="badge">29+ CV Methods</span>
+                <span class="badge">7 Categories</span>
+                <span class="badge">Medical Applications</span>
+                <span class="badge">Best Practice Guidelines</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Method Selector -->
+    <section class="method-selector-section">
+        <div class="container">
+            <h2>🎯 Quick Method Selector</h2>
+            <p class="section-subtitle">Answer a few questions to find the most suitable CV method for your data</p>
+            
+            <div class="selector-grid">
+                <div class="selector-card">
+                    <h3>📋 Data Type</h3>
+                    <div class="selector-options">
+                        <button class="selector-btn" onclick="filterTable('independent')">Independent Samples</button>
+                        <button class="selector-btn" onclick="filterTable('temporal')">Time Series</button>
+                        <button class="selector-btn" onclick="filterTable('grouped')">Grouped/Patient Data</button>
+                        <button class="selector-btn" onclick="filterTable('spatial')">Geographic/Spatial</button>
+                    </div>
+                </div>
+                
+                <div class="selector-card">
+                    <h3>🏥 Medical Domain</h3>
+                    <div class="selector-options">
+                        <button class="selector-btn" onclick="filterTable('imaging')">Medical Imaging</button>
+                        <button class="selector-btn" onclick="filterTable('clinical-trials')">Clinical Trials</button>
+                        <button class="selector-btn" onclick="filterTable('icu')">ICU Monitoring</button>
+                        <button class="selector-btn" onclick="filterTable('epidemiology')">Epidemiology</button>
+                    </div>
+                </div>
+                
+                <div class="selector-card">
+                    <h3>📊 Dataset Size</h3>
+                    <div class="selector-options">
+                        <button class="selector-btn" onclick="filterTable('small')">Small (&lt;500)</button>
+                        <button class="selector-btn" onclick="filterTable('medium')">Medium (500-5K)</button>
+                        <button class="selector-btn" onclick="filterTable('large')">Large (&gt;5K)</button>
+                        <button class="selector-btn" onclick="filterTable('all')" id="show-all">Show All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CV Methods Comparison Table -->
+    <section class="methods-table-section">
+        <div class="container">            
+            <div class="table-container">
+                <table class="cv-methods-table" id="methods-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Category</th>
+                            <th>Best For</th>
+                            <th>Medical Applications</th>
+                            <th>Data Requirements</th>
+                            <th>Key Benefits</th>
+                            <th>Limitations</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Standard Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🔄 Standard Cross-Validation</td>
+                        </tr>
+                        <tr data-tags="independent medium large basic">
+                            <td><strong>K-Fold CV</strong></td>
+                            <td>Standard</td>
+                            <td>Independent samples</td>
+                            <td>Basic diagnostic models, single-visit data</td>
+                            <td>Independent observations</td>
+                            <td>Simple, well-understood</td>
+                            <td>Assumes independence</td>
+                        </tr>
+                        <tr data-tags="independent medium large imbalanced">
+                            <td><strong>Stratified K-Fold</strong></td>
+                            <td>Standard</td>
+                            <td>Imbalanced outcomes</td>
+                            <td>Rare diseases, cancer detection</td>
+                            <td>Class labels available</td>
+                            <td>Preserves class distribution</td>
+                            <td>Still assumes independence</td>
+                        </tr>
+                        <tr data-tags="independent small">
+                            <td><strong>Leave-One-Out (LOO)</strong></td>
+                            <td>Standard</td>
+                            <td>Very small datasets</td>
+                            <td>Rare diseases, pilot studies</td>
+                            <td>&lt;100 samples</td>
+                            <td>Maximum data usage</td>
+                            <td>High variance, computationally expensive</td>
+                        </tr>
+                        <tr data-tags="independent small exhaustive">
+                            <td><strong>Leave-p-Out (LPOCV)</strong></td>
+                            <td>Standard</td>
+                            <td>Exhaustive validation</td>
+                            <td>Small critical datasets</td>
+                            <td>&lt;50 samples</td>
+                            <td>Tests all p-combinations</td>
+                            <td>Combinatorial explosion C(n,p)</td>
+                        </tr>
+                        <tr data-tags="independent medium large repeated">
+                            <td><strong>Repeated K-Fold</strong></td>
+                            <td>Standard</td>
+                            <td>Stable estimates</td>
+                            <td>Clinical trials, biomarker validation</td>
+                            <td>Sufficient samples</td>
+                            <td>Reduces variance</td>
+                            <td>Computationally expensive</td>
+                        </tr>
+                        
+                        <!-- Temporal Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">⏰ Temporal Cross-Validation</td>
+                        </tr>
+                        <tr data-tags="temporal icu medium large">
+                            <td><strong>Time Series Split</strong></td>
+                            <td>Temporal</td>
+                            <td>Time-ordered data</td>
+                            <td>ICU monitoring, disease progression</td>
+                            <td>Temporal ordering</td>
+                            <td>Respects temporal order</td>
+                            <td>Limited by time dependencies</td>
+                        </tr>
+                        <tr data-tags="temporal icu medium large real-time">
+                            <td><strong>Rolling Window CV</strong></td>
+                            <td>Temporal</td>
+                            <td>Real-time predictions</td>
+                            <td>Clinical decision support, alerts</td>
+                            <td>Fixed window size</td>
+                            <td>Mimics deployment</td>
+                            <td>Requires sufficient history</td>
+                        </tr>
+                        <tr data-tags="temporal epidemiology large">
+                            <td><strong>Expanding Window CV</strong></td>
+                            <td>Temporal</td>
+                            <td>Growing datasets</td>
+                            <td>Population health monitoring</td>
+                            <td>Accumulating data</td>
+                            <td>Uses all available history</td>
+                            <td>May include outdated patterns</td>
+                        </tr>
+                        <tr data-tags="temporal medium large financial">
+                            <td><strong>Purged K-Fold</strong></td>
+                            <td>Temporal</td>
+                            <td>Financial/trading-like medical data</td>
+                            <td>Drug response, biomarker evolution</td>
+                            <td>Overlapping observations</td>
+                            <td>Prevents temporal leakage</td>
+                            <td>Reduces available data</td>
+                        </tr>
+                        <tr data-tags="temporal epidemiology medium blocked">
+                            <td><strong>Blocked Time Series</strong></td>
+                            <td>Temporal</td>
+                            <td>Seasonal/periodic patterns</td>
+                            <td>Flu seasons, allergy patterns</td>
+                            <td>Temporal blocks</td>
+                            <td>Preserves temporal patterns</td>
+                            <td>Requires known periodicity</td>
+                        </tr>
+                        <tr data-tags="temporal financial large">
+                            <td><strong>Combinatorial Purged CV</strong></td>
+                            <td>Temporal</td>
+                            <td>Complex temporal patterns</td>
+                            <td>Financial health data, trading strategies</td>
+                            <td>Multiple test periods</td>
+                            <td>Comprehensive temporal testing</td>
+                            <td>Very computationally expensive</td>
+                        </tr>
+                        <tr data-tags="temporal grouped large">
+                            <td><strong>Purged Group Time Series</strong></td>
+                            <td>Temporal</td>
+                            <td>Grouped + temporal data</td>
+                            <td>Multi-patient longitudinal studies</td>
+                            <td>Groups + time constraints</td>
+                            <td>Handles both dependencies</td>
+                            <td>Complex implementation</td>
+                        </tr>
+                        <tr data-tags="temporal nested large">
+                            <td><strong>Nested Temporal CV</strong></td>
+                            <td>Temporal</td>
+                            <td>Temporal model selection</td>
+                            <td>Forecasting with hyperparameter tuning</td>
+                            <td>Temporal + nested loops</td>
+                            <td>Unbiased temporal tuning</td>
+                            <td>Extremely expensive</td>
+                        </tr>
+                        
+                        <!-- Grouped Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">👥 Grouped Cross-Validation</td>
+                        </tr>
+                        <tr data-tags="grouped medium large longitudinal">
+                            <td><strong>Group K-Fold</strong></td>
+                            <td>Grouped</td>
+                            <td>Multi-visit patients</td>
+                            <td>Longitudinal studies, chronic disease</td>
+                            <td>Group identifiers</td>
+                            <td>Prevents patient leakage</td>
+                            <td>Requires sufficient groups</td>
+                        </tr>
+                        <tr data-tags="grouped clinical-trials medium large">
+                            <td><strong>Leave-One-Group-Out</strong></td>
+                            <td>Grouped</td>
+                            <td>Multi-site studies</td>
+                            <td>Clinical trials, hospital networks</td>
+                            <td>Site/group IDs</td>
+                            <td>Tests cross-site generalization</td>
+                            <td>High variance with few sites</td>
+                        </tr>
+                        <tr data-tags="grouped clinical-trials medium large imbalanced">
+                            <td><strong>Stratified Group K-Fold</strong></td>
+                            <td>Grouped</td>
+                            <td>Grouped + imbalanced</td>
+                            <td>Multi-site rare disease studies</td>
+                            <td>Groups + class labels</td>
+                            <td>Preserves distribution per group</td>
+                            <td>Complex to implement</td>
+                        </tr>
+                        <tr data-tags="grouped clinical-trials small medium">
+                            <td><strong>Leave-p-Groups-Out</strong></td>
+                            <td>Grouped</td>
+                            <td>Multiple groups testing</td>
+                            <td>Multi-center validation</td>
+                            <td>Groups + p selection</td>
+                            <td>Tests on p groups at once</td>
+                            <td>Many iterations C(n,p)</td>
+                        </tr>
+                        <tr data-tags="grouped large longitudinal">
+                            <td><strong>Repeated Group K-Fold</strong></td>
+                            <td>Grouped</td>
+                            <td>Robust grouped validation</td>
+                            <td>Stable estimates for grouped data</td>
+                            <td>Groups + multiple runs</td>
+                            <td>Reduces variance in estimates</td>
+                            <td>Computationally expensive</td>
+                        </tr>
+                        <tr data-tags="grouped hierarchical clinical-trials large">
+                            <td><strong>Hierarchical Group K-Fold</strong></td>
+                            <td>Grouped</td>
+                            <td>Nested group structures</td>
+                            <td>Multi-site with sub-groups</td>
+                            <td>Hierarchical groups</td>
+                            <td>Preserves nested structure</td>
+                            <td>Requires clear hierarchy</td>
+                        </tr>
+                        <tr data-tags="grouped hierarchical clinical-trials large">
+                            <td><strong>Multi-level CV</strong></td>
+                            <td>Grouped</td>
+                            <td>Hierarchical medical data</td>
+                            <td>Hospital→Department→Patient</td>
+                            <td>Multi-level hierarchy</td>
+                            <td>Respects all hierarchy levels</td>
+                            <td>Complex implementation</td>
+                        </tr>
+                        <tr data-tags="grouped large hyperparameter-tuning longitudinal">
+                            <td><strong>Nested Grouped CV</strong></td>
+                            <td>Grouped</td>
+                            <td>Patient-grouped model selection</td>
+                            <td>Personalized medicine, longitudinal ML</td>
+                            <td>Groups + hyperparameter tuning</td>
+                            <td>Prevents leakage in model selection</td>
+                            <td>Very computationally intensive</td>
+                        </tr>
+                        
+                        <!-- Spatial Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🌍 Spatial Cross-Validation</td>
+                        </tr>
+                        <tr data-tags="spatial epidemiology large geographic">
+                            <td><strong>Spatial Block CV</strong></td>
+                            <td>Spatial</td>
+                            <td>Geographic health data</td>
+                            <td>Epidemiology, environmental health</td>
+                            <td>Geographic coordinates</td>
+                            <td>Handles spatial autocorrelation</td>
+                            <td>Requires spatial structure</td>
+                        </tr>
+                        <tr data-tags="spatial epidemiology medium geographic">
+                            <td><strong>Buffered Spatial CV</strong></td>
+                            <td>Spatial</td>
+                            <td>Disease mapping with buffer zones</td>
+                            <td>Outbreak prediction, environmental exposure</td>
+                            <td>Spatial coordinates + buffer</td>
+                            <td>Prevents spatial leakage</td>
+                            <td>Reduces available data</td>
+                        </tr>
+                        <tr data-tags="spatial temporal large geographic">
+                            <td><strong>Spatiotemporal Block CV</strong></td>
+                            <td>Spatial</td>
+                            <td>Space + time dependencies</td>
+                            <td>Pandemic spread, seasonal epidemics</td>
+                            <td>Spatial + temporal data</td>
+                            <td>Handles both dimensions</td>
+                            <td>Complex implementation</td>
+                        </tr>
+                        <tr data-tags="spatial epidemiology environmental large">
+                            <td><strong>Environmental Health CV</strong></td>
+                            <td>Spatial</td>
+                            <td>Environmental health studies</td>
+                            <td>Pollution exposure, climate health</td>
+                            <td>Geographic + environmental</td>
+                            <td>Considers environmental factors</td>
+                            <td>Requires environmental data</td>
+                        </tr>
+                        
+                        <!-- Bootstrap Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🔄 Bootstrap Methods</td>
+                        </tr>
+                        <tr data-tags="small clinical-trials bootstrap">
+                            <td><strong>Bootstrap .632</strong></td>
+                            <td>Bootstrap</td>
+                            <td>Small medical datasets</td>
+                            <td>Rare diseases, clinical trials</td>
+                            <td>Limited sample size</td>
+                            <td>Stable estimates</td>
+                            <td>May be overly optimistic</td>
+                        </tr>
+                        <tr data-tags="small clinical-trials bootstrap">
+                            <td><strong>Bootstrap .632+</strong></td>
+                            <td>Bootstrap</td>
+                            <td>Small datasets with overfitting</td>
+                            <td>Complex models on limited data</td>
+                            <td>&lt;500 samples typically</td>
+                            <td>Corrects .632 optimism</td>
+                            <td>More complex to compute</td>
+                        </tr>
+                        
+                        <!-- Nested Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🔄 Nested Cross-Validation</td>
+                        </tr>
+                        <tr data-tags="medium large hyperparameter-tuning">
+                            <td><strong>Nested K-Fold</strong></td>
+                            <td>Nested</td>
+                            <td>Model selection + evaluation</td>
+                            <td>Biomarker discovery, precision medicine</td>
+                            <td>Hyperparameter tuning needs</td>
+                            <td>Unbiased performance estimates</td>
+                            <td>Computationally expensive</td>
+                        </tr>
+                        <tr data-tags="grouped large hyperparameter-tuning longitudinal">
+                            <td><strong>Nested Group K-Fold</strong></td>
+                            <td>Nested</td>
+                            <td>Patient-grouped model selection</td>
+                            <td>Personalized medicine, longitudinal ML</td>
+                            <td>Groups + hyperparameter tuning</td>
+                            <td>Prevents leakage in model selection</td>
+                            <td>Very computationally intensive</td>
+                        </tr>
+                        
+                        <!-- Specialized Medical Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🏥 Medical-Specific Methods</td>
+                        </tr>
+                        <tr data-tags="imaging medium large">
+                            <td><strong>Patient-Aware CV</strong></td>
+                            <td>Medical</td>
+                            <td>Medical imaging</td>
+                            <td>Radiology, pathology, dermatology</td>
+                            <td>Patient-image mappings</td>
+                            <td>Prevents patient-level leakage</td>
+                            <td>Requires patient metadata</td>
+                        </tr>
+                        <tr data-tags="grouped clinical-trials large hierarchical">
+                            <td><strong>Hierarchical CV</strong></td>
+                            <td>Medical</td>
+                            <td>Multi-level healthcare data</td>
+                            <td>Patients → Wards → Hospitals</td>
+                            <td>Hierarchical structure</td>
+                            <td>Models complex dependencies</td>
+                            <td>Complex implementation</td>
+                        </tr>
+                        <tr data-tags="temporal grouped icu medium large">
+                            <td><strong>Temporal-Patient CV</strong></td>
+                            <td>Medical</td>
+                            <td>Longitudinal patient monitoring</td>
+                            <td>Chronic disease, ICU data</td>
+                            <td>Time + patient structure</td>
+                            <td>Handles both dependencies</td>
+                            <td>Requires careful design</td>
+                        </tr>
+                        
+                        <!-- Advanced Methods -->
+                        <tr class="category-header">
+                            <td colspan="7" class="category-title">🔬 Advanced Methods</td>
+                        </tr>
+                        <tr data-tags="medium large custom">
+                            <td><strong>Monte Carlo CV</strong></td>
+                            <td>Advanced</td>
+                            <td>Flexible repeated sampling</td>
+                            <td>Complex medical datasets</td>
+                            <td>Custom sampling needs</td>
+                            <td>Highly customizable</td>
+                            <td>Requires careful design</td>
+                        </tr>
+                        <tr data-tags="large critical">
+                            <td><strong>Combinatorial CV</strong></td>
+                            <td>Advanced</td>
+                            <td>Maximum validation rigor</td>
+                            <td>Critical medical applications</td>
+                            <td>Sufficient computational resources</td>
+                            <td>Comprehensive validation</td>
+                            <td>Extremely expensive</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="table-legend">
+                <h4>🔍 How to Use This Table</h4>
+                <div class="legend-grid">
+                    <div class="legend-item">
+                        <strong>1. Identify Your Data Structure:</strong> 
+                        <span>Independent samples, time series, grouped, spatial</span>
+                    </div>
+                    <div class="legend-item">
+                        <strong>2. Consider Medical Context:</strong> 
+                        <span>Patient privacy, temporal constraints, site differences</span>
+                    </div>
+                    <div class="legend-item">
+                        <strong>3. Match Requirements:</strong> 
+                        <span>Sample size, computational resources, validation rigor</span>
+                    </div>
+                    <div class="legend-item">
+                        <strong>4. Start Simple:</strong> 
+                        <span>Begin with appropriate basic method, add complexity as needed</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Implementation Examples Section -->
+    <section class="examples-section">
+        <div class="container">
+            <h2>💻 Implementation Examples</h2>
+            <p class="section-subtitle">Quick code snippets for the most common medical CV methods</p>
+            
+            <div class="examples-grid">
+                <div class="example-card">
+                    <h3>👥 Patient-Level Splitting</h3>
+                    <div class="code-example">
+                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> GroupKFold
+<span class="keyword">from</span> trustcv <span class="keyword">import</span> PatientAwareCV
+
+<span class="comment"># Basic patient grouping</span>
+cv = GroupKFold(n_splits=<span class="number">5</span>)
+scores = cross_val_score(model, X, y, cv=cv, groups=patient_ids)
+
+<span class="comment"># Advanced patient-aware CV</span>
+cv = PatientAwareCV(n_splits=<span class="number">5</span>, check_leakage=<span class="keyword">True</span>)
+scores = cv.fit_validate(model, X, y, patient_ids=patient_ids)</code></pre>
+                    </div>
+                </div>
+                
+                <div class="example-card">
+                    <h3>⏰ Temporal Validation</h3>
+                    <div class="code-example">
+                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> TimeSeriesSplit
+<span class="keyword">from</span> trustcv <span class="keyword">import</span> RollingWindowCV
+
+<span class="comment"># Basic temporal split</span>
+cv = TimeSeriesSplit(n_splits=<span class="number">5</span>)
+scores = cross_val_score(model, X, y, cv=cv)
+
+<span class="comment"># Rolling window for real-time prediction</span>
+cv = RollingWindowCV(window_size=<span class="number">30</span>, gap=<span class="number">2</span>)  <span class="comment"># 30 days, 2-day gap</span>
+scores = cv.fit_validate(model, X, y, timestamps=timestamps)</code></pre>
+                    </div>
+                </div>
+                
+                <div class="example-card">
+                    <h3>🏥 Multi-Site Validation</h3>
+                    <div class="code-example">
+                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> LeaveOneGroupOut
+<span class="keyword">from</span> trustcv <span class="keyword">import</span> MultiSiteCV
+
+<span class="comment"># Leave-one-site-out</span>
+cv = LeaveOneGroupOut()
+scores = cross_val_score(model, X, y, cv=cv, groups=site_ids)
+
+<span class="comment"># Advanced multi-site with stratification</span>
+cv = MultiSiteCV(test_size=<span class="number">0.2</span>, stratify_by_site=<span class="keyword">True</span>)
+scores = cv.fit_validate(model, X, y, site_ids=site_ids)</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        function filterTable(filterType) {
+            const table = document.getElementById('methods-table');
+            const rows = table.querySelectorAll('tbody tr:not(.category-header)');
+            
+            // Reset all buttons
+            document.querySelectorAll('.selector-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Activate clicked button
+            event.target.classList.add('active');
+            
+            // Show all rows if "all" is selected
+            if (filterType === 'all') {
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+                // Show all category headers
+                document.querySelectorAll('.category-header').forEach(header => {
+                    header.style.display = '';
+                });
+                return;
+            }
+            
+            // Filter rows based on data-tags
+            let visibleCategories = new Set();
+            
+            rows.forEach(row => {
+                const tags = row.dataset.tags || '';
+                if (tags.includes(filterType)) {
+                    row.style.display = '';
+                    // Find the category for this row
+                    let categoryHeader = row.previousElementSibling;
+                    while (categoryHeader && !categoryHeader.classList.contains('category-header')) {
+                        categoryHeader = categoryHeader.previousElementSibling;
+                    }
+                    if (categoryHeader) {
+                        visibleCategories.add(categoryHeader);
+                    }
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            
+            // Show/hide category headers based on visible rows
+            document.querySelectorAll('.category-header').forEach(header => {
+                if (visibleCategories.has(header)) {
+                    header.style.display = '';
+                } else {
+                    header.style.display = 'none';
+                }
+            });
+        }
+        
+        // Initialize with "Show All" active
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('show-all').classList.add('active');
+        });
+    </script>
+
+    <style>
+        .method-selector-section {
+            padding: var(--spacing-xl) 0;
+            background: var(--md-sys-color-surface-variant);
+        }
+        
+        .selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .selector-card {
+            background: white;
+            padding: var(--spacing-lg);
+            border-radius: 16px;
+            box-shadow: var(--md-sys-elevation-2);
+        }
+        
+        .selector-card h3 {
+            color: var(--md-sys-color-primary);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .selector-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-sm);
+        }
+        
+        .selector-btn {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .selector-btn:hover {
+            background: var(--md-sys-color-secondary);
+            color: var(--md-sys-color-on-secondary);
+        }
+        
+        .selector-btn.active {
+            background: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        
+        .examples-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-surface);
+        }
+        
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .example-card {
+            background: white;
+            border-radius: 16px;
+            padding: var(--spacing-lg);
+            box-shadow: var(--md-sys-elevation-2);
+        }
+        
+        .example-card h3 {
+            color: var(--md-sys-color-primary);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .code-example {
+            background: #1e1e1e;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .code-example pre {
+            margin: 0;
+            padding: var(--spacing-md);
+            color: #e0e0e0;
+        }
+        
+        .code-example code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            color: #e0e0e0;
+        }
+        
+        /* Syntax highlighting colors for better readability */
+        .code-example .keyword {
+            color: #569cd6;
+        }
+        
+        .code-example .string {
+            color: #ce9178;
+        }
+        
+        .code-example .comment {
+            color: #6a9955;
+            font-style: italic;
+        }
+        
+        .code-example .number {
+            color: #b5cea8;
+        }
+        
+        .code-example .function {
+            color: #dcdcaa;
+        }
+    </style>
+</body>
+</html>

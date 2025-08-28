@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Notebooks - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+    
+    <!-- Plotly for interactive visualizations -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Interactive Notebooks</span>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">📓 Interactive Jupyter Notebooks</h1>
+            <p class="page-subtitle">
+                Hands-on coding tutorials covering all 29 cross-validation methods for medical machine learning.
+                Learn by implementing real examples with clinical datasets and best practices.
+            </p>
+            <div class="header-badges">
+                <span class="badge">10 Comprehensive Notebooks</span>
+                <span class="badge">Google Colab Ready</span>
+                <span class="badge">Real Medical Datasets</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learning Path Section -->
+    <section class="learning-path-intro">
+        <div class="container">
+            <h2>🎯 Structured Learning Path</h2>
+            <p class="section-subtitle">
+                Our notebooks are organized in a progressive learning sequence, from fundamentals to advanced techniques.
+                Each notebook builds on previous concepts while introducing new medical-specific validation challenges.
+            </p>
+            
+            <div class="learning-levels">
+                <div class="level-card">
+                    <div class="level-header beginner">
+                        <span class="material-icons">school</span>
+                        <h3>Beginner</h3>
+                    </div>
+                    <p>Master the fundamentals of cross-validation with medical data</p>
+                    <div class="level-notebooks">Notebooks 1-3</div>
+                </div>
+                
+                <div class="level-card">
+                    <div class="level-header intermediate">
+                        <span class="material-icons">construction</span>
+                        <h3>Intermediate</h3>
+                    </div>
+                    <p>Advanced techniques for complex medical scenarios</p>
+                    <div class="level-notebooks">Notebooks 4-7</div>
+                </div>
+                
+                <div class="level-card">
+                    <div class="level-header advanced">
+                        <span class="material-icons">psychology</span>
+                        <h3>Advanced</h3>
+                    </div>
+                    <p>Comprehensive methods and real-world deployment</p>
+                    <div class="level-notebooks">Notebooks 8-10</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Notebooks Grid -->
+    <section class="notebooks-section">
+        <div class="container">
+            <div class="notebooks-grid">
+                
+                <!-- Notebook 1 -->
+                <div class="notebook-card beginner">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">01</span>
+                            <span class="notebook-badge beginner">Beginner</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/01_CV_Basics.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Cross-Validation Basics with Medical Data</h3>
+                        <p class="notebook-description">
+                            Learn fundamental concepts of cross-validation using heart disease prediction. 
+                            Understand why standard CV methods might not work for medical data.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">K-Fold CV</span>
+                            <span class="topic">Train-Test Split</span>
+                            <span class="topic">Medical Datasets</span>
+                            <span class="topic">Performance Metrics</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>30 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Heart Disease</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 2 -->
+                <div class="notebook-card beginner">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">02</span>
+                            <span class="notebook-badge beginner">Beginner</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/02_Patient_Level_CV.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Patient-Level Cross-Validation</h3>
+                        <p class="notebook-description">
+                            Handle multiple records per patient correctly. Learn why patient-level splitting 
+                            is crucial for realistic performance estimates in longitudinal studies.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Patient Grouping</span>
+                            <span class="topic">Data Leakage</span>
+                            <span class="topic">Longitudinal Data</span>
+                            <span class="topic">Group K-Fold</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>45 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Multi-visit Patients</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 3 -->
+                <div class="notebook-card beginner">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">03</span>
+                            <span class="notebook-badge beginner">Beginner</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/03_Temporal_Medical.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Temporal Validation for Medical Time Series</h3>
+                        <p class="notebook-description">
+                            Validate time-series models for ICU monitoring without look-ahead bias. 
+                            Master temporal splitting techniques for clinical prediction models.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Time Series CV</span>
+                            <span class="topic">ICU Monitoring</span>
+                            <span class="topic">Temporal Leakage</span>
+                            <span class="topic">Rolling Windows</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>40 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>ICU Time Series</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 4 -->
+                <div class="notebook-card intermediate">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">04</span>
+                            <span class="notebook-badge intermediate">Intermediate</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/04_Nested_CV.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Nested Cross-Validation for Hyperparameter Tuning</h3>
+                        <p class="notebook-description">
+                            Unbiased model selection and hyperparameter optimization for ML. 
+                            Learn how to avoid selection bias in performance estimation.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Nested CV</span>
+                            <span class="topic">Hyperparameter Tuning</span>
+                            <span class="topic">Model Selection</span>
+                            <span class="topic">Selection Bias</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>60 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Diabetes Prediction</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 5 -->
+                <div class="notebook-card intermediate">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">05</span>
+                            <span class="notebook-badge intermediate">Intermediate</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/05_Spatial_Methods.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Spatial Cross-Validation for Geographic Health Data</h3>
+                        <p class="notebook-description">
+                            Handle geographic correlations in epidemiological data. Learn spatial blocking 
+                            and buffered CV methods for disease mapping and outbreak prediction.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Spatial CV</span>
+                            <span class="topic">Geographic Data</span>
+                            <span class="topic">Spatial Autocorrelation</span>
+                            <span class="topic">Buffer Zones</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>50 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Disease Mapping</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 6 -->
+                <div class="notebook-card intermediate">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">06</span>
+                            <span class="notebook-badge intermediate">Intermediate</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/06_Advanced_Methods.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Advanced Cross-Validation Methods</h3>
+                        <p class="notebook-description">
+                            Explore sophisticated validation techniques including purged K-Fold, 
+                            combinatorial CV, and custom medical-specific splitting strategies.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Purged K-Fold</span>
+                            <span class="topic">Combinatorial CV</span>
+                            <span class="topic">Custom Splitters</span>
+                            <span class="topic">Multi-level Grouping</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>55 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Multi-site Clinical</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 7 -->
+                <div class="notebook-card intermediate">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">07</span>
+                            <span class="notebook-badge intermediate">Intermediate</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/07_Bootstrap_Methods.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Bootstrap Validation Methods</h3>
+                        <p class="notebook-description">
+                            Master bootstrap techniques for small medical datasets. Learn .632 and .632+ 
+                            bootstrap methods with confidence interval estimation.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Bootstrap .632</span>
+                            <span class="topic">Bootstrap .632+</span>
+                            <span class="topic">Confidence Intervals</span>
+                            <span class="topic">Small Datasets</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>45 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Rare Disease</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 8 -->
+                <div class="notebook-card advanced">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">08</span>
+                            <span class="notebook-badge advanced">Advanced</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/08_Hierarchical_Methods.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Hierarchical Cross-Validation</h3>
+                        <p class="notebook-description">
+                            Handle complex hierarchical structures in medical data. Multi-level validation 
+                            for patients nested within hospitals, departments, and healthcare systems.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Hierarchical Data</span>
+                            <span class="topic">Multi-level CV</span>
+                            <span class="topic">Nested Structures</span>
+                            <span class="topic">Healthcare Systems</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>65 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Multi-level Healthcare</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 9 -->
+                <div class="notebook-card advanced">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">09</span>
+                            <span class="notebook-badge advanced">Advanced</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/09_Comprehensive_CV_Comparison.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Comprehensive Cross-Validation Comparison</h3>
+                        <p class="notebook-description">
+                            Compare all 29 CV methods across different medical scenarios. Performance 
+                            benchmarking and method selection guidelines for clinical deployment.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Method Comparison</span>
+                            <span class="topic">Benchmarking</span>
+                            <span class="topic">Performance Analysis</span>
+                            <span class="topic">Method Selection</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>70 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Multiple Medical</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notebook 10 -->
+                <div class="notebook-card advanced">
+                    <div class="notebook-header">
+                        <div class="notebook-info">
+                            <span class="notebook-number">10</span>
+                            <span class="notebook-badge advanced">Advanced</span>
+                        </div>
+                        <div class="notebook-actions">
+                            <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/10_Data_Leakage_Consequences.ipynb" 
+                               class="colab-btn" target="_blank">
+                                <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                            </a>
+                        </div>
+                    </div>
+                    <div class="notebook-content">
+                        <h3>Data Leakage Detection and Consequences</h3>
+                        <p class="notebook-description">
+                            Master the art of detecting and preventing data leakage in ML. 
+                            Real-world case studies of leakage consequences and regulatory implications.
+                        </p>
+                        <div class="notebook-topics">
+                            <span class="topic">Leakage Detection</span>
+                            <span class="topic">Regulatory Impact</span>
+                            <span class="topic">Case Studies</span>
+                            <span class="topic">Safety Validation</span>
+                        </div>
+                        <div class="notebook-meta">
+                            <div class="meta-item">
+                                <span class="material-icons">schedule</span>
+                                <span>75 minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="material-icons">dataset</span>
+                                <span>Clinical Case Studies</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Getting Started Section -->
+    <section class="getting-started">
+        <div class="container">
+            <h2>🚀 Getting Started</h2>
+            <div class="getting-started-grid">
+                <div class="getting-started-card">
+                    <div class="card-icon">
+                        <span class="material-icons">cloud</span>
+                    </div>
+                    <h3>Run in Google Colab</h3>
+                    <p>Click any "Open in Colab" button to run notebooks in the cloud. No installation required!</p>
+                    <div class="card-features">
+                        <div class="feature">✅ Free GPU access</div>
+                        <div class="feature">✅ Pre-installed libraries</div>
+                        <div class="feature">✅ Real medical datasets</div>
+                    </div>
+                </div>
+                
+                <div class="getting-started-card">
+                    <div class="card-icon">
+                        <span class="material-icons">download</span>
+                    </div>
+                    <h3>Local Installation</h3>
+                    <p>Clone the repository and run notebooks locally with Jupyter Lab or Jupyter Notebook.</p>
+                    <div class="code-snippet">
+                        <code>
+git clone https://github.com/ki-smile/trustcv.git<br>
+cd trustcv<br>
+pip install -e .<br>
+jupyter lab notebooks/
+                        </code>
+                    </div>
+                </div>
+                
+                <div class="getting-started-card">
+                    <div class="card-icon">
+                        <span class="material-icons">route</span>
+                    </div>
+                    <h3>Learning Path</h3>
+                    <p>Follow our structured sequence for optimal learning. Each notebook builds on previous concepts.</p>
+                    <div class="path-steps">
+                        <div class="step">1. Start with fundamentals (1-3)</div>
+                        <div class="step">2. Master advanced techniques (4-7)</div>
+                        <div class="step">3. Apply comprehensive methods (8-10)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/main.js"></script>
+    <script src="js/tutorials.js"></script>
+    
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('navMenu');
+            const toggle = document.querySelector('.nav-toggle');
+            
+            if (menu && toggle && !menu.contains(event.target) && !toggle.contains(event.target)) {
+                menu.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

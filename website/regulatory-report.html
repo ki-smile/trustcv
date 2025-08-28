@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regulatory Compliance Report Generator - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .report-generator {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+        }
+        
+        .generator-header {
+            background: linear-gradient(135deg, var(--ki-plum) 0%, var(--ki-dark-plum) 100%);
+            color: white;
+            padding: var(--spacing-xxl);
+            border-radius: 16px;
+            margin-bottom: var(--spacing-xl);
+            text-align: center;
+        }
+        
+        .generator-form {
+            background: white;
+            border-radius: 12px;
+            padding: var(--spacing-xl);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .form-section {
+            margin-bottom: var(--spacing-xl);
+            padding-bottom: var(--spacing-xl);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .form-section:last-child {
+            border-bottom: none;
+        }
+        
+        .form-section h3 {
+            color: var(--ki-plum);
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            color: var(--md-sys-color-on-surface);
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .generate-button {
+            background: var(--ki-plum);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 28px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin: 0 auto;
+            transition: all 0.3s ease;
+        }
+        
+        .generate-button:hover {
+            background: var(--ki-dark-plum);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 4, 51, 0.3);
+        }
+        
+        .report-preview {
+            background: white;
+            border-radius: 12px;
+            padding: var(--spacing-xl);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .report-preview.active {
+            display: block;
+        }
+        
+        .report-header {
+            border-bottom: 3px solid var(--ki-plum);
+            padding-bottom: var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .report-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--ki-plum);
+            margin-bottom: var(--spacing-sm);
+        }
+        
+        .report-meta {
+            color: var(--md-sys-color-on-surface-variant);
+            font-size: 14px;
+        }
+        
+        .report-section {
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .report-section h2 {
+            color: var(--ki-plum);
+            font-size: 18px;
+            margin-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            padding-bottom: var(--spacing-sm);
+        }
+        
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: var(--spacing-md) 0;
+        }
+        
+        .report-table th,
+        .report-table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .report-table th {
+            background: var(--md-sys-color-surface-variant);
+            font-weight: 600;
+            color: var(--ki-plum);
+        }
+        
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+        }
+        
+        .metric-card {
+            background: var(--md-sys-color-surface-variant);
+            padding: var(--spacing-md);
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--ki-plum);
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-top: var(--spacing-xs);
+        }
+        
+        .download-buttons {
+            display: flex;
+            gap: var(--spacing-md);
+            justify-content: center;
+            margin-top: var(--spacing-xl);
+        }
+        
+        .download-button {
+            padding: 10px 24px;
+            border-radius: 24px;
+            border: 2px solid var(--ki-plum);
+            background: white;
+            color: var(--ki-plum);
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            transition: all 0.3s ease;
+        }
+        
+        .download-button:hover {
+            background: var(--ki-plum);
+            color: white;
+        }
+        
+        .compliance-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: 6px 12px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .warning-box {
+            background: #FFF3E0;
+            border-left: 4px solid #FF9800;
+            padding: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+            border-radius: 4px;
+        }
+        
+        .warning-box strong {
+            color: #E65100;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Regulatory Report Generator</span>
+            </div>
+                        <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="report-generator">
+        <div class="generator-header">
+            <h1>📋 Example: Regulatory Compliance Report Generator</h1>
+            <p><strong>DEMONSTRATION ONLY:</strong> This is an educational example showing the structure of FDA/CE validation reports</p>
+            <p style="font-size: 14px; margin-top: 10px; opacity: 0.9;">⚠️ For actual regulatory submissions, consult with regulatory professionals and use validated software</p>
+            <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px;">
+                <span class="compliance-badge" style="background: #FF9800;">
+                    <span class="material-icons" style="font-size: 16px;">school</span>
+                    Example Only
+                </span>
+                <span class="compliance-badge" style="background: #FF9800;">
+                    <span class="material-icons" style="font-size: 16px;">info</span>
+                    Educational Purpose
+                </span>
+                <span class="compliance-badge" style="background: #FF9800;">
+                    <span class="material-icons" style="font-size: 16px;">warning</span>
+                    Not for Clinical Use
+                </span>
+            </div>
+        </div>
+
+        <form class="generator-form" id="reportForm">
+            <div style="background: #FFF3E0; border-left: 4px solid #FF9800; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <strong style="color: #E65100;">📚 Educational Example:</strong> 
+                The pre-filled data below represents a fictional medical device for demonstration purposes. 
+                This template shows the typical structure and content required in regulatory validation reports.
+            </div>
+            
+            <!-- Device Information -->
+            <div class="form-section">
+                <h3>
+                    <span class="material-icons">medical_services</span>
+                    Device Information (Example Data)
+                </h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="deviceName">Device/Software Name * (Example)</label>
+                        <input type="text" id="deviceName" required value="DermAI Pro (Fictional Example)">
+                    </div>
+                    <div class="form-group">
+                        <label for="version">Software Version *</label>
+                        <input type="text" id="version" required value="2.1.0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="manufacturer">Manufacturer * (Example)</label>
+                        <input type="text" id="manufacturer" required value="Example MedTech Company (Fictional)">
+                    </div>
+                    <div class="form-group">
+                        <label for="classification">Device Classification *</label>
+                        <select id="classification" required>
+                            <option value="class2a">Class IIa (CE MDR)</option>
+                            <option value="class2b" selected>Class IIb (CE MDR)</option>
+                            <option value="510k">Class II 510(k) (FDA)</option>
+                            <option value="denovo">De Novo (FDA)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="intendedUse">Intended Use * (Example Statement)</label>
+                    <textarea id="intendedUse" required>EXAMPLE: Computer-aided detection (CADe) software for identifying suspicious pigmented skin lesions in dermoscopy images. This is a fictional example for educational purposes only.</textarea>
+                </div>
+            </div>
+
+            <!-- Dataset Information -->
+            <div class="form-section">
+                <h3>
+                    <span class="material-icons">dataset</span>
+                    Dataset Information (Simulated Example)
+                </h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="totalPatients">Total Patients *</label>
+                        <input type="number" id="totalPatients" required value="2456">
+                    </div>
+                    <div class="form-group">
+                        <label for="totalImages">Total Images/Samples *</label>
+                        <input type="number" id="totalImages" required value="8734">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="trainingSamples">Training Samples *</label>
+                        <input type="number" id="trainingSamples" required value="6114">
+                    </div>
+                    <div class="form-group">
+                        <label for="testSamples">Test Samples *</label>
+                        <input type="number" id="testSamples" required value="2620">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="dataSource">Data Sources * (Example)</label>
+                    <textarea id="dataSource" required>EXAMPLE DATA SOURCES (Fictional):
+- Example University Hospital (n=1200)
+- Public Dataset Example (n=856)
+- Example Clinical Network (n=400)
+NOTE: This is simulated data for demonstration purposes only</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="demographics">Patient Demographics</label>
+                    <textarea id="demographics">Age: 18-89 years (mean 52.3 ± 15.7)
+Gender: 54% female, 46% male
+Ethnicity: 68% Caucasian, 15% Asian, 10% Hispanic, 5% African American, 2% Other
+Fitzpatrick Skin Types: I (8%), II (32%), III (35%), IV (18%), V (5%), VI (2%)</textarea>
+                </div>
+            </div>
+
+            <!-- Cross-Validation Method -->
+            <div class="form-section">
+                <h3>
+                    <span class="material-icons">psychology</span>
+                    Cross-Validation Methodology
+                </h3>
+                <div class="form-group">
+                    <label for="cvMethod">Primary Validation Method *</label>
+                    <select id="cvMethod" required>
+                        <option value="nested">Nested Cross-Validation</option>
+                        <option value="stratified" selected>Stratified Patient-Level K-Fold</option>
+                        <option value="temporal">Temporal Validation</option>
+                        <option value="external">External Validation</option>
+                        <option value="combined">Combined Internal + External</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="numFolds">Number of Folds</label>
+                        <input type="number" id="numFolds" value="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="numRepeats">Number of Repeats</label>
+                        <input type="number" id="numRepeats" value="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="cvJustification">Method Justification *</label>
+                    <textarea id="cvJustification" required style="min-height: 120px;">EXAMPLE JUSTIFICATION:
+Stratified Patient-Level K-Fold was selected because:
+• Multiple images per patient require patient-level grouping to prevent data leakage
+• Stratification ensures balanced disease prevalence across folds (20% melanoma maintained)
+• 5-fold CV provides good bias-variance tradeoff with our sample size (n=2456 patients)
+• Patient-level splitting mimics real-world deployment where model sees new patients
+• Method aligns with FDA guidance on AI/ML validation (2021) and TRIPOD+AI guidelines</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="leakagePrevention">Data Leakage Prevention Measures *</label>
+                    <textarea id="leakagePrevention" required>1. Patient-level splitting: All images from same patient kept in same fold
+2. Temporal isolation: No future data used in training
+3. Center-based stratification: Balanced distribution across clinical sites
+4. Independent test set: 20% held out before any model development
+5. Pre-processing done within CV folds to prevent information leakage</textarea>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="form-section">
+                <h3>
+                    <span class="material-icons">analytics</span>
+                    Performance Metrics
+                </h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sensitivity">Sensitivity (%) *</label>
+                        <input type="number" id="sensitivity" step="0.1" required value="94.2">
+                    </div>
+                    <div class="form-group">
+                        <label for="specificity">Specificity (%) *</label>
+                        <input type="number" id="specificity" step="0.1" required value="89.6">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="auc">AUC-ROC *</label>
+                        <input type="number" id="auc" step="0.001" required value="0.956">
+                    </div>
+                    <div class="form-group">
+                        <label for="accuracy">Accuracy (%) *</label>
+                        <input type="number" id="accuracy" step="0.1" required value="91.8">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="ppv">Positive Predictive Value (%)</label>
+                        <input type="number" id="ppv" step="0.1" value="78.3">
+                    </div>
+                    <div class="form-group">
+                        <label for="npv">Negative Predictive Value (%)</label>
+                        <input type="number" id="npv" step="0.1" value="97.8">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Regulatory Compliance -->
+            <div class="form-section">
+                <h3>
+                    <span class="material-icons">gavel</span>
+                    Regulatory Standards
+                </h3>
+                <div class="form-group">
+                    <label style="margin-bottom: 16px; display: block;">Applicable Standards (check all that apply)</label>
+                    <div style="background: var(--md-sys-color-surface-variant); border-radius: 8px; padding: 16px;">
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 0;">
+                            <tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+                                <td style="width: 40px; padding: 12px 8px; vertical-align: middle;">
+                                    <input type="checkbox" id="iso13485" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                </td>
+                                <td style="padding: 12px 8px;">
+                                    <label for="iso13485" style="cursor: pointer; display: block;">
+                                        <strong style="color: var(--ki-plum);">ISO 13485:2016</strong><br>
+                                        <span style="font-size: 13px; color: var(--md-sys-color-on-surface-variant);">Medical devices - Quality management systems</span>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+                                <td style="width: 40px; padding: 12px 8px; vertical-align: middle;">
+                                    <input type="checkbox" id="iec62304" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                </td>
+                                <td style="padding: 12px 8px;">
+                                    <label for="iec62304" style="cursor: pointer; display: block;">
+                                        <strong style="color: var(--ki-plum);">IEC 62304:2006+A1:2015</strong><br>
+                                        <span style="font-size: 13px; color: var(--md-sys-color-on-surface-variant);">Medical device software - Software life cycle processes</span>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+                                <td style="width: 40px; padding: 12px 8px; vertical-align: middle;">
+                                    <input type="checkbox" id="iso14971" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                </td>
+                                <td style="padding: 12px 8px;">
+                                    <label for="iso14971" style="cursor: pointer; display: block;">
+                                        <strong style="color: var(--ki-plum);">ISO 14971:2019</strong><br>
+                                        <span style="font-size: 13px; color: var(--md-sys-color-on-surface-variant);">Medical devices - Application of risk management</span>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr style="border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+                                <td style="width: 40px; padding: 12px 8px; vertical-align: middle;">
+                                    <input type="checkbox" id="iec62366" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                </td>
+                                <td style="padding: 12px 8px;">
+                                    <label for="iec62366" style="cursor: pointer; display: block;">
+                                        <strong style="color: var(--ki-plum);">IEC 62366-1:2015</strong><br>
+                                        <span style="font-size: 13px; color: var(--md-sys-color-on-surface-variant);">Medical devices - Application of usability engineering</span>
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="width: 40px; padding: 12px 8px; vertical-align: middle;">
+                                    <input type="checkbox" id="gdpr" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                </td>
+                                <td style="padding: 12px 8px;">
+                                    <label for="gdpr" style="cursor: pointer; display: block;">
+                                        <strong style="color: var(--ki-plum);">GDPR</strong><br>
+                                        <span style="font-size: 13px; color: var(--md-sys-color-on-surface-variant);">General Data Protection Regulation compliance</span>
+                                    </label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div style="margin-top: 12px; padding: 12px; background: #E3F2FD; border-radius: 4px; border-left: 3px solid #2196F3;">
+                        <span style="font-size: 13px; color: #1565C0;">
+                            <strong>Note:</strong> Additional standards may apply based on your device classification and target markets
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="generate-button">
+                <span class="material-icons">description</span>
+                Generate Regulatory Report
+            </button>
+        </form>
+
+        <!-- Report Preview -->
+        <div class="report-preview" id="reportPreview">
+            <div style="background: #FFEBEE; border: 2px solid #F44336; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
+                <strong style="color: #C62828;">⚠️ EXAMPLE REPORT - NOT FOR CLINICAL USE</strong><br>
+                This is a demonstration of report structure only. Real regulatory reports require validated data and professional review.
+            </div>
+            
+            <div class="report-header">
+                <h1 class="report-title">Example Clinical Validation Report</h1>
+                <div class="report-meta">
+                    <strong>Document ID:</strong> EXAMPLE-001 | 
+                    <strong>Date:</strong> <span id="reportDate"></span> | 
+                    <strong>Version:</strong> Example
+                </div>
+            </div>
+
+            <div class="report-content" id="reportContent">
+                <!-- Content will be generated dynamically -->
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Trustworthy Cross-Validation Toolkit</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 trustcv. Licensed under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/regulatory-report.js"></script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/tutorials.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">API Reference</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="../demonstrations.html">Demonstrations</a></li>
+                <li><a href="../quiz.html">Interactive Quiz</a></li>
+                <li><a href="../notebooks.html">Notebooks</a></li>
+                <li><a href="../methods-comparison.html">Methods Guide</a></li>
+                <li><a href="API_REFERENCE.html" class="active">Documentation</a></li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">📚 API Reference</h1>
+            <p class="page-subtitle">
+                Complete reference for all trustcv classes, methods, and functions.
+                Comprehensive documentation for implementing medical cross-validation in your projects.
+            </p>
+            <div class="header-badges">
+                <span class="badge">29 CV Methods</span>
+                <span class="badge">Complete API</span>
+                <span class="badge">Code Examples</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- API Documentation -->
+    <section class="api-docs">
+        <div class="container">
+            <div class="docs-grid">
+                
+                <!-- Table of Contents -->
+                <div class="docs-sidebar">
+                    <h3>📑 Table of Contents</h3>
+                    <ul class="docs-toc">
+                        <li><a href="#getting-started">Getting Started</a></li>
+                        <li><a href="#iid-methods">I.I.D. Methods</a></li>
+                        <li><a href="#temporal-methods">Temporal Methods</a></li>
+                        <li><a href="#grouped-methods">Grouped Methods</a></li>
+                        <li><a href="#spatial-methods">Spatial Methods</a></li>
+                        <li><a href="#bootstrap-methods">Bootstrap Methods</a></li>
+                        <li><a href="#utility-functions">Utility Functions</a></li>
+                        <li><a href="#examples">Examples</a></li>
+                    </ul>
+                </div>
+
+                <!-- Main Documentation -->
+                <div class="docs-content">
+                    
+                    <section id="getting-started" class="docs-section">
+                        <h2>🚀 Getting Started</h2>
+                        <p>trustcv provides medical-specific cross-validation methods designed for clinical machine learning applications.</p>
+                        
+                        <div class="code-block">
+                            <h4>Installation</h4>
+                            <pre><code>pip install trustcv
+
+# Or from source
+git clone https://github.com/ki-smile/trustcv.git
+cd trustcv
+pip install -e .</code></pre>
+                        </div>
+
+                        <div class="code-block">
+                            <h4>Basic Usage</h4>
+                            <pre><code>from trustcv.splitters.iid import StratifiedKFoldMedical
+from trustcv.splitters.grouped import GroupKFoldMedical
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestClassifier
+
+# Basic stratified cross-validation
+cv = StratifiedKFoldMedical(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(RandomForestClassifier(), X, y, cv=cv)
+
+# Patient-grouped cross-validation
+cv_grouped = GroupKFoldMedical(n_splits=5)
+scores_grouped = cross_val_score(RandomForestClassifier(), X, y, 
+                                groups=patient_ids, cv=cv_grouped)</code></pre>
+                        </div>
+                    </section>
+
+                    <section id="iid-methods" class="docs-section">
+                        <h2>🎲 I.I.D. Methods</h2>
+                        <p>Cross-validation methods for independent and identically distributed data.</p>
+
+                        <div class="api-method">
+                            <h3>StratifiedKFoldMedical</h3>
+                            <p>Enhanced stratified K-Fold with medical-specific features.</p>
+                            <div class="method-signature">
+                                <code>StratifiedKFoldMedical(n_splits=5, shuffle=False, random_state=None)</code>
+                            </div>
+                            <div class="parameters">
+                                <h4>Parameters:</h4>
+                                <ul>
+                                    <li><strong>n_splits</strong> (int): Number of folds</li>
+                                    <li><strong>shuffle</strong> (bool): Whether to shuffle data</li>
+                                    <li><strong>random_state</strong> (int): Random seed for reproducibility</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>KFoldMedical</h3>
+                            <p>Basic K-Fold with medical data validation.</p>
+                            <div class="method-signature">
+                                <code>KFoldMedical(n_splits=5, shuffle=False, random_state=None)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="temporal-methods" class="docs-section">
+                        <h2>⏰ Temporal Methods</h2>
+                        <p>Cross-validation methods for time-series and temporal medical data.</p>
+
+                        <div class="api-method">
+                            <h3>TimeSeriesSplit</h3>
+                            <p>Time-aware splitting for temporal validation.</p>
+                            <div class="method-signature">
+                                <code>TimeSeriesSplit(n_splits=5, test_size=None, gap=0)</code>
+                            </div>
+                            <div class="parameters">
+                                <h4>Parameters:</h4>
+                                <ul>
+                                    <li><strong>n_splits</strong> (int): Number of splits</li>
+                                    <li><strong>test_size</strong> (int): Size of test set</li>
+                                    <li><strong>gap</strong> (int): Gap between train and test</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>PurgedKFold</h3>
+                            <p>K-Fold with purged samples to prevent temporal leakage.</p>
+                            <div class="method-signature">
+                                <code>PurgedKFold(n_splits=5, purge_gap=1)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="grouped-methods" class="docs-section">
+                        <h2>👥 Grouped Methods</h2>
+                        <p>Cross-validation methods for grouped medical data (patients, sites, etc.).</p>
+
+                        <div class="api-method">
+                            <h3>GroupKFoldMedical</h3>
+                            <p>Patient-level grouping to prevent data leakage.</p>
+                            <div class="method-signature">
+                                <code>GroupKFoldMedical(n_splits=5)</code>
+                            </div>
+                            <div class="example">
+                                <h4>Example:</h4>
+                                <pre><code>cv = GroupKFoldMedical(n_splits=5)
+for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
+    # No patient appears in both train and test sets
+    model.fit(X[train_idx], y[train_idx])
+    predictions = model.predict(X[test_idx])</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>StratifiedGroupKFold</h3>
+                            <p>Combines grouping with stratification for balanced grouped splits.</p>
+                            <div class="method-signature">
+                                <code>StratifiedGroupKFold(n_splits=5, shuffle=False, random_state=None)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="spatial-methods" class="docs-section">
+                        <h2>🌍 Spatial Methods</h2>
+                        <p>Cross-validation methods for geographic and spatial medical data.</p>
+
+                        <div class="api-method">
+                            <h3>SpatialKFold</h3>
+                            <p>Spatial blocking for geographic data.</p>
+                            <div class="method-signature">
+                                <code>SpatialKFold(n_splits=5, coordinates=None, buffer_size=0)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="bootstrap-methods" class="docs-section">
+                        <h2>🔄 Bootstrap Methods</h2>
+                        <p>Bootstrap validation methods for small datasets and confidence intervals.</p>
+
+                        <div class="api-method">
+                            <h3>Bootstrap632</h3>
+                            <p>Bootstrap .632 method for small medical datasets.</p>
+                            <div class="method-signature">
+                                <code>Bootstrap632(n_bootstrap=100, random_state=None)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="examples" class="docs-section">
+                        <h2>💡 Complete Examples</h2>
+                        
+                        <div class="example-block">
+                            <h3>Multi-Site Clinical Trial</h3>
+                            <pre><code>from trustcv.splitters.grouped import GroupKFoldMedical
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import roc_auc_score
+import numpy as np
+
+# Load your data
+# X: features, y: outcomes, site_ids: hospital identifiers
+
+# Initialize grouped cross-validation
+cv = GroupKFoldMedical(n_splits=8)  # One fold per hospital
+model = GradientBoostingClassifier()
+
+scores = []
+for train_idx, test_idx in cv.split(X, y, groups=site_ids):
+    # Train on 7 hospitals, test on 1 hospital
+    model.fit(X[train_idx], y[train_idx])
+    y_pred = model.predict_proba(X[test_idx])[:, 1]
+    score = roc_auc_score(y[test_idx], y_pred)
+    scores.append(score)
+
+print(f"Cross-hospital AUC: {np.mean(scores):.3f} ± {np.std(scores):.3f}")</code></pre>
+                        </div>
+
+                        <div class="example-block">
+                            <h3>ICU Time Series Prediction</h3>
+                            <pre><code>from trustcv.splitters.temporal import TimeSeriesSplit
+from sklearn.ensemble import RandomForestRegressor
+
+# Temporal validation for ICU monitoring
+cv = TimeSeriesSplit(n_splits=5, gap=4)  # 4-hour prediction gap
+model = RandomForestRegressor()
+
+for train_idx, test_idx in cv.split(X_timeseries):
+    # Always train on past, predict future
+    model.fit(X_timeseries[train_idx], y_timeseries[train_idx])
+    predictions = model.predict(X_timeseries[test_idx])
+    # Evaluate temporal prediction performance</code></pre>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Section -->
+    <section class="page-navigation">
+        <div class="container">
+            <div class="nav-cards">
+                <div class="nav-card">
+                    <h3>📓 Interactive Notebooks</h3>
+                    <p>Hands-on coding tutorials with real medical datasets</p>
+                    <a href="../notebooks.html" class="btn-primary">View Notebooks</a>
+                </div>
+                <div class="nav-card">
+                    <h3>🎯 Demonstrations</h3>
+                    <p>Interactive simulations with clinical scenarios</p>
+                    <a href="../demonstrations.html" class="btn-primary">Try Demos</a>
+                </div>
+                <div class="nav-card">
+                    <h3>📋 Best Practices</h3>
+                    <p>Guidelines for ML validation</p>
+                    <a href="LICENSE.html" class="btn-secondary">View License</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="../LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

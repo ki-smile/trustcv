@@ -1,0 +1,41 @@
+# Optional framework dependencies for medicalCV v2.0
+# Install these for specific framework support
+
+# PyTorch support
+# pip install torch torchvision
+# Note: Install PyTorch separately based on your CUDA version
+# See: https://pytorch.org/get-started/locally/
+
+# TensorFlow/Keras support  
+# pip install tensorflow>=2.10.0
+
+# MONAI support (Medical Open Network for AI)
+# pip install monai>=1.0.0
+# Also requires: nibabel>=3.2.0 for medical image I/O
+
+# JAX support
+# pip install jax jaxlib flax
+
+# XGBoost support (often pre-installed)
+# pip install xgboost>=1.7.0
+
+# LightGBM support
+# pip install lightgbm>=3.3.0
+
+# CatBoost support
+# pip install catboost>=1.1.0
+
+# Optuna for hyperparameter tuning
+# pip install optuna>=3.0.0
+
+# For complete installation with all frameworks:
+# pip install medicalCV[all]
+
+# Or install specific frameworks:
+# pip install medicalCV[pytorch]
+# pip install medicalCV[tensorflow]
+# pip install medicalCV[monai]
+
+# Development dependencies
+# pip install medicalCV[dev]
+# Includes: pytest, black, flake8, mypy, sphinx

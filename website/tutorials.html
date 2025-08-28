@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Tutorials - Trustworthy Cross-Validation</title>
+    <style>
+        /* Karolinska Institute Colors */
+        :root {
+            --ki-plum: #870052;
+            --ki-coral: #FF876F;
+            --ki-green: #4CAF50;
+            --ki-blue: #2196F3;
+            --ki-orange: #FFA500;
+            --ki-purple: #9C27B0;
+            --ki-dark: #333333;
+            --ki-light: #f5f5f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: var(--ki-dark);
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--ki-plum) 0%, #a01060 100%);
+            color: white;
+            padding: 30px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+
+        nav {
+            background: white;
+            padding: 15px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        nav a {
+            color: var(--ki-dark);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        nav a:hover {
+            color: var(--ki-plum);
+        }
+
+        .tutorial-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 40px 0;
+        }
+
+        .tutorial-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-left: 4px solid var(--ki-plum);
+        }
+
+        .tutorial-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(135,0,82,0.2);
+        }
+
+        .tutorial-card h3 {
+            color: var(--ki-plum);
+            margin-bottom: 10px;
+        }
+
+        .tutorial-card p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .difficulty {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        .difficulty.beginner {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .difficulty.intermediate {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .difficulty.advanced {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .tutorial-content {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .tutorial-content.active {
+            display: block;
+        }
+
+        .interactive-demo {
+            background: var(--ki-light);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .try-it-button {
+            background: var(--ki-green);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .try-it-button:hover {
+            background: #45a049;
+        }
+
+        .result-display {
+            background: white;
+            border: 2px solid var(--ki-blue);
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .result-display.show {
+            display: block;
+        }
+
+        .quiz-section {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .quiz-question {
+            margin-bottom: 15px;
+        }
+
+        .quiz-options label {
+            display: block;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .quiz-options label:hover {
+            background: var(--ki-light);
+        }
+
+        .quiz-options input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        .check-answer-button {
+            background: var(--ki-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .feedback {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .feedback.correct {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+
+        .feedback.incorrect {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+
+        .progress-tracker {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .progress-bar {
+            background: #e0e0e0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--ki-green) 0%, var(--ki-blue) 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        .tip-box {
+            background: #fff8e1;
+            border-left: 4px solid var(--ki-orange);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .tip-box h4 {
+            color: var(--ki-orange);
+            margin-bottom: 10px;
+        }
+
+        .warning-box {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .warning-box h4 {
+            color: #c62828;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            nav ul {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .tutorial-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎓 Interactive Cross-Validation Tutorials</h1>
+            <p>Learn medical CV methods through hands-on exercises</p>
+        </div>
+    </header>
+
+    <nav>
+        <div class="container">
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="#beginner">Beginner</a></li>
+                <li><a href="#intermediate">Intermediate</a></li>
+                <li><a href="#advanced">Advanced</a></li>
+                <li><a href="#quiz">Test Your Knowledge</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="progress-tracker">
+            <h3>Your Learning Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <p id="progressText">0% Complete - Let's get started!</p>
+        </div>
+
+        <div class="tutorial-selector">
+            <div class="tutorial-card" onclick="showTutorial('dataLeakage')">
+                <h3>🚨 Understanding Data Leakage</h3>
+                <p>Learn how wrong CV methods can dangerously overestimate model performance</p>
+                <span class="difficulty beginner">Beginner</span>
+            </div>
+
+            <div class="tutorial-card" onclick="showTutorial('choosingCV')">
+                <h3>🎯 Choosing the Right CV Method</h3>
+                <p>Interactive decision tree to select appropriate CV for your data</p>
+                <span class="difficulty beginner">Beginner</span>
+            </div>
+
+            <div class="tutorial-card" onclick="showTutorial('patientGrouping')">
+                <h3>👥 Patient-Level Grouping</h3>
+                <p>Handle multiple records per patient correctly</p>
+                <span class="difficulty intermediate">Intermediate</span>
+            </div>
+
+            <div class="tutorial-card" onclick="showTutorial('temporalCV')">
+                <h3>⏰ Temporal Cross-Validation</h3>
+                <p>Validate time series medical data properly</p>
+                <span class="difficulty intermediate">Intermediate</span>
+            </div>
+
+            <div class="tutorial-card" onclick="showTutorial('nestedCV')">
+                <h3>🔄 Nested Cross-Validation</h3>
+                <p>Unbiased hyperparameter tuning for ML</p>
+                <span class="difficulty advanced">Advanced</span>
+            </div>
+
+            <div class="tutorial-card" onclick="showTutorial('spatialCV')">
+                <h3>🗺️ Spatial Cross-Validation</h3>
+                <p>Handle geographic data and disease spread</p>
+                <span class="difficulty advanced">Advanced</span>
+            </div>
+        </div>
+
+        <!-- Tutorial Content Sections -->
+        <div id="dataLeakage" class="tutorial-content">
+            <h2>🚨 Understanding Data Leakage</h2>
+            
+            <p>Data leakage is one of the most dangerous mistakes in ML. Let's explore how it happens and its consequences.</p>
+
+            <div class="interactive-demo">
+                <h3>Interactive Demo: Patient Data Leakage</h3>
+                <p>You have 100 patients, each with 5 visits. Let's see what happens with different CV methods:</p>
+                
+                <button class="try-it-button" onclick="simulateDataLeakage()">Run Simulation</button>
+                
+                <div id="leakageResult" class="result-display">
+                    <h4>Results:</h4>
+                    <p id="leakageOutput"></p>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <h4>⚠️ Real-World Impact</h4>
+                <p>A 25% overestimation means a model that appears 90% accurate is actually only 65% accurate in deployment. This could mean hundreds of missed diagnoses!</p>
+            </div>
+
+            <div class="code-block">
+# WRONG: Standard K-Fold (patient leakage)
+cv_wrong = KFold(n_splits=5)
+score_wrong = cross_val_score(model, X, y, cv=cv_wrong)
+print(f"Biased AUC: {score_wrong.mean():.3f}")  # 0.92 (inflated!)
+
+# CORRECT: Grouped K-Fold (no leakage)
+cv_correct = GroupKFold(n_splits=5)
+score_correct = cross_val_score(model, X, y, cv=cv_correct, groups=patient_ids)
+print(f"True AUC: {score_correct.mean():.3f}")  # 0.73 (realistic)
+            </div>
+
+            <div class="quiz-section">
+                <h3>Quick Check</h3>
+                <div class="quiz-question">
+                    <p>Why does standard K-fold cause data leakage with patient data?</p>
+                    <div class="quiz-options">
+                        <label>
+                            <input type="radio" name="q1" value="a">
+                            It doesn't shuffle the data
+                        </label>
+                        <label>
+                            <input type="radio" name="q1" value="b">
+                            It puts the same patient's visits in both train and test sets
+                        </label>
+                        <label>
+                            <input type="radio" name="q1" value="c">
+                            It uses too few folds
+                        </label>
+                    </div>
+                    <button class="check-answer-button" onclick="checkAnswer('q1', 'b', 'leakage1')">Check Answer</button>
+                    <div id="leakage1" class="feedback"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="choosingCV" class="tutorial-content">
+            <h2>🎯 Choosing the Right CV Method</h2>
+            
+            <p>Answer these questions to find the perfect CV method for your medical data:</p>
+
+            <div class="interactive-demo">
+                <h3>Interactive CV Selector</h3>
+                
+                <div id="cvSelector">
+                    <div class="question-step" id="step1">
+                        <h4>1. What type of data structure do you have?</h4>
+                        <button onclick="cvDecision('iid')">Independent samples (I.I.D.)</button>
+                        <button onclick="cvDecision('temporal')">Time series data</button>
+                        <button onclick="cvDecision('grouped')">Grouped/Hierarchical data</button>
+                        <button onclick="cvDecision('spatial')">Spatial/Geographic data</button>
+                    </div>
+                </div>
+                
+                <div id="cvRecommendation" class="result-display">
+                    <h4>Recommended CV Method:</h4>
+                    <p id="cvOutput"></p>
+                </div>
+            </div>
+
+            <div class="tip-box">
+                <h4>💡 Pro Tip</h4>
+                <p>When in doubt, use the more conservative CV method. It's better to underestimate performance than to deploy an inadequate model!</p>
+            </div>
+        </div>
+
+        <div id="patientGrouping" class="tutorial-content">
+            <h2>👥 Patient-Level Grouping</h2>
+            
+            <p>Many medical datasets have multiple records per patient. Learn how to handle this correctly.</p>
+
+            <div class="interactive-demo">
+                <h3>Try It Yourself</h3>
+                <p>Given this patient data structure, identify the correct grouping variable:</p>
+                
+                <div class="code-block">
+data = {
+    'patient_id': [1, 1, 1, 2, 2, 3, 3, 3, 3],
+    'visit_date': ['2023-01', '2023-02', '2023-03', '2023-01', '2023-02', 
+                   '2023-01', '2023-02', '2023-03', '2023-04'],
+    'blood_pressure': [120, 125, 130, 110, 115, 140, 145, 150, 155],
+    'diagnosis': [0, 0, 1, 0, 0, 1, 1, 1, 1]
+}
+                </div>
+                
+                <p>What should you use as the 'groups' parameter in GroupKFold?</p>
+                <input type="text" id="groupingAnswer" placeholder="Enter the column name">
+                <button class="try-it-button" onclick="checkGrouping()">Check</button>
+                
+                <div id="groupingFeedback" class="feedback"></div>
+            </div>
+
+            <div class="tip-box">
+                <h4>💡 Key Principle</h4>
+                <p>All records from the same patient must stay together - either all in training or all in test, never split!</p>
+            </div>
+        </div>
+
+        <div id="temporalCV" class="tutorial-content">
+            <h2>⏰ Temporal Cross-Validation</h2>
+            
+            <p>Time series medical data requires special handling to prevent future information from leaking into training.</p>
+
+            <div class="interactive-demo">
+                <h3>Visualize Temporal Splits</h3>
+                <p>See how different temporal CV methods split your data:</p>
+                
+                <select id="temporalMethod" onchange="updateTemporalVisualization()">
+                    <option value="timeseries">Time Series Split</option>
+                    <option value="rolling">Rolling Window</option>
+                    <option value="expanding">Expanding Window</option>
+                    <option value="purged">Purged K-Fold</option>
+                </select>
+                
+                <div id="temporalViz"></div>
+            </div>
+
+            <div class="warning-box">
+                <h4>⚠️ Common Mistake</h4>
+                <p>Using random K-fold on time series data allows the model to "see the future" - training on tomorrow's data to predict today!</p>
+            </div>
+        </div>
+
+        <div id="nestedCV" class="tutorial-content">
+            <h2>🔄 Nested Cross-Validation</h2>
+            
+            <p>Learn how to perform unbiased hyperparameter tuning with nested CV.</p>
+
+            <div class="code-block">
+# Outer loop: Model evaluation
+outer_cv = GroupKFold(n_splits=5)
+
+# Inner loop: Hyperparameter tuning
+inner_cv = GroupKFold(n_splits=3)
+
+for train_idx, test_idx in outer_cv.split(X, y, groups):
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+    
+    # Tune hyperparameters on training set only
+    grid_search = GridSearchCV(model, param_grid, cv=inner_cv)
+    grid_search.fit(X_train, y_train, groups=groups[train_idx])
+    
+    # Evaluate on held-out test set
+    score = grid_search.score(X_test, y_test)
+            </div>
+
+            <div class="tip-box">
+                <h4>💡 Why Nested CV?</h4>
+                <p>Without nesting, you're using the same data for both selecting hyperparameters AND evaluating performance - leading to optimistic bias!</p>
+            </div>
+        </div>
+
+        <div id="spatialCV" class="tutorial-content">
+            <h2>🗺️ Spatial Cross-Validation</h2>
+            
+            <p>Geographic data requires special CV methods to handle spatial autocorrelation.</p>
+
+            <div class="interactive-demo">
+                <h3>Spatial Autocorrelation Demo</h3>
+                <p>See why random splits fail with spatial data:</p>
+                
+                <button class="try-it-button" onclick="showSpatialAutocorrelation()">Visualize Spatial Splits</button>
+                
+                <div id="spatialViz"></div>
+            </div>
+
+            <div class="tip-box">
+                <h4>💡 Buffer Zones</h4>
+                <p>Use buffered spatial CV to create "no data zones" between training and test regions, preventing spatial leakage.</p>
+            </div>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="comprehensiveQuiz" class="tutorial-content">
+            <h2>📝 Test Your Knowledge</h2>
+            
+            <div class="quiz-section">
+                <h3>Comprehensive CV Quiz</h3>
+                
+                <div class="quiz-question">
+                    <p><strong>Question 1:</strong> You have ICU data with hourly measurements. Which CV method should you use?</p>
+                    <div class="quiz-options">
+                        <label><input type="radio" name="quiz1" value="a">Standard K-Fold</label>
+                        <label><input type="radio" name="quiz1" value="b">Time Series Split</label>
+                        <label><input type="radio" name="quiz1" value="c">Leave-One-Out</label>
+                    </div>
+                </div>
+
+                <div class="quiz-question">
+                    <p><strong>Question 2:</strong> Multi-center trial data should use:</p>
+                    <div class="quiz-options">
+                        <label><input type="radio" name="quiz2" value="a">Random splits</label>
+                        <label><input type="radio" name="quiz2" value="b">Leave-Hospital-Out CV</label>
+                        <label><input type="radio" name="quiz2" value="c">Bootstrap validation</label>
+                    </div>
+                </div>
+
+                <div class="quiz-question">
+                    <p><strong>Question 3:</strong> Data leakage can cause performance overestimation of:</p>
+                    <div class="quiz-options">
+                        <label><input type="radio" name="quiz3" value="a">5-10%</label>
+                        <label><input type="radio" name="quiz3" value="b">20-40%</label>
+                        <label><input type="radio" name="quiz3" value="c">50-60%</label>
+                    </div>
+                </div>
+
+                <button class="check-answer-button" onclick="checkQuizAnswers()">Check All Answers</button>
+                <div id="quizResults" class="feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script>
+        // Track progress
+        let completedTutorials = new Set();
+        let totalTutorials = 6;
+
+        function updateProgress() {
+            const percentage = (completedTutorials.size / totalTutorials) * 100;
+            document.getElementById('progressBar').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = 
+                `${Math.round(percentage)}% Complete - ${completedTutorials.size}/${totalTutorials} tutorials completed`;
+        }
+
+        function showTutorial(tutorialId) {
+            // Hide all tutorials
+            document.querySelectorAll('.tutorial-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Show selected tutorial
+            document.getElementById(tutorialId).classList.add('active');
+            
+            // Mark as completed
+            completedTutorials.add(tutorialId);
+            updateProgress();
+            
+            // Scroll to content
+            document.getElementById(tutorialId).scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function simulateDataLeakage() {
+            const output = document.getElementById('leakageOutput');
+            const resultDiv = document.getElementById('leakageResult');
+            
+            // Simulate results
+            const wrongAUC = (0.85 + Math.random() * 0.1).toFixed(3);
+            const correctAUC = (0.65 + Math.random() * 0.1).toFixed(3);
+            const overestimation = ((wrongAUC - correctAUC) / correctAUC * 100).toFixed(1);
+            
+            output.innerHTML = `
+                <strong>Standard K-Fold (WRONG):</strong> AUC = ${wrongAUC} ❌<br>
+                <strong>Grouped K-Fold (CORRECT):</strong> AUC = ${correctAUC} ✅<br>
+                <strong>Performance Overestimation:</strong> ${overestimation}% 🚨<br><br>
+                <em>The model appears ${overestimation}% better than it actually is!</em>
+            `;
+            
+            resultDiv.classList.add('show');
+        }
+
+        function checkAnswer(questionId, correctAnswer, feedbackId) {
+            const selected = document.querySelector(`input[name="${questionId}"]:checked`);
+            const feedback = document.getElementById(feedbackId);
+            
+            if (!selected) {
+                feedback.textContent = "Please select an answer.";
+                feedback.className = "feedback incorrect";
+                feedback.style.display = "block";
+                return;
+            }
+            
+            if (selected.value === correctAnswer) {
+                feedback.textContent = "✅ Correct! The same patient's visits in both train and test sets allows the model to memorize patient-specific patterns.";
+                feedback.className = "feedback correct";
+            } else {
+                feedback.textContent = "❌ Not quite. Think about what happens when the same patient appears in both training and test sets.";
+                feedback.className = "feedback incorrect";
+            }
+            feedback.style.display = "block";
+        }
+
+        function cvDecision(dataType) {
+            const output = document.getElementById('cvOutput');
+            const resultDiv = document.getElementById('cvRecommendation');
+            
+            const recommendations = {
+                'iid': {
+                    method: 'Stratified K-Fold',
+                    reason: 'Good for independent samples with class imbalance',
+                    code: 'cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)'
+                },
+                'temporal': {
+                    method: 'Time Series Split or Purged K-Fold',
+                    reason: 'Prevents future data leakage in time series',
+                    code: 'cv = TimeSeriesSplit(n_splits=5) # or PurgedKFold(n_splits=5, purge_size=10)'
+                },
+                'grouped': {
+                    method: 'Group K-Fold or Leave-One-Group-Out',
+                    reason: 'Keeps related samples together (e.g., same patient)',
+                    code: 'cv = GroupKFold(n_splits=5) # use with groups parameter'
+                },
+                'spatial': {
+                    method: 'Spatial Block CV or Buffered Spatial CV',
+                    reason: 'Handles spatial autocorrelation in geographic data',
+                    code: 'cv = SpatialBlockCV(n_splits=5, buffer_size=10)'
+                }
+            };
+            
+            const rec = recommendations[dataType];
+            output.innerHTML = `
+                <strong>${rec.method}</strong><br><br>
+                <em>Why:</em> ${rec.reason}<br><br>
+                <code>${rec.code}</code>
+            `;
+            
+            resultDiv.classList.add('show');
+        }
+
+        function checkGrouping() {
+            const answer = document.getElementById('groupingAnswer').value.toLowerCase().trim();
+            const feedback = document.getElementById('groupingFeedback');
+            
+            if (answer === 'patient_id') {
+                feedback.textContent = "✅ Correct! Use patient_id to ensure all visits from the same patient stay together.";
+                feedback.className = "feedback correct";
+            } else {
+                feedback.textContent = "❌ Try again. Which column identifies unique patients?";
+                feedback.className = "feedback incorrect";
+            }
+            feedback.style.display = "block";
+        }
+
+        function updateTemporalVisualization() {
+            const method = document.getElementById('temporalMethod').value;
+            const vizDiv = document.getElementById('temporalViz');
+            
+            // Create sample temporal data visualization
+            const n_samples = 100;
+            const x = Array.from({length: n_samples}, (_, i) => i);
+            
+            // Different split patterns
+            const splits = {
+                'timeseries': [
+                    {train: [0, 60], test: [60, 80]},
+                    {train: [0, 80], test: [80, 100]}
+                ],
+                'rolling': [
+                    {train: [0, 30], test: [30, 40]},
+                    {train: [20, 50], test: [50, 60]},
+                    {train: [40, 70], test: [70, 80]}
+                ],
+                'expanding': [
+                    {train: [0, 30], test: [30, 40]},
+                    {train: [0, 50], test: [50, 60]},
+                    {train: [0, 70], test: [70, 80]}
+                ],
+                'purged': [
+                    {train: [0, 35], test: [40, 60], gap: [35, 40]},
+                    {train: [45, 80], test: [0, 20], gap: [20, 25]}
+                ]
+            };
+            
+            // Create Plotly visualization
+            const traces = [];
+            const methodSplits = splits[method];
+            
+            methodSplits.forEach((split, i) => {
+                traces.push({
+                    x: [split.train[0], split.train[1]],
+                    y: [i, i],
+                    mode: 'lines',
+                    line: {color: '#4CAF50', width: 20},
+                    name: `Fold ${i+1} Train`,
+                    showlegend: i === 0
+                });
+                
+                traces.push({
+                    x: [split.test[0], split.test[1]],
+                    y: [i, i],
+                    mode: 'lines',
+                    line: {color: '#FF876F', width: 20},
+                    name: `Fold ${i+1} Test`,
+                    showlegend: i === 0
+                });
+                
+                if (split.gap) {
+                    traces.push({
+                        x: [split.gap[0], split.gap[1]],
+                        y: [i, i],
+                        mode: 'lines',
+                        line: {color: '#FFA500', width: 20},
+                        name: `Fold ${i+1} Gap`,
+                        showlegend: i === 0
+                    });
+                }
+            });
+            
+            const layout = {
+                title: 'Temporal CV Visualization',
+                xaxis: {title: 'Time'},
+                yaxis: {title: 'Fold', tickmode: 'array', tickvals: [0, 1, 2]},
+                height: 300
+            };
+            
+            Plotly.newPlot(vizDiv, traces, layout);
+        }
+
+        function showSpatialAutocorrelation() {
+            const vizDiv = document.getElementById('spatialViz');
+            
+            // Create sample spatial data
+            const n = 50;
+            const x = Array.from({length: n}, () => Math.random() * 100);
+            const y = Array.from({length: n}, () => Math.random() * 100);
+            
+            // Create clusters
+            const colors = x.map((xi, i) => {
+                if (xi < 33) return '#4CAF50';
+                else if (xi < 66) return '#FF876F';
+                else return '#2196F3';
+            });
+            
+            const trace = {
+                x: x,
+                y: y,
+                mode: 'markers',
+                marker: {
+                    size: 10,
+                    color: colors
+                },
+                type: 'scatter'
+            };
+            
+            const layout = {
+                title: 'Spatial Block CV - Each color is a different fold',
+                xaxis: {title: 'Longitude'},
+                yaxis: {title: 'Latitude'},
+                height: 400
+            };
+            
+            Plotly.newPlot(vizDiv, [trace], layout);
+        }
+
+        function checkQuizAnswers() {
+            const correct = {
+                'quiz1': 'b',
+                'quiz2': 'b',
+                'quiz3': 'b'
+            };
+            
+            let score = 0;
+            let feedback = "";
+            
+            for (let q in correct) {
+                const selected = document.querySelector(`input[name="${q}"]:checked`);
+                if (selected && selected.value === correct[q]) {
+                    score++;
+                    feedback += `✅ Question ${q.slice(-1)}: Correct!<br>`;
+                } else {
+                    feedback += `❌ Question ${q.slice(-1)}: Incorrect<br>`;
+                }
+            }
+            
+            feedback += `<br><strong>Score: ${score}/3</strong>`;
+            
+            const resultsDiv = document.getElementById('quizResults');
+            resultsDiv.innerHTML = feedback;
+            resultsDiv.className = score === 3 ? "feedback correct" : "feedback incorrect";
+            resultsDiv.style.display = "block";
+        }
+    </script>
+</body>
+</html>

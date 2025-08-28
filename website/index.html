@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>trustcv - Trustworthy Cross-Validation Toolkit</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+    
+    <!-- Plotly for interactive visualizations -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Trustworthy Cross-Validation Toolkit</span>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="#methods">Methods</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1 class="hero-title">Master Cross-Validation for Medical ML</h1>
+            <p class="hero-subtitle">
+                Learn, implement, and validate machine learning models with medical data best practices.
+                Interactive tutorials, safety checks, and regulatory compliance built-in.
+                <br><em>Developed at SMAILE, Karolinska Institutet's core facility for AI.</em>
+            </p>
+            <div class="hero-actions">
+                <button class="btn-primary" onclick="window.location.href='demonstrations.html'">
+                    <span class="material-icons">play_arrow</span>
+                    Start Demonstrations
+                </button>
+                <button class="btn-secondary" onclick="window.location.href='#quick-start'">
+                    <span class="material-icons">rocket_launch</span>
+                    Quick Start Guide
+                </button>
+            </div>
+        </div>
+        <div class="hero-visualization">
+            <div id="cv-demo-plot"></div>
+        </div>
+    </section>
+
+    <!-- CV Method Selector -->
+    <section class="method-selector">
+        <div class="container">
+            <h2>Choose the Right CV Method for Your Medical Data</h2>
+            <div class="decision-tree">
+                <div class="decision-card">
+                    <h3>What type of medical data do you have?</h3>
+                    <div class="decision-options">
+                        <div class="option-card" onclick="selectDataType('iid')">
+                            <span class="material-icons">shuffle</span>
+                            <h4>Independent Samples</h4>
+                            <p>Each sample is independent (e.g., different patients)</p>
+                        </div>
+                        <div class="option-card" onclick="selectDataType('temporal')">
+                            <span class="material-icons">schedule</span>
+                            <h4>Time Series</h4>
+                            <p>Temporal dependencies (e.g., patient monitoring)</p>
+                        </div>
+                        <div class="option-card" onclick="selectDataType('grouped')">
+                            <span class="material-icons">group_work</span>
+                            <h4>Grouped/Hierarchical</h4>
+                            <p>Multiple samples per patient or hospital</p>
+                        </div>
+                        <div class="option-card" onclick="selectDataType('spatial')">
+                            <span class="material-icons">map</span>
+                            <h4>Spatial</h4>
+                            <p>Geographic or anatomical correlations</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="method-recommendation" class="recommendation-card" style="display:none;">
+                    <h3>Recommended Methods</h3>
+                    <div id="recommended-methods"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Visualization -->
+    <section class="visualization-section">
+        <div class="container">
+            <h2>Visualize Cross-Validation Strategies</h2>
+            <div class="vis-controls">
+                <div class="control-group">
+                    <label for="data-type">Data Type:</label>
+                    <select id="data-type" onchange="updateMethodOptions()">
+                        <option value="iid">I.I.D. (Independent)</option>
+                        <option value="temporal">Temporal/Time Series</option>
+                        <option value="grouped">Grouped/Hierarchical</option>
+                        <option value="spatial">Spatial/Geographic</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="cv-method">Method:</label>
+                    <select id="cv-method" onchange="updateVisualization()">
+                        <!-- Options will be populated dynamically -->
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="n-splits">Splits:</label>
+                    <input type="range" id="n-splits" min="2" max="10" value="5" onchange="updateVisualization()">
+                    <span id="splits-label">5</span>
+                </div>
+            </div>
+            <div id="cv-visualization"></div>
+        </div>
+    </section>
+
+    <!-- Methods Overview Section -->
+    <section class="methods-overview-section">
+        <div class="container">
+            <h2>📊 Cross-Validation Methods</h2>
+            <p class="section-subtitle">
+                Choose the right validation strategy for your medical machine learning project
+            </p>
+            
+            <div class="methods-preview-grid">
+                <div class="methods-category-card">
+                    <div class="category-icon">🔄</div>
+                    <h3>I.I.D. Methods</h3>
+                    <p>Hold-Out, K-Fold, Stratified, LOOCV, Bootstrap</p>
+                    <span class="method-count">9 methods</span>
+                </div>
+                
+                <div class="methods-category-card">
+                    <div class="category-icon">⏰</div>
+                    <h3>Temporal Methods</h3>
+                    <p>Time Series, Rolling, Expanding, Purged, CPCV</p>
+                    <span class="method-count">8 methods</span>
+                </div>
+                
+                <div class="methods-category-card">
+                    <div class="category-icon">👥</div>
+                    <h3>Grouped Methods</h3>
+                    <p>Group K-Fold, LOGO, LPGO, Hierarchical, Multi-level</p>
+                    <span class="method-count">8 methods</span>
+                </div>
+                
+                <div class="methods-category-card">
+                    <div class="category-icon">🌍</div>
+                    <h3>Spatial Methods</h3>
+                    <p>Spatial Block, Buffered, Spatiotemporal, Environmental</p>
+                    <span class="method-count">4 methods</span>
+                </div>
+                
+                <div class="methods-category-card">
+                    <div class="category-icon">🎯</div>
+                    <h3>Total Coverage</h3>
+                    <p>All validation strategies from the systematic review</p>
+                    <span class="method-count">29 methods total</span>
+                </div>
+                
+                <div class="methods-category-card">
+                    <div class="category-icon">🔬</div>
+                    <h3>Framework Support</h3>
+                    <p>Scikit-learn, PyTorch, TensorFlow, MONAI</p>
+                    <span class="method-count">4+ frameworks</span>
+                </div>
+            </div>
+            
+            <div class="methods-cta">
+                <a href="methods-comparison.html" class="btn-primary large">
+                    <span class="material-icons">table_chart</span>
+                    View Complete Methods Comparison
+                </a>
+                <p class="cta-description">
+                    Comprehensive table with 29+ methods, medical applications, and implementation guidance
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section class="features">
+        <div class="container">
+            <h2>Why trustcv?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">verified_user</span>
+                    </div>
+                    <h3>Safety First</h3>
+                    <p>Automatic detection of data leakage, patient-level contamination, and temporal violations</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">regulatory_compliance</span>
+                    </div>
+                    <h3>Regulatory Compliance</h3>
+                    <p>Learn to select, justify, and document your cross-validation strategy to meet FDA and CE MDR requirements for AI/ML medical devices</p>
+                    <a href="regulatory-cv-tutorial.html" style="color: var(--ki-plum); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px;">
+                        <span class="material-icons" style="font-size: 16px;">arrow_forward</span>
+                        Start Learning
+                    </a>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">local_hospital</span>
+                    </div>
+                    <h3>Medical-Specific</h3>
+                    <p>Methods designed for clinical data: patient grouping, disease prevalence, temporal patterns</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">school</span>
+                    </div>
+                    <h3>Learn by Doing</h3>
+                    <p>Interactive tutorials with real medical datasets and Google Colab notebooks</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section id="quick-start" class="quick-start">
+        <div class="container">
+            <h2>Quick Start</h2>
+            <div class="code-example">
+                <pre><code class="python">from trustcv import MedicalValidator
+from sklearn.ensemble import RandomForestClassifier
+
+# Initialize with medical-specific settings
+validator = MedicalValidator(
+    method='patient_grouped_kfold',
+    n_splits=5,
+    check_leakage=True
+)
+
+# Validate your model
+results = validator.fit_validate(
+    model=RandomForestClassifier(),
+    X=X_features,
+    y=y_labels,
+    patient_ids=patient_ids
+)
+
+# Get comprehensive results
+print(results.summary())</code></pre>
+            </div>
+            <div class="quick-actions">
+                <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/01_CV_Basics.ipynb" 
+                   class="btn-colab">
+                    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
+                </a>
+                <button class="btn-secondary" onclick="copyCode()">
+                    <span class="material-icons">content_copy</span> Copy Code
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Learning Paths Section -->
+    <section class="learning-paths">
+        <div class="container">
+            <h2>🎯 Choose Your Learning Path</h2>
+            <p class="section-subtitle">Multiple ways to master medical cross-validation</p>
+            
+            <div class="learning-grid">
+                <div class="learning-card">
+                    <div class="learning-header">
+                        <span class="material-icons">play_circle</span>
+                        <h3>Interactive Demonstrations</h3>
+                    </div>
+                    <div class="learning-content">
+                        <p>Explore real medical scenarios through hands-on simulations</p>
+                        <ul>
+                            <li>🚨 Data leakage consequences in ICU prediction</li>
+                            <li>🏥 Multi-site clinical trial validation</li>
+                            <li>⏰ Temporal validation for time-series data</li>
+                            <li>👥 Patient-level cross-validation strategies</li>
+                        </ul>
+                        <div class="learning-stats">
+                            <span class="stat">4 Interactive Demos</span>
+                            <span class="stat">Real Medical Data</span>
+                        </div>
+                    </div>
+                    <div class="learning-actions">
+                        <a href="demonstrations.html" class="btn-primary">
+                            <span class="material-icons">launch</span>
+                            Start Demonstrations
+                        </a>
+                    </div>
+                </div>
+
+                <div class="learning-card">
+                    <div class="learning-header">
+                        <span class="material-icons">quiz</span>
+                        <h3>Knowledge Assessment</h3>
+                    </div>
+                    <div class="learning-content">
+                        <p>Test your understanding with our comprehensive CV quiz</p>
+                        <ul>
+                            <li>📋 10 clinical scenario questions</li>
+                            <li>🎯 Detailed explanations and insights</li>
+                            <li>📊 Personalized skill assessment</li>
+                            <li>📚 Tailored learning recommendations</li>
+                        </ul>
+                        <div class="learning-stats">
+                            <span class="stat">15 Minutes</span>
+                            <span class="stat">Instant Feedback</span>
+                        </div>
+                    </div>
+                    <div class="learning-actions">
+                        <a href="quiz.html" class="btn-primary">
+                            <span class="material-icons">psychology</span>
+                            Take Knowledge Quiz
+                        </a>
+                    </div>
+                </div>
+
+                <div class="learning-card">
+                    <div class="learning-header">
+                        <span class="material-icons">code</span>
+                        <h3>Hands-On Coding</h3>
+                    </div>
+                    <div class="learning-content">
+                        <p>Learn by coding with our Jupyter notebook tutorials</p>
+                        <ul>
+                            <li>📓 Step-by-step implementation guides</li>
+                            <li>💻 Real datasets and working examples</li>
+                            <li>🔬 Advanced techniques and best practices</li>
+                            <li>🏥 Clinical deployment considerations</li>
+                        </ul>
+                        <div class="learning-stats">
+                            <span class="stat">10 Notebooks</span>
+                            <span class="stat">Google Colab Ready</span>
+                        </div>
+                    </div>
+                    <div class="learning-actions">
+                        <a href="notebooks.html" class="btn-primary">
+                            <span class="material-icons">book</span>
+                            View Notebooks
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/main.js"></script>
+    <script src="js/cv-homepage-animation.js"></script>
+    <script src="js/cv-visualizations.js"></script>
+    <script src="js/cv-temporal.js"></script>
+    <script src="js/cv-grouped.js"></script>
+    <script src="js/cv-spatial.js"></script>
+    <script src="js/tutorials.js"></script>
+    
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('navMenu');
+            const toggle = document.querySelector('.nav-toggle');
+            
+            if (!menu.contains(event.target) && !toggle.contains(event.target)) {
+                menu.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>

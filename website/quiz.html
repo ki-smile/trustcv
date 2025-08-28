@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Quiz - trustcv</title>
+    
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+    
+    <!-- Plotly for interactive visualizations -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <span class="brand-logo">trustcv</span>
+                <span class="brand-tagline">Interactive Quiz</span>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="quiz.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="docs/API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/CV_SELECTION_GUIDE.md">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                        
+                    </div>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
+                    <span class="material-icons">code</span> GitHub
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">🧠 Interactive CV Knowledge Quiz</h1>
+            <p class="page-subtitle">
+                Test your understanding of medical cross-validation concepts through real clinical scenarios.
+                Get personalized feedback and recommendations to improve your CV expertise.
+            </p>
+            <div class="header-badges">
+                <span class="badge">20 Clinical Scenarios</span>
+                <span class="badge">Personalized Feedback</span>
+                <span class="badge">Skill Assessment</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quiz Introduction -->
+    <section class="quiz-intro">
+        <div class="container">
+            <div class="intro-grid">
+                <div class="intro-content">
+                    <h2>📋 What You'll Learn</h2>
+                    <div class="learning-objectives">
+                        <div class="objective">
+                            <span class="material-icons">security</span>
+                            <div>
+                                <h3>Data Leakage Detection</h3>
+                                <p>Identify and prevent common validation pitfalls in medical data</p>
+                            </div>
+                        </div>
+                        <div class="objective">
+                            <span class="material-icons">tune</span>
+                            <div>
+                                <h3>Method Selection</h3>
+                                <p>Choose the right CV approach for different medical scenarios</p>
+                            </div>
+                        </div>
+                        <div class="objective">
+                            <span class="material-icons">local_hospital</span>
+                            <div>
+                                <h3>Clinical Application</h3>
+                                <p>Apply CV knowledge to real-world AI deployment</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="intro-stats">
+                    <div class="stat-card">
+                        <div class="stat-number">20</div>
+                        <div class="stat-label">Clinical Scenarios</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">4</div>
+                        <div class="stat-label">Skill Categories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">~25</div>
+                        <div class="stat-label">Minutes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="quiz-start-section">
+                <button class="btn-start-quiz" onclick="startQuiz()">
+                    <span class="material-icons">play_arrow</span>
+                    Start Knowledge Assessment
+                </button>
+                <p class="quiz-note">Each question includes detailed explanations and clinical insights</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Quiz Section -->
+    <section id="interactive-quiz" class="quiz-section" style="display: none;">
+        <div class="container">
+            <div class="quiz-container">
+                <div class="quiz-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="quiz-progress"></div>
+                    </div>
+                    <span class="progress-text">Question <span id="current-question">1</span> of <span id="total-questions">20</span></span>
+                </div>
+                
+                <div class="quiz-card" id="quiz-card">
+                    <div class="question-scenario">
+                        <h3 id="quiz-scenario"></h3>
+                    </div>
+                    
+                    <div class="question-content">
+                        <h4 id="quiz-question"></h4>
+                        <div class="quiz-options" id="quiz-options">
+                            <!-- Options will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-explanation" id="quiz-explanation" style="display: none;">
+                        <h4>🎯 Explanation</h4>
+                        <div id="explanation-content"></div>
+                        <div class="clinical-insight">
+                            <h5>💡 Clinical Insight:</h5>
+                            <p id="clinical-insight-text"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="quiz-actions">
+                        <button class="btn-secondary" id="quiz-prev" onclick="previousQuestion()" disabled>
+                            <span class="material-icons">arrow_back</span>
+                            Previous
+                        </button>
+                        <button class="btn-primary" id="quiz-next" onclick="nextQuestion()">
+                            Next Question
+                            <span class="material-icons">arrow_forward</span>
+                        </button>
+                        <button class="btn-quiz" id="quiz-submit" onclick="submitAnswer()" style="display: none;">
+                            Submit Answer
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="quiz-results" id="quiz-results" style="display: none;">
+                    <div class="results-summary">
+                        <h3>🏆 Quiz Complete!</h3>
+                        <div class="score-display">
+                            <div class="score-circle">
+                                <span class="score-value" id="final-score">0</span>
+                                <span class="score-total">/20</span>
+                            </div>
+                            <div class="score-interpretation" id="score-interpretation"></div>
+                        </div>
+                        <div class="performance-breakdown">
+                            <h4>📊 Skill Breakdown</h4>
+                            <div class="skill-area">
+                                <span class="skill-name">Data Leakage Detection:</span>
+                                <div class="skill-bar">
+                                    <div class="skill-fill" id="leakage-skill"></div>
+                                </div>
+                                <span class="skill-score" id="leakage-score"></span>
+                            </div>
+                            <div class="skill-area">
+                                <span class="skill-name">Method Selection:</span>
+                                <div class="skill-bar">
+                                    <div class="skill-fill" id="method-skill"></div>
+                                </div>
+                                <span class="skill-score" id="method-score"></span>
+                            </div>
+                            <div class="skill-area">
+                                <span class="skill-name">Clinical Application:</span>
+                                <div class="skill-bar">
+                                    <div class="skill-fill" id="clinical-skill"></div>
+                                </div>
+                                <span class="skill-score" id="clinical-score"></span>
+                            </div>
+                            <div class="skill-area">
+                                <span class="skill-name">Medical Imaging:</span>
+                                <div class="skill-bar">
+                                    <div class="skill-fill" id="imaging-skill"></div>
+                                </div>
+                                <span class="skill-score" id="imaging-score"></span>
+                            </div>
+                            <div class="skill-area">
+                                <span class="skill-name">Temporal Validation:</span>
+                                <div class="skill-bar">
+                                    <div class="skill-fill" id="temporal-skill"></div>
+                                </div>
+                                <span class="skill-score" id="temporal-score"></span>
+                            </div>
+                        </div>
+                        <div class="recommendations" id="learning-recommendations"></div>
+                        <div class="quiz-actions-final">
+                            <button class="btn-primary" onclick="restartQuiz()">
+                                <span class="material-icons">refresh</span>
+                                Take Quiz Again
+                            </button>
+                            <button class="btn-secondary" onclick="viewDemonstrations()">
+                                <span class="material-icons">play_circle</span>
+                                Try Demonstrations
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quiz Features Section -->
+    <section class="quiz-features">
+        <div class="container">
+            <h2>🌟 Quiz Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">psychology</span>
+                    </div>
+                    <h3>Adaptive Learning</h3>
+                    <p>Questions adapt to test your understanding of complex medical CV concepts</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">insights</span>
+                    </div>
+                    <h3>Detailed Feedback</h3>
+                    <p>Each answer includes comprehensive explanations and clinical context</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">trending_up</span>
+                    </div>
+                    <h3>Skill Assessment</h3>
+                    <p>Track your progress across different CV competency areas</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <span class="material-icons">school</span>
+                    </div>
+                    <h3>Learning Recommendations</h3>
+                    <p>Get personalized study suggestions based on your performance</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Navigation Section -->
+    <section class="page-navigation">
+        <div class="container">
+            <div class="nav-cards">
+                <div class="nav-card">
+                    <h3>🎯 Try Demonstrations</h3>
+                    <p>Explore interactive scenarios with real medical datasets</p>
+                    <a href="demonstrations.html" class="btn-primary">View Demos</a>
+                </div>
+                <div class="nav-card">
+                    <h3>📓 Jupyter Notebooks</h3>
+                    <p>Dive deeper with hands-on coding tutorials</p>
+                    <a href="notebooks.html" class="btn-secondary">View Notebooks</a>
+                </div>
+                <div class="nav-card">
+                    <h3>🏠 Back to Home</h3>
+                    <p>Return to the main trustcv homepage</p>
+                    <a href="index.html" class="btn-secondary">Home</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="LICENSE">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">
+                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Files -->
+    <script src="js/main.js"></script>
+    <script src="js/cv-visualizations.js"></script>
+    <script src="js/cv-temporal.js"></script>
+    <script src="js/cv-grouped.js"></script>
+    <script src="js/cv-spatial.js"></script>
+    <script src="js/tutorials.js"></script>
+    <script src="js/navigation.js"></script>
+
+    <script>
+        // Quiz-specific JavaScript functions
+        function startQuiz() {
+            document.querySelector('.quiz-intro').style.display = 'none';
+            document.querySelector('.quiz-features').style.display = 'none';
+            document.getElementById('interactive-quiz').style.display = 'block';
+            resetQuiz();
+        }
+
+        function viewDemonstrations() {
+            window.location.href = 'demonstrations.html';
+        }
+
+        // Add score interpretation
+        function getScoreInterpretation(score) {
+            if (score >= 9) return "🌟 Excellent! You have mastery-level understanding of medical CV";
+            if (score >= 7) return "🎯 Great job! You have solid CV knowledge with minor gaps";
+            if (score >= 5) return "📚 Good foundation. Review the areas below for improvement";
+            if (score >= 3) return "🔄 Keep learning! Focus on the recommended topics";
+            return "🚀 Great start! Work through our demonstrations and notebooks";
+        }
+    </script>
+</body>
+</html>
