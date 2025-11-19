@@ -64,9 +64,29 @@ class ValidationResult:
             seen.add(display_metric)
         
         summary += "\nData Integrity Checks:\n"
+        friendly_names = {
+            'no_duplicate_samples': 'Duplicate Samples',
+            'no_patient_leakage': 'Patient Leakage Separation',
+            'has_leakage': 'External Leakage Detector',
+            'balanced_classes': 'Class Balance',
+        }
+        handled = set()
+        leakage_keys = [k for k in ('no_duplicate_samples', 'no_patient_leakage', 'has_leakage')
+                        if k in self.leakage_check]
+        if leakage_keys:
+            leakage_status = all(self.leakage_check[k] for k in leakage_keys)
+            summary += f"  Leakage Check: {'PASSED' if leakage_status else 'FAILED'}\n"
+            handled.update(leakage_keys)
+        if 'balanced_classes' in self.leakage_check:
+            balanced = self.leakage_check['balanced_classes']
+            summary += f"  Class Balance: {'PASSED' if balanced else 'FAILED'}\n"
+            handled.add('balanced_classes')
         for check, passed in self.leakage_check.items():
-            status = "OK" if passed else "FAILED"
-            summary += f"  {check}: {status}\n"
+            if check in handled:
+                continue
+            label = friendly_names.get(check, check.replace('_', ' ').title())
+            status = "PASSED" if passed else "FAILED"
+            summary += f"  {label}: {status}\n"
         
         if self.recommendations:
             summary += "\nRecommendations:\n"
@@ -109,10 +129,18 @@ class TrustCVValidator:
         compliance: Optional[str] = None,
         *,
         metrics: Optional[List[str]] = None,
-        return_confidence_intervals: bool = False,
+        return_confidence_intervals: bool = True,
         ci_level: float = 0.95,
         ci_method: str = "bootstrap",
         n_bootstrap: int = 1000,
+        holdout_test_size: Union[float, int] = 0.2,
+        holdout_stratify: bool = False,
+        repeated_kfold_repeats: int = 1,
+        lpocv_p: int = 2,
+        monte_carlo_iterations: int = 50,
+        monte_carlo_test_size: Union[float, int] = 0.2,
+        bootstrap_validation_iterations: int = 200,
+        bootstrap_validation_estimator: str = 'standard',
     ):
         """
         Initialize TrustCV Validator
@@ -121,7 +149,8 @@ class TrustCVValidator:
         -----------
         method : str
             Cross-validation method ('kfold', 'stratified_kfold', 
-            'patient_grouped_kfold', 'temporal')
+            'patient_grouped_kfold', 'temporal', 'holdout',
+            'repeated_kfold', 'loocv', 'lpocv', 'monte_carlo', 'bootstrap')
         n_splits : int
             Number of CV folds
         random_state : int
@@ -132,6 +161,22 @@ class TrustCVValidator:
             Whether to check class balance
         compliance : str
             Regulatory compliance mode ('FDA', 'CE', None)
+        holdout_test_size : float or int
+            Fraction or absolute count for hold-out validation when ``method='holdout'``
+        holdout_stratify : bool
+            If True, enables stratified hold-out splitting (uses ``y`` labels)
+        repeated_kfold_repeats : int
+            Number of repetitions when ``method='repeated_kfold'``
+        lpocv_p : int
+            Number of samples to leave out for ``method='lpocv'``
+        monte_carlo_iterations : int
+            Random split iterations for ``method='monte_carlo'``
+        monte_carlo_test_size : float or int
+            Fraction or count for Monte Carlo test splits
+        bootstrap_validation_iterations : int
+            Number of bootstrap resamples when ``method='bootstrap'``
+        bootstrap_validation_estimator : str
+            Bootstrap estimator variant ('standard', '.632', '.632+')
         """
         # Accept multiple naming styles (canonical and sklearn-style)
         self.method = self._normalize_method(method)
@@ -147,6 +192,31 @@ class TrustCVValidator:
             raise ValueError("ci_level must be between 0 and 1 (exclusive).")
         self.ci_method = ci_method
         self.n_bootstrap = int(n_bootstrap)
+
+        self.holdout_test_size = holdout_test_size
+        if isinstance(self.holdout_test_size, float):
+            if not 0 < self.holdout_test_size < 1:
+                raise ValueError("holdout_test_size as float must be between 0 and 1.")
+        elif isinstance(self.holdout_test_size, int):
+            if self.holdout_test_size <= 0:
+                raise ValueError("holdout_test_size as int must be positive.")
+        self.holdout_stratify = bool(holdout_stratify)
+
+        self.repeated_kfold_repeats = max(int(repeated_kfold_repeats), 1)
+
+        self.lpocv_p = max(int(lpocv_p), 1)
+
+        self.monte_carlo_iterations = max(int(monte_carlo_iterations), 1)
+        self.monte_carlo_test_size = monte_carlo_test_size
+        if isinstance(self.monte_carlo_test_size, float):
+            if not 0 < self.monte_carlo_test_size < 1:
+                raise ValueError("monte_carlo_test_size as float must be between 0 and 1.")
+        elif isinstance(self.monte_carlo_test_size, int):
+            if self.monte_carlo_test_size <= 0:
+                raise ValueError("monte_carlo_test_size as int must be positive.")
+
+        self.bootstrap_validation_iterations = max(int(bootstrap_validation_iterations), 1)
+        self.bootstrap_validation_estimator = bootstrap_validation_estimator
         
         self._cv_splitter = None
         self._setup_splitter()
@@ -395,11 +465,23 @@ class TrustCVValidator:
             KFold, StratifiedKFold, GroupKFold, 
             TimeSeriesSplit
         )
-        # Optional trustcv splitters for advanced grouped strategies
+        # Optional trustcv splitters for advanced strategies
         try:
             from .splitters import StratifiedGroupKFold as _TCVStratifiedGroupKFold
         except Exception:
             _TCVStratifiedGroupKFold = None
+        _TCVHoldOut = _TCVRepeatedKFold = _TCVLOOCV = _TCVLPOCV = _TCVMonteCarloCV = _TCVBootstrapValidation = None
+        try:
+            from .splitters import (
+                HoldOut as _TCVHoldOut,
+                RepeatedKFold as _TCVRepeatedKFold,
+                LOOCV as _TCVLOOCV,
+                LPOCV as _TCVLPOCV,
+                MonteCarloCV as _TCVMonteCarloCV,
+                BootstrapValidation as _TCVBootstrapValidation,
+            )
+        except Exception:
+            pass
         
         # Normalize again in case an older object was created without normalization
         method_key = self._normalize_method(self.method) if isinstance(self.method, str) else self.method
@@ -429,6 +511,47 @@ class TrustCVValidator:
             )
         elif method_key == 'temporal':
             self._cv_splitter = TimeSeriesSplit(n_splits=self.n_splits)
+        elif method_key == 'holdout':
+            if _TCVHoldOut is None:
+                raise ValueError("HoldOut splitter is unavailable. Ensure trustcv.splitters is installed.")
+            stratify_flag = bool(self.holdout_stratify)
+            self._cv_splitter = _TCVHoldOut(
+                test_size=self.holdout_test_size,
+                random_state=self.random_state,
+                stratify=True if stratify_flag else None
+            )
+        elif method_key == 'repeated_kfold':
+            if _TCVRepeatedKFold is None:
+                raise ValueError("RepeatedKFold splitter is unavailable. Ensure trustcv.splitters is installed.")
+            self._cv_splitter = _TCVRepeatedKFold(
+                n_splits=self.n_splits,
+                n_repeats=self.repeated_kfold_repeats,
+                random_state=self.random_state
+            )
+        elif method_key == 'loocv':
+            if _TCVLOOCV is None:
+                raise ValueError("LOOCV splitter is unavailable. Ensure trustcv.splitters is installed.")
+            self._cv_splitter = _TCVLOOCV()
+        elif method_key == 'lpocv':
+            if _TCVLPOCV is None:
+                raise ValueError("LPOCV splitter is unavailable. Ensure trustcv.splitters is installed.")
+            self._cv_splitter = _TCVLPOCV(p=self.lpocv_p)
+        elif method_key == 'monte_carlo':
+            if _TCVMonteCarloCV is None:
+                raise ValueError("MonteCarloCV splitter is unavailable. Ensure trustcv.splitters is installed.")
+            self._cv_splitter = _TCVMonteCarloCV(
+                n_iterations=self.monte_carlo_iterations,
+                test_size=self.monte_carlo_test_size,
+                random_state=self.random_state
+            )
+        elif method_key == 'bootstrap':
+            if _TCVBootstrapValidation is None:
+                raise ValueError("BootstrapValidation splitter is unavailable. Ensure trustcv.splitters is installed.")
+            self._cv_splitter = _TCVBootstrapValidation(
+                n_iterations=self.bootstrap_validation_iterations,
+                estimator=self.bootstrap_validation_estimator,
+                random_state=self.random_state
+            )
         
         else:
             # Last-resort: accept common sklearn-style names literally
@@ -509,9 +632,25 @@ class TrustCVValidator:
             'stratifiedgroup_kfold': 'stratified_grouped_kfold',
             'stratified_groupkfold': 'stratified_grouped_kfold',
             'stratified_group_kfold': 'stratified_grouped_kfold',
-            # leave-one variants (fallback to kfold inside validator)
-            'leaveoneout': 'kfold',
-            'leavepout': 'kfold',
+            'holdout': 'holdout',
+            'holdoutvalidation': 'holdout',
+            'holdoutsplit': 'holdout',
+            'traintestsplit': 'holdout',
+            'repeatedkfold': 'repeated_kfold',
+            'repeated_kfold': 'repeated_kfold',
+            'repeated-kfold': 'repeated_kfold',
+            'loocv': 'loocv',
+            'leaveoneout': 'loocv',
+            'leave_one_out': 'loocv',
+            'lpocv': 'lpocv',
+            'leavepout': 'lpocv',
+            'leave_p_out': 'lpocv',
+            'montecarlocv': 'monte_carlo',
+            'montecarlo': 'monte_carlo',
+            'monte_carlo': 'monte_carlo',
+            'bootstrapvalidation': 'bootstrap',
+            'bootstrap_cv': 'bootstrap',
+            'bootstrap': 'bootstrap',
             # temporal
             'temporal': 'temporal',
             'timeseriessplit': 'temporal',

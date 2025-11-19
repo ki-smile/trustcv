@@ -81,25 +81,46 @@ pip install trustcv
 
 ## Quickstart – IID CV with TrustCV
 
-Here is a minimal example using `StratifiedKFoldMedical` and `UniversalCVRunner`:
+Here is a minimal example using `StratifiedKFold` and `UniversalCVRunner`:
 
 
 ```python
+from trustcv import TrustCVValidator
 from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
-
-from trustcv import StratifiedKFold, UniversalCVRunner
 
 X, y = load_breast_cancer(return_X_y=True)
 model = make_pipeline(StandardScaler(), RandomForestClassifier(random_state=42))
 
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-runner = UniversalCVRunner(cv_splitter=cv, framework="auto")
+# Validates with leakage checks and computes clinical CIs
+validator = TrustCVValidator(
+    method="StratifiedKfold",  # IID, stratified
+    n_splits=5,
+    random_state=42,
+    check_leakage=True,
+    check_balance=True,
+)
+results = validator.validate(model=model, X=X, y=y)
 
-results = runner.run(model=model, data=(X, y), metrics=["accuracy", "roc_auc"])
-print(results.summary())
+print(results.summary()) 
+
+# Output:
+#=== Trustworthy Cross-Validation Results ===
+
+#Performance Metrics (mean +/- std) (method: bootstrap):
+#  accuracy: 0.954 +/- 0.011 [95% CI (bootstrap): 0.946-0.963]
+#  roc_auc: 0.992 +/- 0.004 [95% CI (bootstrap): 0.989-0.995]
+#  sensitivity: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
+#  specificity: 0.934 +/- 0.042 [95% CI (bootstrap): 0.901-0.967]
+#  precision: 0.962 +/- 0.023 [95% CI (bootstrap): 0.944-0.980]
+#  recall: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
+#  f1: 0.964 +/- 0.009 [95% CI (bootstrap): 0.956-0.971]
+
+#Data Integrity Checks:
+#  Leakage Check: PASSED
+#  Class Balance: PASSED
 ```
 
 For a higher-level workflow with leakage and balance checks, see the
