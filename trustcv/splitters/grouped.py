@@ -207,9 +207,22 @@ class StratifiedGroupKFold(_BaseKFold):
             train_idx = np.where(np.isin(groups, train_patients))[0]
             test_idx = np.where(np.isin(groups, test_patients))[0]
             
-            # Verify stratification
-            train_dist = np.bincount(y[train_idx]) / len(train_idx)
-            test_dist = np.bincount(y[test_idx]) / len(test_idx)
+            # Verify stratification (robust to non-integer labels)
+            # np.bincount requires integer labels; encode to 0..n_classes-1 first
+            try:
+                # Use pandas factorize for robust encoding of any dtype
+                y_enc, _ = pd.factorize(y)
+            except Exception:
+                # Fallback to numpy unique-based encoding
+                _, y_enc = np.unique(y, return_inverse=True)
+
+            n_classes = int(y_enc.max()) + 1 if len(y_enc) else 0
+            if n_classes > 0:
+                train_dist = np.bincount(y_enc[train_idx], minlength=n_classes) / max(len(train_idx), 1)
+                test_dist = np.bincount(y_enc[test_idx], minlength=n_classes) / max(len(test_idx), 1)
+            else:
+                train_dist = np.array([])
+                test_dist = np.array([])
             
             if np.abs(train_dist - test_dist).max() > 0.1:
                 warnings.warn(

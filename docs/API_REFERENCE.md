@@ -2,14 +2,16 @@
 
 ## Core Classes
 
-### MedicalValidator
+### TrustCVValidator
+
+Note: MedicalValidator is deprecated; use TrustCVValidator.
 
 Main validator class for medical machine learning cross-validation.
 
 ```python
-from trustcv import MedicalValidator
+from trustcv import TrustCVValidator
 
-validator = MedicalValidator(
+validator = TrustCVValidator(
     method='stratified_kfold',
     n_splits=5,
     random_state=42,
@@ -29,6 +31,13 @@ validator = MedicalValidator(
 | `check_leakage` | bool | True | Enable data leakage detection |
 | `check_balance` | bool | True | Check class balance |
 | `compliance` | str/None | None | Regulatory mode ('FDA', 'CE', None) |
+| `metrics` | list[str]/None | ['accuracy','roc_auc','sensitivity','specificity','precision','recall','f1'] | Metrics reported by both validation paths (case-insensitive) |
+| `return_confidence_intervals` | bool | False | Enable 95% confidence interval reporting |
+| `ci_method` | str | 'bootstrap' | Interval estimator ('bootstrap' or 't-interval') |
+| `ci_level` | float | 0.95 | Coverage level for confidence intervals (0-1 range) |
+| `n_bootstrap` | int | 1000 | Resamples used when `ci_method='bootstrap'` |
+
+> **Tip:** `metrics` is case-insensitive. Provide a subset like `["accuracy", "roc_auc"]` to limit the reported scores, or leave it as `None` to include the full medical set.
 
 #### Methods
 
@@ -47,6 +56,21 @@ Perform medical cross-validation with comprehensive checks.
 
 **Returns:** `ValidationResult` object containing scores, metrics, and recommendations.
 
+##### validate()
+
+```python
+val_result = validator.validate(
+    model=model,
+    X=X,
+    y=y,
+    patient_ids=patient_ids,  # optional alias for groups
+    cv=None,
+    sample_weight=None
+)
+```
+
+Manually run cross-validation using the configured splitter. Accepts `patient_ids` for grouped splits and honors the validator's `metrics`, `ci_method`, and `ci_level` settings (e.g., set `ci_level=0.90` for 90% intervals, or switch to `ci_method='t-interval'`).
+
 ##### suggest_best_method()
 
 ```python
@@ -59,14 +83,14 @@ Automatically suggest the best CV method based on data characteristics.
 
 ## Splitters
 
-### PatientGroupKFold
+### GroupKFoldMedical
 
 Patient-aware K-Fold cross-validator ensuring patient data stays together.
 
 ```python
-from trustcv.splitters import PatientGroupKFold
+from trustcv.splitters import GroupKFoldMedical
 
-cv = PatientGroupKFold(n_splits=5, shuffle=True, random_state=42)
+cv = GroupKFoldMedical(n_splits=5, shuffle=True, random_state=42)
 
 for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
     # Patient data never splits across folds
@@ -93,14 +117,14 @@ for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
     # Maintains class balance AND patient grouping
 ```
 
-### TemporalClinical
+### TimeSeriesSplit
 
 Time-aware splitter for temporal medical data.
 
 ```python
-from trustcv.splitters import TemporalClinical
+from trustcv.splitters import TimeSeriesSplit
 
-cv = TemporalClinical(n_splits=5, gap=7, test_size=None)
+cv = TimeSeriesSplit(n_splits=5, gap=7, test_size=None)
 
 for train_idx, test_idx in cv.split(X, timestamps=dates):
     # Training data always precedes test data
@@ -348,7 +372,9 @@ Result object from medical validation.
 | `scores` | dict | Raw CV scores |
 | `mean_scores` | dict | Mean scores across folds |
 | `std_scores` | dict | Standard deviation of scores |
-| `confidence_intervals` | dict | 95% CI for metrics |
+| `confidence_intervals` | dict | Confidence intervals per metric (per `ci_level`) |
+| `ci_method` | str | Interval estimator used (e.g., `bootstrap`, `t-interval`) |
+| `ci_level` | float | Confidence level used when computing intervals |
 | `fold_details` | list | Per-fold information |
 | `leakage_check` | dict | Data integrity results |
 | `recommendations` | list | Actionable suggestions |
@@ -378,7 +404,7 @@ Convert to dictionary for JSON export.
 ### Complete Pipeline
 
 ```python
-from trustcv import MedicalValidator
+from trustcv import TrustCVValidator
 from trustcv.datasets import load_heart_disease
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
@@ -394,7 +420,7 @@ pipeline = Pipeline([
 ])
 
 # Initialize validator
-validator = MedicalValidator(
+validator = TrustCVValidator(
     method='patient_grouped_kfold',
     n_splits=5,
     check_leakage=True,
@@ -469,6 +495,20 @@ def fit_validate(
     timestamps: Optional[Union[np.ndarray, pd.Series]] = None
 ) -> ValidationResult:
     ...
+
+def validate(
+    self,
+    *,
+    model,
+    X: Union[np.ndarray, pd.DataFrame],
+    y: Union[np.ndarray, pd.Series],
+    patient_ids: Optional[Union[np.ndarray, pd.Series]] = None,
+    groups: Optional[Union[np.ndarray, pd.Series]] = None,
+    cv: Optional[BaseCrossValidator] = None,
+    leakage_checker: Optional[Any] = None,
+    sample_weight: Optional[np.ndarray] = None,
+) -> ValidationResult:
+    ...
 ```
 
 ---
@@ -503,4 +543,4 @@ except ValueError as e:
 
 ---
 
-*For more examples and tutorials, visit the [documentation](https://medicalcv.readthedocs.io).*
+*For more examples and tutorials, visit the [documentation](https://trustcv.readthedocs.io).* 

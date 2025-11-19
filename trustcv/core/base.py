@@ -18,61 +18,152 @@ class CVResults:
     Standardized results container for cross-validation
     
     Attributes:
-        scores: Performance scores for each fold
+        scores: Per-fold metric dicts, e.g., [{"score": 0.91, ...}, ...]
         models: Trained models from each fold (optional)
-        predictions: Predictions on validation sets
+        predictions: Discrete predictions per fold (if available)
+        probabilities: Prediction probabilities per fold (classification)
         indices: Train/test indices for each fold
-        metadata: Additional framework-specific information
+        metadata: Additional info (framework, n_splits, cv_method, ...)
     """
-    scores: List[Dict[str, float]]
+    scores: List[Dict[str, Any]]
     models: Optional[List[Any]] = None
     predictions: Optional[List[np.ndarray]] = None
+    probabilities: Optional[List[np.ndarray]] = None
     indices: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
+    # ----- helpers -----
+    def _to_float_list(self, value) -> List[float]:
+        import numpy as _np
+        if isinstance(value, dict):
+            for key in ("folds", "values", "fold_scores"):
+                if key in value:
+                    try:
+                        arr = _np.asarray(value[key], dtype=float)
+                        return arr.ravel().tolist()
+                    except Exception:
+                        return []
+            mean = value.get("mean") if isinstance(value, dict) else None
+            if _np.isscalar(mean):
+                return [float(mean)]
+            return []
+        if _np.isscalar(value):
+            try:
+                return [float(value)]
+            except Exception:
+                return []
+        try:
+            arr = _np.asarray(value, dtype=float)
+            if arr.ndim == 0:
+                return [float(arr)]
+            if arr.ndim == 1:
+                return arr.tolist()
+            return []
+        except Exception:
+            return []
+
+    def _collect_metric_series(self) -> Dict[str, Dict[str, List[float]]]:
+        """Collect per-metric values across folds along with weights when available."""
+        series: Dict[str, Dict[str, List[float]]] = {}
+        weights = self.metadata.get('fold_sizes')
+        use_weights = isinstance(weights, (list, tuple)) and len(weights) == len(self.scores or [])
+        for fold_idx, fold in enumerate(self.scores or []):
+            weight = None
+            if use_weights:
+                try:
+                    weight = float(weights[fold_idx])
+                except Exception:
+                    weight = None
+            if not isinstance(fold, dict):
+                continue
+            for k, v in fold.items():
+                # Skip large arrays like predictions/probabilities
+                if k.lower() in ("predictions", "probabilities", "y_pred", "y_proba"):
+                    continue
+                vals = self._to_float_list(v)
+                if not vals:
+                    continue
+                entry = series.setdefault(k, {'values': [], 'weights': []})
+                entry['values'].extend(vals)
+                if weight is not None:
+                    entry['weights'].extend([weight] * len(vals))
+                else:
+                    entry['weights'].extend([None] * len(vals))
+        return series
+
+    def _metric_stats(self, name: str) -> Tuple[float, float]:
+        import numpy as _np
+        series = self._collect_metric_series()
+        entry = series.get(name)
+        if not entry:
+            return _np.nan, _np.nan
+        vals_list = entry.get('values', [])
+        if len(vals_list) == 0:
+            return _np.nan, _np.nan
+        vals_arr = _np.asarray(vals_list, dtype=float)
+        weights_raw = entry.get('weights', [])
+        numeric_mask = [isinstance(w, (int, float)) for w in weights_raw]
+        has_weights = bool(weights_raw) and all(numeric_mask) and len(weights_raw) == len(vals_arr)
+        if has_weights:
+            weights_arr = _np.asarray(weights_raw, dtype=float)
+            total_weight = _np.sum(weights_arr)
+            if total_weight > 0:
+                mean = float(_np.average(vals_arr, weights=weights_arr))
+                variance = _np.average((vals_arr - mean) ** 2, weights=weights_arr)
+                std = float(_np.sqrt(variance))
+                return mean, std
+        mean = float(_np.mean(vals_arr))
+        std = float(_np.std(vals_arr, ddof=1)) if len(vals_arr) > 1 else 0.0
+        return mean, std
+
+    # ----- public API -----
+    @property
+    def metrics(self) -> Dict[str, Dict[str, float]]:
+        """
+        Aggregated metrics per name: {name: {"mean": float, "std": float}}.
+        """
+        out: Dict[str, Dict[str, float]] = {}
+        series = self._collect_metric_series()
+        for name in series.keys():
+            m, s = self._metric_stats(name)
+            if m == m:  # not NaN
+                out[name] = {"mean": m, "std": s}
+        return out
+
     @property
     def mean_score(self) -> Dict[str, float]:
-        """Calculate mean scores across folds"""
-        if not self.scores:
-            return {}
-        
-        keys = self.scores[0].keys()
-        return {
-            key: np.mean([fold[key] for fold in self.scores])
-            for key in keys
-        }
-    
+        """
+        Mean value per metric: {name: mean}.
+        Backward-compat for callers expecting a mapping.
+        """
+        return {name: vals["mean"] for name, vals in self.metrics.items()}
+
     @property
-    def std_score(self) -> Dict[str, float]:
-        """Calculate standard deviation of scores across folds"""
-        if not self.scores:
-            return {}
-        
-        keys = self.scores[0].keys()
-        return {
-            key: np.std([fold[key] for fold in self.scores])
-            for key in keys
-        }
-    
+    def std_scores(self) -> Dict[str, float]:
+        """
+        Std value per metric: {name: std}.
+        """
+        return {name: vals["std"] for name, vals in self.metrics.items()}
+
     def summary(self) -> str:
-        """Generate a summary of CV results"""
-        mean = self.mean_score
-        std = self.std_score
-        
-        summary_lines = ["Cross-Validation Results Summary:"]
-        summary_lines.append("-" * 40)
-        
-        for metric in mean.keys():
-            summary_lines.append(
-                f"{metric}: {mean[metric]:.4f} (+/- {std[metric]:.4f})"
-            )
-        
-        if self.metadata:
-            summary_lines.append("\nMetadata:")
-            for key, value in self.metadata.items():
-                summary_lines.append(f"  {key}: {value}")
-        
-        return "\n".join(summary_lines)
+        import numpy as _np
+        lines = ["Cross-Validation Results Summary:"]
+        primary = self.metadata.get("primary_metric", "score")
+        m, s = self._metric_stats(primary)
+        if _np.isfinite(m):
+            lines.append(f"  {primary}: {m:.4f} (+/- {s:.4f})")
+        else:
+            lines.append(f"  {primary}: n/a")
+
+        for name in sorted(self.metrics.keys()):
+            if name == primary:
+                continue
+            mm, ss = self._metric_stats(name)
+            if _np.isfinite(mm):
+                lines.append(f"  {name}: {mm:.4f} (+/- {ss:.4f})")
+        return "\n".join(lines)
+
+
 
 
 class CVSplitter(ABC):
@@ -278,9 +369,33 @@ class SklearnAdapter(FrameworkAdapter):
     def create_data_splits(self, data: Tuple[np.ndarray, np.ndarray], 
                           train_idx: np.ndarray, 
                           val_idx: np.ndarray) -> Tuple[Any, Any]:
-        """Create train/validation splits for sklearn"""
-        X, y = data
-        return (X[train_idx], y[train_idx]), (X[val_idx], y[val_idx])
+        """Create train/validation splits for sklearn.
+
+        Accepts data as (X, y) or (X, y, groups); extra items are ignored.
+        """
+        if isinstance(data, tuple):
+            if len(data) >= 2:
+                X, y = data[0], data[1]
+            else:
+                raise ValueError("data must be a tuple (X, y) or (X, y, groups)")
+        else:
+            raise ValueError("data must be a tuple (X, y) for sklearn adapter")
+        # Robust row slicing: for pandas objects use .iloc with positional indices,
+        # for numpy arrays fall back to standard indexing.
+        def _slice_rows(arr, idx):
+            try:
+                if hasattr(arr, 'iloc'):
+                    return arr.iloc[idx]
+                return arr[idx]
+            except Exception:
+                # Last-resort conversion
+                import numpy as _np
+                a = _np.asarray(arr)
+                return a[idx]
+
+        X_tr, y_tr = _slice_rows(X, train_idx), _slice_rows(y, train_idx)
+        X_te, y_te = _slice_rows(X, val_idx), _slice_rows(y, val_idx)
+        return (X_tr, y_tr), (X_te, y_te)
     
     def train_epoch(self, model: Any, train_data: Tuple[np.ndarray, np.ndarray], 
                    optimizer: None = None, **kwargs) -> Dict[str, float]:
@@ -299,22 +414,86 @@ class SklearnAdapter(FrameworkAdapter):
                 metrics: Optional[List[str]] = None) -> Dict[str, float]:
         """Evaluate sklearn model"""
         X_val, y_val = val_data
-        
-        eval_metrics = {}
-        
-        # Default score
+
+        eval_metrics: Dict[str, float] = {}
+
+        # Default score (sklearn's estimator.score)
         if hasattr(model, 'score'):
-            eval_metrics['score'] = model.score(X_val, y_val)
-        
-        # Get predictions for additional metrics
+            try:
+                eval_metrics['score'] = float(model.score(X_val, y_val))
+            except Exception:
+                pass
+
+        # Get predictions
+        y_pred = None
         if hasattr(model, 'predict'):
-            y_pred = model.predict(X_val)
-            eval_metrics['predictions'] = y_pred
-        
+            try:
+                y_pred = model.predict(X_val)
+                eval_metrics['predictions'] = y_pred
+            except Exception:
+                y_pred = None
+
+        # Get probabilities if available
+        y_proba = None
         if hasattr(model, 'predict_proba'):
-            y_proba = model.predict_proba(X_val)
-            eval_metrics['probabilities'] = y_proba
-        
+            try:
+                y_proba = model.predict_proba(X_val)
+                eval_metrics['probabilities'] = y_proba
+            except Exception:
+                y_proba = None
+
+        # Compute common classification metrics when labels are provided
+        try:
+            from sklearn.metrics import (
+                accuracy_score,
+                balanced_accuracy_score,
+                f1_score,
+                precision_score,
+                recall_score,
+                roc_auc_score,
+            )
+            import numpy as _np
+
+            if y_pred is not None:
+                # Some regressors return floats; only compute cls metrics for discrete labels
+                # Treat binary or integer classes as classification
+                if _np.issubdtype(_np.asarray(y_val).dtype, _np.integer) or _np.array_equal(
+                    _np.unique(y_val), [0, 1]
+                ) or len(_np.unique(y_val)) <= 10:
+                    eval_metrics['accuracy'] = float(accuracy_score(y_val, y_pred))
+                    # F1 (binary only by default)
+                    try:
+                        eval_metrics['f1'] = float(f1_score(y_val, y_pred))
+                    except Exception:
+                        pass
+                    try:
+                        eval_metrics['precision'] = float(precision_score(y_val, y_pred))
+                    except Exception:
+                        pass
+                    try:
+                        eval_metrics['recall'] = float(recall_score(y_val, y_pred))
+                    except Exception:
+                        pass
+                    try:
+                        eval_metrics['balanced_accuracy'] = float(
+                            balanced_accuracy_score(y_val, y_pred)
+                        )
+                    except Exception:
+                        pass
+
+            # AUC if probabilities available for binary classification
+            if y_proba is not None:
+                ys = _np.asarray(y_proba)
+                try:
+                    if ys.ndim == 2 and ys.shape[1] > 1:
+                        ys = ys[:, 1]
+                    eval_metrics['roc_auc'] = float(roc_auc_score(y_val, ys))
+                except Exception:
+                    pass
+        except Exception:
+            # Metrics import failure or non-applicable
+            pass
+
         return eval_metrics
     
     def clone_model(self, model: Any) -> Any:

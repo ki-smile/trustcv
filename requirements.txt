@@ -1,4 +1,4 @@
-# Core dependencies for medicalCV package
+# Core dependencies for trustcv package
 numpy>=1.21.0,<2.0.0
 pandas>=1.4.0,<2.0.0
 scikit-learn>=1.2.0,<2.0.0

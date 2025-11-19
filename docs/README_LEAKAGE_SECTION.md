@@ -8,7 +8,7 @@ The README mentions data leakage detection briefly:
 
 ## Suggested Addition to README (after line 147)
 
-```markdown
+
 ### 🔍 Comprehensive Data Leakage Detection
 
 trustcv provides automatic detection for 6 types of data leakage common in ML:

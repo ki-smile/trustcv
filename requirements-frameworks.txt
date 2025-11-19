@@ -1,4 +1,4 @@
-# Optional framework dependencies for medicalCV v2.0
+# Optional framework dependencies for trustcv v2.0
 # Install these for specific framework support
 
 # PyTorch support
@@ -29,13 +29,13 @@
 # pip install optuna>=3.0.0
 
 # For complete installation with all frameworks:
-# pip install medicalCV[all]
+# pip install trustcv[all]
 
 # Or install specific frameworks:
-# pip install medicalCV[pytorch]
-# pip install medicalCV[tensorflow]
-# pip install medicalCV[monai]
+# pip install trustcv[pytorch]
+# pip install trustcv[tensorflow]
+# pip install trustcv[monai]
 
 # Development dependencies
-# pip install medicalCV[dev]
-# Includes: pytest, black, flake8, mypy, sphinx
+# pip install trustcv[dev]
+# Includes: pytest, black, flake8, mypy, sphinx, nbsphinx

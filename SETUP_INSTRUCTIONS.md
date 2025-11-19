@@ -1,4 +1,4 @@
-# 🚀 Setup Instructions for trustcv
+﻿#  Setup Instructions for trustcv
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ cd trustcv
 conda env create -f environment.yml
 
 # Activate the environment
-conda activate medicalcv
+conda activate trustcv
 
 # Install the package in development mode
 pip install -e .
@@ -64,8 +64,8 @@ pip install -e .
 pip install git+https://github.com/ki-smile/trustcv.git
 
 # Or with conda
-conda create -n medicalcv python=3.10
-conda activate medicalcv
+conda create -n trustcv python=3.10
+conda activate trustcv
 pip install git+https://github.com/ki-smile/trustcv.git
 ```
 
@@ -195,7 +195,7 @@ pip install -r requirements.txt --upgrade
 #### 3. Jupyter kernel not found
 ```bash
 # Install kernel for the conda environment
-python -m ipykernel install --user --name medicalcv --display-name "Python (trustcv)"
+python -m ipykernel install --user --name trustcv --display-name "Python (trustcv)"
 ```
 
 #### 4. Permission denied errors
@@ -213,7 +213,7 @@ pip install --user -e .
 conda init bash  # or zsh, fish, etc.
 
 # Restart terminal and try again
-conda activate medicalcv
+conda activate trustcv
 ```
 
 ## 📦 Package Structure

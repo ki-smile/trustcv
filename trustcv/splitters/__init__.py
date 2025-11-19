@@ -52,3 +52,35 @@ __all__ = [
     'SpatialBlockCV', 'BufferedSpatialCV',
     'SpatiotemporalBlockCV', 'EnvironmentalHealthCV'
 ]
+
+# Canonical alias names (sklearn-style) for convenience
+# IID / Grouped
+KFold = KFoldMedical
+StratifiedKFold = StratifiedKFoldMedical
+LeaveOneOut = LOOCV
+LeavePOut = LPOCV
+GroupKFold = GroupKFoldMedical
+
+# Temporal
+BlockedTimeSeriesSplit = BlockedTimeSeries
+RollingWindowSplit = RollingWindowCV
+ExpandingWindowSplit = ExpandingWindowCV
+PurgedKFold = PurgedKFoldCV
+CombinatorialPurgedKFold = CombinatorialPurgedCV
+
+# Spatial
+SpatialBlockSplit = SpatialBlockCV
+BufferedSpatialSplit = BufferedSpatialCV
+SpatiotemporalBlockSplit = SpatiotemporalBlockCV
+EnvironmentalHealthSplit = EnvironmentalHealthCV
+
+# Export aliases as well
+__all__ += [
+    # IID / Grouped
+    'KFold', 'StratifiedKFold', 'LeaveOneOut', 'LeavePOut', 'GroupKFold',
+    # Temporal
+    'BlockedTimeSeriesSplit', 'RollingWindowSplit', 'ExpandingWindowSplit',
+    'PurgedKFold', 'CombinatorialPurgedKFold',
+    # Spatial
+    'SpatialBlockSplit', 'BufferedSpatialSplit', 'SpatiotemporalBlockSplit', 'EnvironmentalHealthSplit',
+]

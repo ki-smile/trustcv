@@ -1,4 +1,4 @@
-name: medicalcv
+name: trustcv
 channels:
   - conda-forge
   - defaults

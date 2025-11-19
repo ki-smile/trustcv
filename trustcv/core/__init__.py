@@ -7,7 +7,13 @@ compatibility with scikit-learn.
 """
 
 from .base import CVSplitter, FrameworkAdapter, CVResults
-from .callbacks import CVCallback, EarlyStopping, ModelCheckpoint, ProgressLogger
+from .callbacks import (
+    CVCallback,
+    EarlyStopping,
+    ModelCheckpoint,
+    ProgressLogger,
+    ClassDistributionLogger,
+)
 from .runner import UniversalCVRunner
 
 __all__ = [
@@ -18,5 +24,6 @@ __all__ = [
     'EarlyStopping',
     'ModelCheckpoint',
     'ProgressLogger',
+    'ClassDistributionLogger',
     'UniversalCVRunner'
 ]

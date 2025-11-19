@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "medicalCV"
+name = "trustcv"
 version = "1.0.0"
-description = "Comprehensive cross-validation methods for medical machine learning"
+description = "Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection"
 readme = "README.md"
 authors = [
-    {name = "Medical ML Team", email = "contact@medicalcv.org"}
+    {name = "SMAILE Team, Karolinska Institutet", email = "contact@smile.ki.se"}
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -37,18 +37,20 @@ dependencies = [
 requires-python = ">=3.8"
 
 [project.urls]
-Homepage = "https://github.com/ki-smile/medicalCV"
-Documentation = "https://ki-smile.github.io/medicalCV"
-Repository = "https://github.com/ki-smile/medicalCV"
-"Bug Tracker" = "https://github.com/ki-smile/medicalCV/issues"
+Homepage = "https://github.com/ki-smile/trustcv"
+Documentation = "https://ki-smile.github.io/trustcv"
+Repository = "https://github.com/ki-smile/trustcv"
+"Bug Tracker" = "https://github.com/ki-smile/trustcv/issues"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "pytest-cov>=3.0.0",
     "flake8>=4.0.0",
     "mypy>=0.950",
     "black>=22.0.0",
+    "sphinx>=4.5.0",
+    "nbsphinx>=0.9.0",
+    "pytest-cov>=3.0.0",
 ]
 docs = [
     "sphinx>=4.5.0",
@@ -59,9 +61,38 @@ viz = [
     "bokeh>=2.4.0",
 ]
 
+# Framework-specific extras
+pytorch = [
+    "torch",
+    "torchvision",
+]
+tensorflow = [
+    "tensorflow>=2.10",
+]
+monai = [
+    "monai>=1.0.0",
+    "nibabel>=3.2.0",
+]
+
+# Convenience extra for installing everything above
+all = [
+    "torch",
+    "torchvision",
+    "tensorflow>=2.10",
+    "monai>=1.0.0",
+    "nibabel>=3.2.0",
+    "pytest>=7.0.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+    "black>=22.0.0",
+    "sphinx>=4.5.0",
+    "nbsphinx>=0.9.0",
+    "pytest-cov>=3.0.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["medicalCV*"]
+include = ["trustcv*"]
 exclude = ["tests*", "docs*", "examples*", "notebooks*"]
 
 [tool.pytest.ini_options]
@@ -73,7 +104,7 @@ python_classes = "Test*"
 python_functions = "test_*"
 
 [tool.coverage.run]
-source = ["medicalCV"]
+source = ["trustcv"]
 omit = ["*/tests/*", "*/test_*.py"]
 
 [tool.coverage.report]

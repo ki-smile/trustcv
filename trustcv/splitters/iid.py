@@ -528,3 +528,30 @@ class NestedCV:
     def get_n_splits(self):
         """Returns the number of outer CV splits"""
         return self.outer_cv.get_n_splits()
+
+# === Canonical sklearn-style aliases (module-local) ===
+# These mirror the package-level aliases in trustcv.splitters.__init__
+try:
+    KFold
+except NameError:
+    KFold = KFoldMedical
+try:
+    StratifiedKFold
+except NameError:
+    StratifiedKFold = StratifiedKFoldMedical
+try:
+    LeaveOneOut
+except NameError:
+    LeaveOneOut = LOOCV
+try:
+    LeavePOut
+except NameError:
+    LeavePOut = LPOCV
+
+try:
+    __all__
+except NameError:
+    __all__ = []
+for _n in ("KFold", "StratifiedKFold", "LeaveOneOut", "LeavePOut"):
+    if _n not in __all__:
+        __all__.append(_n)

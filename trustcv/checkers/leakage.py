@@ -28,6 +28,21 @@ class LeakageReport:
     details: Dict[str, any]
     recommendations: List[str]
     
+    @property
+    def summary(self) -> str:
+        """Human-readable one-line/paragraph summary."""
+        return str(self)
+
+    def to_dict(self) -> Dict[str, any]:
+        """Dictionary form for programmatic use/serialization."""
+        return {
+            'has_leakage': self.has_leakage,
+            'leakage_types': list(self.leakage_types),
+            'severity': self.severity,
+            'details': self.details,
+            'recommendations': list(self.recommendations),
+        }
+
     def __str__(self):
         if not self.has_leakage:
             return "✅ No data leakage detected"
@@ -62,6 +77,101 @@ class DataLeakageChecker:
     def __init__(self, verbose=True):
         self.verbose = verbose
         
+    def check(
+        self,
+        X: Union[np.ndarray, pd.DataFrame],
+        y: Optional[Union[np.ndarray, pd.Series]] = None,
+        groups: Optional[Union[np.ndarray, pd.Series]] = None,
+        timestamps: Optional[Union[np.ndarray, pd.Series]] = None,
+        coordinates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        n_splits: int = 5,
+        random_state: Optional[int] = 42,
+    ) -> "LeakageReport":
+        """
+        Convenience wrapper to check leakage via CV-style splits.
+
+        If groups are provided, uses GroupKFold; otherwise uses StratifiedKFold
+        when labels are available, else KFold. For time series tasks, prefer
+        calling `check_cv_splits` with your explicit train/test partitions.
+
+        Returns a LeakageReport aggregated over folds.
+        """
+        from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
+
+        # Choose splitter
+        if groups is not None:
+            splitter = GroupKFold(n_splits=n_splits)
+            split_iter = splitter.split(X, y, groups)
+        elif y is not None:
+            splitter = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+            split_iter = splitter.split(X, y)
+        else:
+            splitter = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+            split_iter = splitter.split(X)
+
+        # Accumulate per-fold reports
+        fold_reports: List[LeakageReport] = []
+        all_types: set = set()
+        recs: set = set()
+        severity_rank = {"none": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+        worst = "none"
+
+        import numpy as _np
+        X_df = X
+        y_arr = y
+        gps = groups
+        ts = timestamps
+        coords = coordinates
+
+        for tr, te in split_iter:
+            X_tr = X_df[tr] if isinstance(X_df, _np.ndarray) else X_df.iloc[tr]
+            X_te = X_df[te] if isinstance(X_df, _np.ndarray) else X_df.iloc[te]
+            y_tr = None if y_arr is None else (y_arr[tr] if isinstance(y_arr, _np.ndarray) else y_arr.iloc[tr])
+            y_te = None if y_arr is None else (y_arr[te] if isinstance(y_arr, _np.ndarray) else y_arr.iloc[te])
+            gp_tr = None if gps is None else (gps[tr] if isinstance(gps, _np.ndarray) else gps.iloc[tr])
+            gp_te = None if gps is None else (gps[te] if isinstance(gps, _np.ndarray) else gps.iloc[te])
+            ts_tr = None if ts is None else (ts[tr] if isinstance(ts, _np.ndarray) else ts.iloc[tr])
+            ts_te = None if ts is None else (ts[te] if isinstance(ts, _np.ndarray) else ts.iloc[te])
+            cr_tr = None
+            cr_te = None
+            if coords is not None:
+                if isinstance(coords, _np.ndarray):
+                    cr_tr, cr_te = coords[tr], coords[te]
+                else:
+                    cr_tr, cr_te = coords.iloc[tr], coords.iloc[te]
+
+            rpt = self.check_cv_splits(
+                X_tr, X_te,
+                y_tr, y_te,
+                gp_tr, gp_te,
+                ts_tr, ts_te,
+                cr_tr, cr_te,
+                spatial_threshold=None,
+            )
+            fold_reports.append(rpt)
+            all_types.update(rpt.leakage_types)
+            recs.update(rpt.recommendations)
+            if severity_rank.get(rpt.severity, 0) > severity_rank.get(worst, 0):
+                worst = rpt.severity
+
+        return LeakageReport(
+            has_leakage=any(fr.has_leakage for fr in fold_reports),
+            leakage_types=sorted(all_types),
+            severity=worst,
+            details={
+                'folds': [
+                    {
+                        'fold_index': i,
+                        'leakage_types': fr.leakage_types,
+                        'severity': fr.severity,
+                        'details': fr.details,
+                    }
+                    for i, fr in enumerate(fold_reports)
+                ]
+            },
+            recommendations=sorted(recs),
+        )
+        
     def check_cv_splits(
         self,
         X_train: Union[np.ndarray, pd.DataFrame],
@@ -71,7 +181,10 @@ class DataLeakageChecker:
         patient_ids_train: Optional[Union[np.ndarray, pd.Series]] = None,
         patient_ids_test: Optional[Union[np.ndarray, pd.Series]] = None,
         timestamps_train: Optional[Union[np.ndarray, pd.Series]] = None,
-        timestamps_test: Optional[Union[np.ndarray, pd.Series]] = None
+        timestamps_test: Optional[Union[np.ndarray, pd.Series]] = None,
+        coordinates_train: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        coordinates_test: Optional[Union[np.ndarray, pd.DataFrame]] = None,
+        spatial_threshold: Optional[float] = None
     ) -> LeakageReport:
         """
         Check for data leakage between train and test sets
@@ -142,7 +255,23 @@ class DataLeakageChecker:
                 "Check if preprocessing was done before train-test split"
             )
             severity = max(severity, 'medium') if severity != 'none' else 'medium'
-        
+
+        # Optional Check 5: Spatial proximity (train and test too close in space)
+        if spatial_threshold is not None and coordinates_train is not None and coordinates_test is not None:
+            spatial_result = self.spatial_check(coordinates_train, coordinates_test, spatial_threshold)
+            details['spatial_proximity'] = spatial_result
+            if spatial_result.get('near_fraction', 0.0) > 0.0:
+                leakage_types.append('spatial_proximity')
+                recommendations.append(
+                    f"Spatial proximity detected: {spatial_result.get('near_fraction', 0.0):.1%} of test near train (<{spatial_threshold})."
+                )
+                # treat as low-to-medium depending on magnitude
+                sev = 'low'
+                frac = spatial_result.get('near_fraction', 0.0)
+                if frac >= 0.2:
+                    sev = 'medium'
+                severity = max(severity, sev) if severity != 'none' else sev
+
         # Check 5: Label distribution (if severely different, might indicate issue)
         if y_train is not None and y_test is not None:
             label_check = self._check_label_distribution(y_train, y_test)
@@ -188,6 +317,57 @@ class DataLeakageChecker:
             )
         
         return result
+
+    def spatial_check(
+        self,
+        coordinates_train: Union[np.ndarray, pd.DataFrame],
+        coordinates_test: Union[np.ndarray, pd.DataFrame],
+        threshold: float
+    ) -> Dict:
+        """
+        Simple spatial proximity flag between train and test sets.
+
+        Computes the minimum distance from each test point to any train point
+        and reports the fraction within the given threshold, along with
+        mean/min of those minimum distances.
+
+        Parameters
+        ----------
+        coordinates_train : array-like (n_train, 2)
+        coordinates_test : array-like (n_test, 2)
+        threshold : float
+            Distance threshold under which a test point is considered "near" a train point.
+
+        Returns
+        -------
+        Dict
+            {
+              'near_fraction': float,
+              'mean_min_distance': float,
+              'min_min_distance': float,
+              'threshold': float
+            }
+        """
+        try:
+            import numpy as _np
+            from scipy.spatial.distance import cdist as _cdist
+            tr = _np.asarray(coordinates_train)
+            te = _np.asarray(coordinates_test)
+            if tr.ndim != 2 or te.ndim != 2 or tr.shape[1] != 2 or te.shape[1] != 2:
+                return {'error': 'coordinates must be (n,2)', 'near_fraction': 0.0, 'mean_min_distance': _np.nan, 'min_min_distance': _np.nan, 'threshold': threshold}
+            if tr.size == 0 or te.size == 0:
+                return {'near_fraction': 0.0, 'mean_min_distance': _np.nan, 'min_min_distance': _np.nan, 'threshold': threshold}
+            dists = _cdist(te, tr, metric='euclidean')
+            min_d = dists.min(axis=1) if dists.size else _np.array([])
+            near_frac = float((min_d < threshold).mean()) if min_d.size else 0.0
+            return {
+                'near_fraction': near_frac,
+                'mean_min_distance': float(_np.nanmean(min_d)) if min_d.size else float('nan'),
+                'min_min_distance': float(_np.nanmin(min_d)) if min_d.size else float('nan'),
+                'threshold': float(threshold)
+            }
+        except Exception as e:
+            return {'error': str(e), 'near_fraction': 0.0, 'mean_min_distance': None, 'min_min_distance': None, 'threshold': threshold}
     
     def _check_duplicate_samples(
         self,

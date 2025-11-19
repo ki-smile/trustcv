@@ -13,15 +13,19 @@ from .plots import (
     plot_grouped_cv,
     plot_spatial_cv,
     plot_validation_curves,
-    plot_learning_curves
+    plot_learning_curves,
+    plot_learning_curve,
+    plot_validation_curve,
 )
 
 __all__ = [
     'plot_cv_splits',
-    'plot_cv_indices', 
+    'plot_cv_indices',
     'plot_temporal_cv',
     'plot_grouped_cv',
     'plot_spatial_cv',
     'plot_validation_curves',
-    'plot_learning_curves'
+    'plot_learning_curves',
+    'plot_learning_curve',
+    'plot_validation_curve',
 ]

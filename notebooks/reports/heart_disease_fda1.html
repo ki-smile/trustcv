@@ -1,0 +1,140 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Regulatory Validation Report - HeartRiskNet</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+                h2 { color: #34495e; margin-top: 30px; }
+                table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+                th { background-color: #3498db; color: white; }
+                .metric { background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 10px 0; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                           color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Clinical Validation Report</h1>
+                <p><strong>Device:</strong> HeartRiskNet v2.3.1</p>
+                <p><strong>Report ID:</strong> VAL-20251117-132731</p>
+                <p><strong>Date:</strong> 2025-11-17</p>
+                <p><strong>Project:</strong> HeartSafe 2024</p>
+            </div>
+            
+            <h2>1. Executive Summary</h2>
+            <p><strong>Intended Use:</strong> Assist cardiologists in screening for heart disease.</p>
+            
+            <div class="metric">
+                <h3>Key Performance Metrics</h3>
+                <table>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Value</th>
+                        <th>95% CI</th>
+                    </tr>
+                    <tr>
+                        <td>Sensitivity</td>
+                        <td>96.9%</td>
+                        <td>[94.6%, 98.3%]</td>
+                    </tr>
+                    <tr>
+                        <td>Specificity</td>
+                        <td>94.3%</td>
+                        <td>[90.4%, 96.7%]</td>
+                    </tr>
+                    <tr>
+                        <td>AUC-ROC</td>
+                        <td>0.987</td>
+                        <td>[0.973, 0.996]</td>
+                    </tr>
+                </table>
+            </div>
+            
+            <h2>2. Dataset Characteristics</h2>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Total Patients</td>
+                    <td>569</td>
+                </tr>
+                <tr>
+                    <td>Total Samples</td>
+                    <td>569</td>
+                </tr>
+                <tr>
+                    <td>Features</td>
+                    <td>30</td>
+                </tr>
+            </table>
+            
+        <h3>Class Distribution</h3>
+        <table>
+            <tr>
+                <th>Class</th>
+                <th>Count</th>
+                <th>Percentage</th>
+            </tr>
+            <tr><td>0</td><td>212</td><td>37.3%</td></tr>
+<tr><td>1</td><td>357</td><td>62.7%</td></tr>
+        </table>
+        
+            
+            <h3>Data Sources</h3><ul><li>Hospital A EMR</li><li>Hospital B EMR</li></ul>
+            
+            <h2>3. Validation Methodology</h2>
+            <p><strong>Method:</strong> KFoldMedical</p>
+            <p><strong>Number of Folds:</strong> 5</p>
+            <p><strong>Mean Accuracy:</strong> 0.987 &plusmn; 0.013</p>
+            
+            <h2>4. Confusion Matrix</h2>
+            <table style="width: auto; margin: 20px auto;">
+                <tr>
+                    <th colspan="2" rowspan="2"></th>
+                    <th colspan="2">Predicted</th>
+                </tr>
+                <tr>
+                    <th>Positive</th>
+                    <th>Negative</th>
+                </tr>
+                <tr>
+                    <th rowspan="2">Actual</th>
+                    <th>Positive</th>
+                    <td style="background: #d4edda;">346</td>
+                    <td style="background: #f8d7da;">11</td>
+                </tr>
+                <tr>
+                    <th>Negative</th>
+                    <td style="background: #f8d7da;">12</td>
+                    <td style="background: #d4edda;">200</td>
+                </tr>
+            </table>
+            
+            <h2>5. Regulatory Compliance</h2>
+            <p>This report complies with FDA requirements for medical device software validation.</p>
+            
+            <h2>6. Approval</h2>
+            <div style="margin-top: 50px;">
+                <table style="border: none;">
+                    <tr>
+                        <td style="border: none; border-top: 2px solid #333; width: 30%; padding-top: 10px;">
+                            Clinical Study Director<br>
+                            Date: _______________
+                        </td>
+                        <td style="border: none; width: 20%;"></td>
+                        <td style="border: none; border-top: 2px solid #333; width: 30%; padding-top: 10px;">
+                            Quality Assurance<br>
+                            Date: _______________
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </body>
+        </html>
+        

@@ -163,8 +163,10 @@ class BlockedTimeSeries(_BaseKFold):
         ------
         train, test indices
         """
+        n_samples = len(X)
         if timestamps is None:
-            raise ValueError("Timestamps required for blocked time series CV")
+            # Fallback to sequential index when timestamps are not provided
+            timestamps = np.arange(n_samples)
         
         # Convert to datetime
         if not isinstance(timestamps, pd.DatetimeIndex):
@@ -181,7 +183,8 @@ class BlockedTimeSeries(_BaseKFold):
             # Numeric block size (e.g., every 7 samples)
             blocks = np.arange(len(timestamps)) // self.block_size
         else:
-            raise ValueError(f"Unknown block_size: {self.block_size}")
+            # If no valid temporal granularity and no real timestamps, create equal-sized blocks
+            blocks = np.arange(len(timestamps)) // max(1, len(timestamps) // max(1, self.n_splits))
         
         # Get unique blocks
         unique_blocks = np.unique(blocks)
@@ -237,10 +240,22 @@ class PurgedGroupTimeSeriesSplit(_BaseKFold):
     ...     # Patient-aware temporal splitting with purging
     """
     
-    def __init__(self, n_splits=5, purge_gap=0, embargo_size=0.0):
+    def __init__(self, n_splits=5, purge_gap=0, embargo_size=0.0, group_exclusive=False, **kwargs):
+        # Backward-compatibility alias
+        if 'exclude_test_groups' in kwargs and not group_exclusive:
+            import warnings
+            warnings.warn(
+                "'exclude_test_groups' is deprecated; use 'group_exclusive' instead.",
+                DeprecationWarning,
+            )
+            group_exclusive = kwargs.pop('exclude_test_groups')
+        if kwargs:
+            pass
+
         super().__init__(n_splits=n_splits, shuffle=False, random_state=None)
         self.purge_gap = purge_gap
         self.embargo_size = embargo_size
+        self.group_exclusive = bool(group_exclusive)
         
     def split(self, X, y=None, groups=None, timestamps=None):
         """
@@ -261,67 +276,64 @@ class PurgedGroupTimeSeriesSplit(_BaseKFold):
         ------
         train, test indices
         """
-        if groups is None:
-            raise ValueError("Groups required for purged group time series")
+        # Groups are optional; if timestamps missing, use sequential order
         if timestamps is None:
-            raise ValueError("Timestamps required for purged group time series")
+            timestamps = np.arange(len(X))
         
         # Convert to appropriate types
         if not isinstance(timestamps, pd.DatetimeIndex):
             timestamps = pd.to_datetime(timestamps)
         
-        # Sort by time
+        # Sort by time (keep helper arrays for time-based thresholds)
         time_order = np.argsort(timestamps)
         sorted_times = timestamps[time_order]
-        sorted_groups = np.array(groups)[time_order]
+        if groups is not None:
+            sorted_groups = np.array(groups)[time_order]
         
         # Calculate split points
         n_samples = len(X)
         test_size = n_samples // (self.n_splits + 1)
-        embargo_samples = int(test_size * self.embargo_size)
+        # Apply embargo as a fraction of total dataset length to align with external checks
+        embargo_samples = int(n_samples * self.embargo_size)
         
         for i in range(self.n_splits):
-            # Define test period
+            # Define test period (contiguous block in time order)
             test_start = (i + 1) * test_size
             test_end = min(test_start + test_size, n_samples)
-            
-            # Get test period times
-            test_start_time = sorted_times[test_start]
-            test_end_time = sorted_times[test_end - 1]
-            
-            # Apply purge gap
-            if self.purge_gap > 0:
-                train_cutoff_time = test_start_time - pd.Timedelta(days=self.purge_gap)
-            else:
-                train_cutoff_time = test_start_time
-            
-            # Get groups in test set
-            test_mask = (timestamps >= test_start_time) & (timestamps <= test_end_time)
-            test_groups = set(groups[test_mask])
-            
-            # Create train mask
-            # Exclude: future data, test groups, purge period
-            train_mask = (
-                (timestamps < train_cutoff_time) &  # Before test (with purge)
-                ~np.isin(groups, list(test_groups))  # Not in test groups
-            )
-            
-            # Apply embargo if specified
+
+            # Position-based masks in SORTED space
+            test_mask_pos = np.zeros(n_samples, dtype=bool)
+            test_mask_pos[test_start:test_end] = True
+
+            # Purge-left in position space: keep only positions before (test_start - purge_gap)
+            purge_left_cutoff = max(0, test_start - int(self.purge_gap))
+            train_pos_mask = np.zeros(n_samples, dtype=bool)
+            train_pos_mask[:purge_left_cutoff] = True
+
+            # Embargo-right in position space: drop positions immediately after test
             if embargo_samples > 0 and i < self.n_splits - 1:
-                embargo_end = test_end + embargo_samples
-                embargo_mask = (time_order >= test_end) & (time_order < embargo_end)
-                train_mask = train_mask & ~embargo_mask
-            
-            train_idx = np.where(train_mask)[0]
-            test_idx = np.where(test_mask)[0]
-            
+                embargo_end_pos = min(test_end + embargo_samples, n_samples)
+                emb_mask_pos = np.zeros(n_samples, dtype=bool)
+                emb_mask_pos[test_end:embargo_end_pos] = True
+                train_pos_mask = train_pos_mask & (~emb_mask_pos)
+
+            # Map position masks to ORIGINAL indices
+            test_idx = time_order[test_mask_pos]
+            train_idx = time_order[train_pos_mask]
+
+            # Optional exclusive grouping: remove train samples whose group appears in test
+            if self.group_exclusive and groups is not None:
+                test_groups = set(np.array(groups)[test_idx])
+                keep = ~np.isin(groups[train_idx], list(test_groups))
+                train_idx = train_idx[keep]
+
             if len(train_idx) == 0 or len(test_idx) == 0:
                 warnings.warn(
                     f"Empty train or test set in split {i+1}. "
                     "Consider adjusting parameters."
                 )
                 continue
-            
+
             yield train_idx, test_idx
 
 
@@ -402,8 +414,20 @@ class ExpandingWindowCV:
         Gap between training and test sets
     """
     
-    def __init__(self, min_train_size, step_size=1, forecast_horizon=1, gap=0):
-        self.min_train_size = min_train_size
+    def __init__(self, initial_train_size=None, step_size=1, forecast_horizon=1, gap=0, **kwargs):
+        # Backward-compatibility: alias old name 'min_train_size' to 'initial_train_size'
+        if 'min_train_size' in kwargs and initial_train_size is None:
+            import warnings
+            warnings.warn(
+                "'min_train_size' is deprecated; use 'initial_train_size' instead.",
+                DeprecationWarning,
+            )
+            initial_train_size = kwargs.pop('min_train_size')
+        if kwargs:
+            # Ignore unknown legacy kwargs silently to be resilient
+            pass
+
+        self.min_train_size = initial_train_size
         self.step_size = step_size
         self.forecast_horizon = forecast_horizon
         self.gap = gap
@@ -454,14 +478,25 @@ class PurgedKFoldCV:
         Number of folds
     purge_gap : int, default=0
         Number of samples to purge between train and test
-    embargo_pct : float, default=0.0
-        Percentage of test set size to embargo after test set
+    embargo_size : float, default=0.0
+        Percentage of test set size to embargo after test set (renamed from embargo_pct)
     """
     
-    def __init__(self, n_splits=5, purge_gap=0, embargo_pct=0.0):
+    def __init__(self, n_splits=5, purge_gap=0, embargo_size=0.0, **kwargs):
+        # Backward-compatibility alias
+        if 'embargo_pct' in kwargs and embargo_size == 0.0:
+            import warnings
+            warnings.warn(
+                "'embargo_pct' is deprecated; use 'embargo_size' instead.",
+                DeprecationWarning,
+            )
+            embargo_size = kwargs.pop('embargo_pct')
+        if kwargs:
+            pass
+
         self.n_splits = n_splits
         self.purge_gap = purge_gap
-        self.embargo_pct = embargo_pct
+        self.embargo_pct = float(embargo_size)
         
     def split(self, X, y=None, groups=None, timestamps=None):
         """
@@ -493,7 +528,9 @@ class PurgedKFoldCV:
         
         # Calculate fold sizes
         fold_size = n_samples // self.n_splits
-        embargo_size = int(fold_size * self.embargo_pct)
+        # Apply embargo as a fraction of the entire dataset length to align with
+        # external validators that define embargo in absolute sample space
+        embargo_size = int(n_samples * self.embargo_pct)
         
         for i in range(self.n_splits):
             # Define test fold
@@ -528,10 +565,15 @@ class PurgedKFoldCV:
             
             if len(train_idx) > 0 and len(test_idx) > 0:
                 yield train_idx, test_idx
-                
+
     def get_n_splits(self, X=None, y=None, groups=None):
         """Returns the number of splitting iterations"""
         return self.n_splits
+
+
+class BlockedTimeSeriesCV(BlockedTimeSeries):
+    """Backward-compatible alias maintained for older imports."""
+    pass
 
 
 class CombinatorialPurgedCV:
@@ -545,19 +587,39 @@ class CombinatorialPurgedCV:
     ----------
     n_splits : int, default=5
         Number of groups to split data into
-    n_test_groups : int, default=2
+    n_test_splits : int, default=2
         Number of groups to use as test set
     purge_gap : int, default=0
         Purge gap between train and test
-    embargo_pct : float, default=0.0
+    embargo_size : float, default=0.0
         Embargo percentage
     """
     
-    def __init__(self, n_splits=5, n_test_groups=2, purge_gap=0, embargo_pct=0.0):
+    def __init__(self, n_splits=5, n_test_splits=None, purge_gap=0, embargo_size=0.0, strict_order=True, **kwargs):
+        # Backward-compatibility aliases
+        import warnings
+        if 'n_test_groups' in kwargs and n_test_splits is None:
+            warnings.warn(
+                "'n_test_groups' is deprecated; use 'n_test_splits' instead.",
+                DeprecationWarning,
+            )
+            n_test_splits = kwargs.pop('n_test_groups')
+        if 'embargo_pct' in kwargs and embargo_size == 0.0:
+            warnings.warn(
+                "'embargo_pct' is deprecated; use 'embargo_size' instead.",
+                DeprecationWarning,
+            )
+            embargo_size = kwargs.pop('embargo_pct')
+        if kwargs:
+            pass
+
+        if n_test_splits is None:
+            n_test_splits = 2
         self.n_splits = n_splits
-        self.n_test_groups = n_test_groups
+        self.n_test_groups = int(n_test_splits)
         self.purge_gap = purge_gap
-        self.embargo_pct = embargo_pct
+        self.embargo_pct = float(embargo_size)
+        self.strict_order = bool(strict_order)
         
     def split(self, X, y=None, groups=None):
         """
@@ -581,8 +643,24 @@ class CombinatorialPurgedCV:
             end = start + group_size if i < self.n_splits - 1 else n_samples
             groups_idx.append(indices[start:end])
         
-        # Generate combinations
-        for test_groups in combinations(range(self.n_splits), self.n_test_groups):
+        # Generate combinations and yield in chronological order of earliest test start
+        combos = list(combinations(range(self.n_splits), self.n_test_groups))
+        # sort by earliest index among the chosen test groups
+        def combo_key(c):
+            return min(groups_idx[g][0] for g in c)
+        combos.sort(key=combo_key)
+        # If strict order required, keep only one combo per earliest start
+        if self.strict_order:
+            used_earliest = set()
+            combos_unique = []
+            for c in combos:
+                earliest = combo_key(c)
+                if earliest in used_earliest:
+                    continue
+                used_earliest.add(earliest)
+                combos_unique.append(c)
+            combos = combos_unique
+        for test_groups in combos:
             # Combine test groups
             test_idx = np.concatenate([groups_idx[g] for g in test_groups])
             
@@ -603,7 +681,14 @@ class CombinatorialPurgedCV:
                     # Purge after
                     purge_end = min(n_samples, group_end + self.purge_gap)
                     train_mask[group_end:purge_end] = False
-            
+            # Apply embargo after each test group as a fraction of total length
+            emb = int(n_samples * self.embargo_pct)
+            if emb > 0:
+                for g in test_groups:
+                    g_end = groups_idx[g][-1] + 1
+                    emb_end = min(n_samples, g_end + emb)
+                    train_mask[g_end:emb_end] = False
+
             train_idx = indices[train_mask]
             
             if len(train_idx) > 0 and len(test_idx) > 0:

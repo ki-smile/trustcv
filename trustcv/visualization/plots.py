@@ -13,7 +13,7 @@ from typing import Optional, List, Tuple, Any
 import warnings
 
 
-def plot_cv_splits(cv, X, y=None, groups=None, n_splits=5, figsize=(10, 6)):
+def plot_cv_splits(cv, X, y=None, groups=None, n_splits=5, figsize=(10, 6), title: Optional[str] = None):
     """
     Plot cross-validation splits for visualization
     
@@ -53,7 +53,7 @@ def plot_cv_splits(cv, X, y=None, groups=None, n_splits=5, figsize=(10, 6)):
     
     ax.set_xlabel('Sample Index')
     ax.set_ylabel('CV Fold')
-    ax.set_title('Cross-Validation Splits')
+    ax.set_title(title or 'Cross-Validation Splits')
     ax.set_yticks(range(n_splits))
     ax.set_yticklabels([f'Fold {i+1}' for i in range(n_splits)])
     
@@ -67,7 +67,7 @@ def plot_cv_splits(cv, X, y=None, groups=None, n_splits=5, figsize=(10, 6)):
     return fig, ax
 
 
-def plot_cv_indices(cv, X, y=None, groups=None, n_splits=5, figsize=(12, 8)):
+def plot_cv_indices(cv, X, y=None, groups=None, n_splits=5, figsize=(12, 8), title: Optional[str] = None):
     """
     Plot detailed cross-validation indices
     
@@ -119,12 +119,12 @@ def plot_cv_indices(cv, X, y=None, groups=None, n_splits=5, figsize=(12, 8)):
             ax.legend(loc='upper right')
     
     axes[-1].set_xlabel('Sample Index')
-    fig.suptitle('Cross-Validation Split Indices', fontsize=14)
+    fig.suptitle(title or 'Cross-Validation Split Indices', fontsize=14)
     plt.tight_layout()
     return fig, axes
 
 
-def plot_temporal_cv(cv, n_samples=100, n_splits=5, figsize=(12, 6)):
+def plot_temporal_cv(cv, n_samples=100, n_splits=5, figsize=(12, 6), title: Optional[str] = None):
     """
     Visualize temporal cross-validation strategy
     
@@ -163,7 +163,7 @@ def plot_temporal_cv(cv, n_samples=100, n_splits=5, figsize=(12, 6)):
     
     ax.set_xlabel('Time Index')
     ax.set_ylabel('CV Fold')
-    ax.set_title('Temporal Cross-Validation Strategy')
+    ax.set_title(title or 'Temporal Cross-Validation Strategy')
     ax.set_yticks(range(n_splits))
     ax.set_yticklabels([f'Fold {i+1}' for i in range(n_splits)])
     ax.legend(['Train', 'Test'])
@@ -172,7 +172,7 @@ def plot_temporal_cv(cv, n_samples=100, n_splits=5, figsize=(12, 6)):
     return fig, ax
 
 
-def plot_grouped_cv(cv, groups, n_splits=5, figsize=(10, 6)):
+def plot_grouped_cv(cv, groups, n_splits=5, figsize=(10, 6), title: Optional[str] = None):
     """
     Visualize grouped cross-validation strategy
     
@@ -219,7 +219,7 @@ def plot_grouped_cv(cv, groups, n_splits=5, figsize=(10, 6)):
     
     ax.set_xlabel('Sample Index')
     ax.set_ylabel('CV Fold')
-    ax.set_title('Grouped Cross-Validation Strategy')
+    ax.set_title(title or 'Grouped Cross-Validation Strategy')
     ax.set_yticks(range(n_splits))
     ax.set_yticklabels([f'Fold {i+1}' for i in range(n_splits)])
     
@@ -233,7 +233,7 @@ def plot_grouped_cv(cv, groups, n_splits=5, figsize=(10, 6)):
     return fig, ax
 
 
-def plot_spatial_cv(cv, coordinates, n_splits=5, figsize=(12, 8)):
+def plot_spatial_cv(cv, coordinates, n_splits=5, figsize=(12, 8), title: Optional[str] = None):
     """
     Visualize spatial cross-validation strategy
     
@@ -284,13 +284,13 @@ def plot_spatial_cv(cv, coordinates, n_splits=5, figsize=(12, 8)):
     for i in range(n_splits, len(axes)):
         axes[i].set_visible(False)
     
-    fig.suptitle('Spatial Cross-Validation Strategy', fontsize=14)
+    fig.suptitle(title or 'Spatial Cross-Validation Strategy', fontsize=14)
     plt.tight_layout()
     return fig, axes
 
 
 def plot_validation_curves(train_scores, val_scores, param_values, 
-                          param_name='Parameter', figsize=(10, 6)):
+                          param_name='Parameter', figsize=(10, 6), title: Optional[str] = None):
     """
     Plot validation curves for hyperparameter tuning
     
@@ -330,7 +330,7 @@ def plot_validation_curves(train_scores, val_scores, param_values,
     
     ax.set_xlabel(param_name)
     ax.set_ylabel('Score')
-    ax.set_title('Validation Curve')
+    ax.set_title(title or 'Validation Curve')
     ax.legend(loc='best')
     ax.grid(True, alpha=0.3)
     
@@ -338,7 +338,7 @@ def plot_validation_curves(train_scores, val_scores, param_values,
     return fig, ax
 
 
-def plot_learning_curves(train_sizes, train_scores, val_scores, figsize=(10, 6)):
+def plot_learning_curves(train_sizes, train_scores, val_scores, figsize=(10, 6), title: Optional[str] = None):
     """
     Plot learning curves
     
@@ -376,9 +376,112 @@ def plot_learning_curves(train_sizes, train_scores, val_scores, figsize=(10, 6))
     
     ax.set_xlabel('Training Set Size')
     ax.set_ylabel('Score')
-    ax.set_title('Learning Curves')
+    ax.set_title(title or 'Learning Curves')
     ax.legend(loc='best')
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
     return fig, ax
+
+
+# ---- sklearn-style wrappers ----
+def plot_learning_curve(
+    estimator,
+    X,
+    y=None,
+    *,
+    cv=None,
+    scoring=None,
+    n_jobs=None,
+    train_sizes=None,
+    shuffle=True,
+    random_state=None,
+    groups=None,
+    figsize=(10, 6),
+    title: Optional[str] = None,
+):
+    """
+    Wrapper to compute and plot learning curves via scikit-learn.
+
+    Accepts trustcv or sklearn CV splitters in `cv`. Pass `groups` when using
+    grouped CV.
+    """
+    import numpy as _np
+    from sklearn.model_selection import learning_curve as _learning_curve
+
+    if train_sizes is None:
+        train_sizes = _np.linspace(0.1, 1.0, 5)
+
+    # Call sklearn with widest signature available; fall back if needed
+    try:
+        sizes, train_scores, val_scores, fit_times, _ = _learning_curve(
+            estimator,
+            X,
+            y,
+            groups=groups,
+            scoring=scoring,
+            cv=cv,
+            n_jobs=n_jobs,
+            train_sizes=train_sizes,
+            shuffle=shuffle,
+            random_state=random_state,
+            return_times=True,
+        )
+    except TypeError:
+        sizes, train_scores, val_scores, fit_times, _ = _learning_curve(
+            estimator,
+            X,
+            y,
+            groups=groups,
+            scoring=scoring,
+            cv=cv,
+            n_jobs=n_jobs,
+            train_sizes=train_sizes,
+            return_times=True,
+        )
+
+    fig, ax = plot_learning_curves(sizes, train_scores, val_scores, figsize=figsize, title=title)
+    return fig
+
+
+def plot_validation_curve(
+    estimator,
+    X,
+    y,
+    *,
+    param_name: str,
+    param_range,
+    cv=None,
+    scoring=None,
+    n_jobs=None,
+    groups=None,
+    logx: bool = False,
+    figsize=(10, 6),
+    title: Optional[str] = None,
+):
+    """
+    Wrapper to compute and plot validation curve via scikit-learn.
+
+    Accepts trustcv or sklearn CV splitters in `cv`. Pass `groups` when using
+    grouped CV.
+    """
+    from sklearn.model_selection import validation_curve as _validation_curve
+
+    train_scores, val_scores = _validation_curve(
+        estimator,
+        X,
+        y,
+        param_name=param_name,
+        param_range=param_range,
+        groups=groups,
+        cv=cv,
+        scoring=scoring,
+        n_jobs=n_jobs,
+    )
+    fig, ax = plot_validation_curves(train_scores, val_scores, param_range, param_name=param_name, figsize=figsize, title=title)
+    if logx:
+        try:
+            ax.set_xscale('log')
+        except Exception:
+            pass
+    return fig

@@ -40,24 +40,21 @@ def sensitivity(y_true, y_pred, pos_label=1):
 
 def specificity(y_true, y_pred, pos_label=1):
     """
-    Calculate specificity (true negative rate)
-    
-    Parameters
-    ----------
-    y_true : array-like
-        True labels
-    y_pred : array-like
-        Predicted labels
-    pos_label : int/str
-        Label of positive class
-        
-    Returns
-    -------
-    float
-        Specificity score
+    Calculate specificity (true negative rate, TNR) for binary classification.
+
+    For robustness across label types, this computes recall of the negative class
+    rather than relying on numeric label arithmetic.
     """
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[1-pos_label, pos_label]).ravel()
-    return tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    # Determine negative label
+    import numpy as _np
+    uniq = _np.unique(_np.concatenate([_np.asarray(y_true).ravel(), _np.asarray(y_pred).ravel()]))
+    if uniq.size >= 2 and pos_label in uniq:
+        neg_candidates = [lab for lab in uniq if lab != pos_label]
+        neg_label = neg_candidates[0]
+    else:
+        # Fallback to 0/1 convention
+        neg_label = 0 if pos_label != 0 else 1
+    return recall_score(y_true, y_pred, pos_label=neg_label)
 
 
 def positive_predictive_value(y_true, y_pred, pos_label=1):

@@ -13,7 +13,8 @@ For medical data with geographic/spatial components:
 """
 
 import numpy as np
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union, Tuple, List, Literal
+from numpy.typing import ArrayLike
 from sklearn.model_selection import BaseCrossValidator
 from sklearn.utils import check_random_state, indexable
 import warnings
@@ -36,12 +37,25 @@ class SpatialBlockCV(BaseCrossValidator):
         Random state for reproducibility
     """
     
-    def __init__(self, n_splits: int = 5, 
-                 block_shape: Union[str, Tuple] = 'grid',
-                 random_state: Optional[int] = None):
+    def __init__(
+        self,
+        n_splits: int = 5,
+        block_shape: Literal["grid", "kmeans"] = "grid",
+        block_size: Optional[float] = None,
+        random_state: Optional[int] = None,
+        coordinates: Optional[ArrayLike] = None,
+        **kwargs,
+    ):
+        super().__init__()
+        if n_splits < 2:
+            raise ValueError("n_splits must be at least 2")
+
         self.n_splits = n_splits
         self.block_shape = block_shape
+        self.block_size = block_size
         self.random_state = random_state
+        self.coordinates = coordinates  # store default coordinates
+        self.kwargs = kwargs
         
     def _create_spatial_blocks(self, coordinates, n_blocks):
         """
@@ -124,33 +138,52 @@ class SpatialBlockCV(BaseCrossValidator):
         ------
         train, test indices
         """
+ 
+        if coordinates is None:
+            coordinates = self.coordinates
         if coordinates is None:
             raise ValueError("Spatial coordinates required for spatial block CV")
-            
+
+        coordinates = np.asarray(coordinates)
+        if coordinates.ndim != 2 or coordinates.shape[1] != 2:
+            raise ValueError("Coordinates must be an array of shape (n_samples, 2)")
+
         X, y, groups = indexable(X, y, groups)
-        coordinates = np.array(coordinates)
-        
-        if coordinates.shape[1] != 2:
-            raise ValueError("Coordinates must be 2D (x, y) or (lat, lon)")
-            
-        n_samples = len(X)
-        indices = np.arange(n_samples)
-        
-        # Create spatial blocks
-        block_ids = self._create_spatial_blocks(coordinates, self.n_splits)
-        unique_blocks = np.unique(block_ids)
-        
-        # Generate splits
-        for test_block in unique_blocks[:self.n_splits]:
-            test_mask = block_ids == test_block
-            test_idx = indices[test_mask]
-            train_idx = indices[~test_mask]
-            
-            if len(train_idx) > 0 and len(test_idx) > 0:
-                yield train_idx, test_idx
-                
+        if coordinates.shape[0] != len(X):
+            raise ValueError("Coordinate array size must match X")
+
+        if self.block_shape == "grid":
+            blocks = self._grid_blocks(coordinates)
+        elif self.block_shape == "kmeans":
+            blocks = self._kmeans_blocks(coordinates)
+        else:
+            raise ValueError(
+                f"Unknown block_shape '{self.block_shape}'. Use 'grid' or 'kmeans'."
+            )
+
+        unique_blocks = np.unique(blocks)
+        if len(unique_blocks) < self.n_splits:
+            raise ValueError(
+                f"Need at least {self.n_splits} unique spatial blocks, got {len(unique_blocks)}."
+            )
+
+        rng = np.random.default_rng(self.random_state)
+        for block in unique_blocks:
+            test_mask = blocks == block
+            if test_mask.sum() == 0:
+                continue
+            if unique_blocks.size > self.n_splits:
+                selected = rng.choice(
+                    unique_blocks,
+                    size=self.n_splits,
+                    replace=False,
+                    shuffle=True,
+                )
+                if block not in selected:
+                    continue
+            yield np.where(~test_mask)[0], np.where(test_mask)[0]
+
     def get_n_splits(self, X=None, y=None, groups=None):
-        """Returns the number of splitting iterations"""
         return self.n_splits
 
 

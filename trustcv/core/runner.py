@@ -186,12 +186,27 @@ class UniversalCVRunner:
         all_scores = []
         all_models = []
         all_predictions = []
+        all_probabilities = []
+        fold_sizes = []
         all_indices = []
         
-        # Get number of samples
+        # Get number of samples and optional groups from data tuple
+        groups_from_data = None
+        X_data = None
+        y_data = None
         if isinstance(data, tuple):
-            X, y = data
+            if len(data) == 2:
+                X, y = data
+            elif len(data) == 3:
+                X, y, groups_from_data = data
+            else:
+                raise ValueError("data tuple must be (X, y) or (X, y, groups)")
             n_samples = len(X)
+            X_data = X
+            y_data = y
+            # If caller did not pass groups kwarg, use groups from data tuple
+            if groups is None and groups_from_data is not None:
+                groups = groups_from_data
         elif hasattr(data, '__len__'):
             n_samples = len(data)
         else:
@@ -208,9 +223,23 @@ class UniversalCVRunner:
         
         # Cross-validation loop
         fold_idx = 0
-        for split_indices in self.cv_splitter.split(
-            range(n_samples) if n_samples else data, groups=groups
-        ):
+        split_source = range(n_samples) if n_samples is not None else data
+        if y_data is not None:
+            split_iter = self.cv_splitter.split(
+                split_source,
+                y=y_data,
+                groups=groups,
+                **kwargs,
+            )
+        else:
+            split_iter = self.cv_splitter.split(
+                split_source,
+                groups=groups,
+                **kwargs,
+            )
+
+        for split_indices in split_iter:
+
             train_idx, val_idx = split_indices
             
             # Trigger fold start callbacks
@@ -224,9 +253,13 @@ class UniversalCVRunner:
             else:
                 fold_model = self.adapter.clone_model(model)
             
-            # Create data splits
+            # Create data splits (support (X,y) or (X,y,groups) tuples)
+            data_for_adapter = data
+            if isinstance(data, tuple) and len(data) >= 2:
+                # Always pass only (X, y) to framework adapters by default
+                data_for_adapter = (X, y)
             train_data, val_data = self.adapter.create_data_splits(
-                data, train_idx, val_idx
+                data_for_adapter, train_idx, val_idx
             )
             
             # Framework-specific training
@@ -285,19 +318,27 @@ class UniversalCVRunner:
                     fold_model, val_data, metrics=metrics
                 )
             
-            # Get predictions
-            try:
-                predictions = self.adapter.get_predictions(fold_model, val_data)
-                final_metrics['predictions'] = predictions
+            # Ensure predictions/probabilities are captured for downstream use
+            predictions = final_metrics.get('predictions')
+            if predictions is None:
+                try:
+                    predictions = self.adapter.get_predictions(fold_model, val_data)
+                    final_metrics['predictions'] = predictions
+                except Exception as e:
+                    if self.verbose >= 1:
+                        print(f"Could not get predictions: {e}")
+            if predictions is not None:
                 all_predictions.append(predictions)
-            except Exception as e:
-                if self.verbose >= 1:
-                    print(f"Could not get predictions: {e}")
+
+            probabilities = final_metrics.get('probabilities')
+            if probabilities is not None:
+                all_probabilities.append(probabilities)
             
             # Store results
             all_scores.append(final_metrics)
             all_models.append(fold_model)
             all_indices.append((train_idx, val_idx))
+            fold_sizes.append(int(len(val_idx)))
             
             # Trigger fold end callbacks
             for callback in all_callbacks:
@@ -316,11 +357,13 @@ class UniversalCVRunner:
             scores=all_scores,
             models=all_models,
             predictions=all_predictions if all_predictions else None,
+            probabilities=all_probabilities if all_probabilities else None,
             indices=all_indices,
             metadata={
                 'framework': self.framework,
                 'n_splits': n_splits,
-                'cv_method': self.cv_splitter.__class__.__name__
+                'cv_method': self.cv_splitter.__class__.__name__,
+                'fold_sizes': fold_sizes,
             }
         )
         

@@ -327,22 +327,6 @@ class ProgressLogger(CVCallback):
         if self.verbose >= 1:
             print("\n" + "=" * 50)
             print("Cross-validation completed")
-            
-            # Calculate and display summary statistics
-            if all_results:
-                metrics_summary = {}
-                for result in all_results:
-                    for key, value in result.items():
-                        if isinstance(value, (int, float)):
-                            if key not in metrics_summary:
-                                metrics_summary[key] = []
-                            metrics_summary[key].append(value)
-                
-                print("\nSummary:")
-                for metric, values in metrics_summary.items():
-                    mean = np.mean(values)
-                    std = np.std(values)
-                    print(f"  {metric}: {mean:.4f} (+/- {std:.4f})")
         
         self.logs.append({
             'event': 'cv_end',
@@ -357,6 +341,74 @@ class ProgressLogger(CVCallback):
             
             if self.verbose >= 1:
                 print(f"\nLogs saved to {self.log_file}")
+
+
+class ClassDistributionLogger(CVCallback):
+    """
+    Display per-fold class composition for train/validation splits.
+
+    Useful to verify that each fold preserves label balance.
+    """
+
+    def __init__(self, labels, label_names: Optional[Dict[Any, str]] = None,
+                 verbose: int = 1, decimals: int = 1):
+        """
+        Parameters:
+            labels: Array-like target variable used for splitting
+            label_names: Optional mapping {raw_label: display_name}
+            verbose: 0=silent, 1=summary per fold
+            decimals: Number of decimal places for percentages
+        """
+        self.labels = labels
+        self.label_names = label_names or {}
+        self.verbose = verbose
+        self.decimals = max(0, decimals)
+        self._cache = {}
+
+    def _slice_labels(self, indices: np.ndarray) -> np.ndarray:
+        """Return labels for the given indices, handling pandas objects."""
+        if indices is None or len(indices) == 0:
+            return np.array([])
+        if hasattr(self.labels, 'iloc'):
+            subset = self.labels.iloc[indices]
+        else:
+            try:
+                subset = self.labels[indices]
+            except Exception:
+                subset = np.asarray(self.labels)[indices]
+        return np.asarray(subset)
+
+    def _format_distribution(self, indices: np.ndarray) -> str:
+        """Format class counts and percentages for display."""
+        key = hash(indices.tobytes())
+        if key in self._cache:
+            return self._cache[key]
+
+        values = self._slice_labels(indices)
+        if values.size == 0:
+            summary = "n/a"
+        else:
+            unique, counts = np.unique(values, return_counts=True)
+            total = counts.sum()
+            pieces = []
+            for cls, cnt in zip(unique, counts):
+                label = self.label_names.get(cls, cls)
+                perc = (cnt / total) * 100 if total > 0 else 0.0
+                pieces.append(f"{label}: {cnt} ({perc:.{self.decimals}f}%)")
+            summary = ", ".join(pieces)
+
+        self._cache[key] = summary
+        return summary
+
+    def on_fold_start(self, fold_idx: int, train_idx: np.ndarray,
+                      val_idx: np.ndarray) -> None:
+        if self.verbose <= 0:
+            return
+
+        train_summary = self._format_distribution(train_idx)
+        val_summary = self._format_distribution(val_idx)
+        print(f"  Train class distribution: {train_summary}")
+        print(f"  Val class distribution:   {val_summary}")
 
 
 class RegulatoryComplianceLogger(CVCallback):

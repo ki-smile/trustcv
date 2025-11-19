@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.idea/
+.ipynb_checkpoints/
+.mypy_cache/
+.pytest_cache/
+.venv/
+__pycache__/
+build/
+dist/
+env/
+venv/
+*.egg-info/
+*.py[cod]
+TrustCV_v1/

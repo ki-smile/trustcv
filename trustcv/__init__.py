@@ -33,12 +33,12 @@ For more information about AI research and collaboration opportunities,
 visit SMAILE at https://smile.ki.se
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __author__ = "SMAILE Team, Karolinska Institutet"
 __institution__ = "SMAILE - Stockholm Medical AI and Learning Environments, Karolinska Institutet"
 __website__ = "https://smile.ki.se"
 
-from .validators import MedicalValidator
+from .validators import TrustCVValidator, MedicalValidator, NestedTemporalCV
 from .checkers import DataLeakageChecker, BalanceChecker
 from .metrics import ClinicalMetrics
 
@@ -69,7 +69,8 @@ from .core import (
     CVCallback,
     EarlyStopping,
     ModelCheckpoint,
-    ProgressLogger
+    ProgressLogger,
+    ClassDistributionLogger,
 )
 
 # Conditionally import framework-specific runners if available
@@ -93,10 +94,10 @@ except ImportError:
 
 __all__ = [
     # Core validators and checkers
-    'MedicalValidator',
+    'TrustCVValidator', 'MedicalValidator',
     'DataLeakageChecker',
     'BalanceChecker',
-    'ClinicalMetrics',
+    'ClinicalMetrics', 'NestedTemporalCV', 'NestedGroupedCV',
     # Framework-agnostic components
     'UniversalCVRunner',
     'CVResults',
@@ -104,6 +105,7 @@ __all__ = [
     'EarlyStopping',
     'ModelCheckpoint',
     'ProgressLogger',
+    'ClassDistributionLogger',
     # I.I.D. methods
     'HoldOut', 'KFoldMedical', 'StratifiedKFoldMedical',
     'RepeatedKFold', 'LOOCV', 'LPOCV', 'BootstrapValidation',
@@ -129,3 +131,92 @@ if _tensorflow_available:
     __all__.append('KerasCVRunner')
 if _monai_available:
     __all__.append('MONAICVRunner')
+
+# === Canonical name aliases (consistency with sklearn/literature) ===
+import warnings as _trustcv_warnings
+
+def _trustcv_deprecated(old, new):
+    _trustcv_warnings.warn(
+        f"'{old}' is deprecated; use '{new}' instead.",
+        category=DeprecationWarning,
+        stacklevel=2
+    )
+
+# ---- Canonical aliases (bind canonical names to existing implementations) ----
+# IID / Grouped
+try: KFold = KFoldMedical
+except NameError: pass
+try: StratifiedKFold = StratifiedKFoldMedical
+except NameError: pass
+try: LeaveOneOut = LOOCV
+except NameError: pass
+try: LeavePOut = LPOCV
+except NameError: pass
+try: GroupKFold = GroupKFoldMedical
+except NameError: pass
+
+# Temporal
+try: BlockedTimeSeriesSplit = BlockedTimeSeries
+except NameError: pass
+try: RollingWindowSplit = RollingWindowCV
+except NameError: pass
+try: ExpandingWindowSplit = ExpandingWindowCV
+except NameError: pass
+try: PurgedKFold = PurgedKFoldCV
+except NameError: pass
+try: CombinatorialPurgedKFold = CombinatorialPurgedCV
+except NameError: pass
+
+# Spatial
+try: SpatialBlockSplit = SpatialBlockCV
+except NameError: pass
+try: BufferedSpatialSplit = BufferedSpatialCV
+except NameError: pass
+try: SpatiotemporalBlockSplit = SpatiotemporalBlockCV
+except NameError: pass
+try: EnvironmentalHealthSplit = EnvironmentalHealthCV
+except NameError: pass
+
+# Checkers
+try: LeakageChecker = DataLeakageChecker
+except NameError: pass
+try: ClassBalanceChecker = BalanceChecker
+except NameError: pass
+
+# ---- Extend __all__ with canonical names (non-breaking) ----
+__all__.extend([
+    # IID / Grouped
+    'KFold', 'StratifiedKFold', 'LeaveOneOut', 'LeavePOut', 'GroupKFold',
+    # Temporal
+    'BlockedTimeSeriesSplit', 'RollingWindowSplit', 'ExpandingWindowSplit',
+    'PurgedKFold', 'CombinatorialPurgedKFold',
+    # Spatial
+    'SpatialBlockSplit', 'BufferedSpatialSplit', 'SpatiotemporalBlockSplit', 'EnvironmentalHealthSplit',
+    # Checkers
+    'LeakageChecker', 'ClassBalanceChecker',
+])
+
+# ---- Optional: gentle deprecation notices (future-proofing) ----
+def __getattr__(name):
+    _map = {
+        'KFoldMedical': 'KFold',
+        'StratifiedKFoldMedical': 'StratifiedKFold',
+        'LOOCV': 'LeaveOneOut',
+        'LPOCV': 'LeavePOut',
+        'GroupKFoldMedical': 'GroupKFold',
+        'BlockedTimeSeries': 'BlockedTimeSeriesSplit',
+        'RollingWindowCV': 'RollingWindowSplit',
+        'ExpandingWindowCV': 'ExpandingWindowSplit',
+        'PurgedKFoldCV': 'PurgedKFold',
+        'CombinatorialPurgedCV': 'CombinatorialPurgedKFold',
+        'SpatialBlockCV': 'SpatialBlockSplit',
+        'BufferedSpatialCV': 'BufferedSpatialSplit',
+        'SpatiotemporalBlockCV': 'SpatiotemporalBlockSplit',
+        'EnvironmentalHealthCV': 'EnvironmentalHealthSplit',
+        'DataLeakageChecker': 'LeakageChecker',
+        'BalanceChecker': 'ClassBalanceChecker',
+    }
+    if name in _map:
+        _trustcv_deprecated(name, _map[name])
+        return globals().get(_map[name])
+    raise AttributeError(f"module 'trustcv' has no attribute '{name}'")
