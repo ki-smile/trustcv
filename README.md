@@ -110,13 +110,14 @@ print(results.summary())
 #=== Trustworthy Cross-Validation Results ===
 
 #Performance Metrics (mean +/- std) (method: bootstrap):
-#  accuracy: 0.954 +/- 0.011 [95% CI (bootstrap): 0.946-0.963]
-#  roc_auc: 0.992 +/- 0.004 [95% CI (bootstrap): 0.989-0.995]
+#  accuracy: 0.956 +/- 0.014 [95% CI (bootstrap): 0.946-0.967]
+#  roc_auc: 0.989 +/- 0.009 [95% CI (bootstrap): 0.981-0.995]
 #  sensitivity: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
-#  specificity: 0.934 +/- 0.042 [95% CI (bootstrap): 0.901-0.967]
-#  precision: 0.962 +/- 0.023 [95% CI (bootstrap): 0.944-0.980]
+#  specificity: 0.939 +/- 0.056 [95% CI (bootstrap): 0.893-0.981]
+#  precision: 0.965 +/- 0.031 [95% CI (bootstrap): 0.937-0.989]
 #  recall: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
-#  f1: 0.964 +/- 0.009 [95% CI (bootstrap): 0.956-0.971]
+#  f1: 0.965 +/- 0.011 [95% CI (bootstrap): 0.957-0.973]
+
 
 #Data Integrity Checks:
 #  Leakage Check: PASSED
