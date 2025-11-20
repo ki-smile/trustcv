@@ -136,11 +136,20 @@ class TrustCVValidator:
         holdout_test_size: Union[float, int] = 0.2,
         holdout_stratify: bool = False,
         repeated_kfold_repeats: int = 1,
+        n_repeats: Optional[int] = None,
         lpocv_p: int = 2,
+        p: Optional[int] = None,
         monte_carlo_iterations: int = 50,
+        n_iterations: Optional[int] = None,
+        iterations: Optional[int] = None,
         monte_carlo_test_size: Union[float, int] = 0.2,
+        mc_test_size: Optional[Union[float, int]] = None,
         bootstrap_validation_iterations: int = 200,
+        bootstrap_iterations: Optional[int] = None,
         bootstrap_validation_estimator: str = 'standard',
+        bootstrap_estimator: Optional[str] = None,
+        test_size: Optional[Union[float, int]] = None,
+        stratify: Optional[bool] = None,
     ):
         """
         Initialize TrustCV Validator
@@ -166,20 +175,25 @@ class TrustCVValidator:
         holdout_stratify : bool
             If True, enables stratified hold-out splitting (uses ``y`` labels)
         repeated_kfold_repeats : int
-            Number of repetitions when ``method='repeated_kfold'``
+            Number of repetitions when ``method='repeated_kfold'`` (alias: ``n_repeats``)
         lpocv_p : int
-            Number of samples to leave out for ``method='lpocv'``
+            Number of samples to leave out for ``method='lpocv'`` (alias: ``p``)
         monte_carlo_iterations : int
-            Random split iterations for ``method='monte_carlo'``
+            Random split iterations for ``method='monte_carlo'`` (aliases: ``n_iterations``, ``iterations``)
         monte_carlo_test_size : float or int
-            Fraction or count for Monte Carlo test splits
+            Fraction or count for Monte Carlo test splits (alias: ``mc_test_size``; ``test_size`` also handled)
         bootstrap_validation_iterations : int
-            Number of bootstrap resamples when ``method='bootstrap'``
+            Number of bootstrap resamples when ``method='bootstrap'`` (alias: ``bootstrap_iterations``)
         bootstrap_validation_estimator : str
-            Bootstrap estimator variant ('standard', '.632', '.632+')
+            Bootstrap estimator variant ('standard', '.632', '.632+') (alias: ``bootstrap_estimator``)
+        test_size : float or int, optional
+            Alias for ``holdout_test_size`` (and, when using Monte Carlo splits, ``monte_carlo_test_size``)
+        stratify : bool, optional
+            Alias for ``holdout_stratify`` to toggle stratified hold-out splitting
         """
         # Accept multiple naming styles (canonical and sklearn-style)
         self.method = self._normalize_method(method)
+        method_key = self.method
         self.n_splits = n_splits
         self.random_state = random_state
         self.check_leakage = check_leakage
@@ -193,30 +207,41 @@ class TrustCVValidator:
         self.ci_method = ci_method
         self.n_bootstrap = int(n_bootstrap)
 
-        self.holdout_test_size = holdout_test_size
-        if isinstance(self.holdout_test_size, float):
-            if not 0 < self.holdout_test_size < 1:
-                raise ValueError("holdout_test_size as float must be between 0 and 1.")
-        elif isinstance(self.holdout_test_size, int):
-            if self.holdout_test_size <= 0:
-                raise ValueError("holdout_test_size as int must be positive.")
+        holdout_size_val = holdout_test_size
+        if test_size is not None:
+            holdout_size_val = test_size
+        self.holdout_test_size = self._validate_split_size(holdout_size_val, 'holdout_test_size')
         self.holdout_stratify = bool(holdout_stratify)
+        if stratify is not None:
+            self.holdout_stratify = bool(stratify)
 
-        self.repeated_kfold_repeats = max(int(repeated_kfold_repeats), 1)
+        repeats_val = n_repeats if n_repeats is not None else repeated_kfold_repeats
+        self.repeated_kfold_repeats = max(int(repeats_val), 1)
 
-        self.lpocv_p = max(int(lpocv_p), 1)
+        lp_val = p if p is not None else lpocv_p
+        self.lpocv_p = max(int(lp_val), 1)
 
-        self.monte_carlo_iterations = max(int(monte_carlo_iterations), 1)
-        self.monte_carlo_test_size = monte_carlo_test_size
-        if isinstance(self.monte_carlo_test_size, float):
-            if not 0 < self.monte_carlo_test_size < 1:
-                raise ValueError("monte_carlo_test_size as float must be between 0 and 1.")
-        elif isinstance(self.monte_carlo_test_size, int):
-            if self.monte_carlo_test_size <= 0:
-                raise ValueError("monte_carlo_test_size as int must be positive.")
+        mc_iter_val = monte_carlo_iterations
+        if n_iterations is not None:
+            mc_iter_val = n_iterations
+        elif iterations is not None:
+            mc_iter_val = iterations
+        self.monte_carlo_iterations = max(int(mc_iter_val), 1)
 
-        self.bootstrap_validation_iterations = max(int(bootstrap_validation_iterations), 1)
-        self.bootstrap_validation_estimator = bootstrap_validation_estimator
+        mc_size_val = monte_carlo_test_size
+        if mc_test_size is not None:
+            mc_size_val = mc_test_size
+        elif test_size is not None and method_key == 'monte_carlo':
+            mc_size_val = test_size
+        self.monte_carlo_test_size = self._validate_split_size(
+            mc_size_val, 'monte_carlo_test_size'
+        )
+
+        boot_iter_val = bootstrap_iterations if bootstrap_iterations is not None else bootstrap_validation_iterations
+        self.bootstrap_validation_iterations = max(int(boot_iter_val), 1)
+        self.bootstrap_validation_estimator = (
+            str(bootstrap_estimator) if bootstrap_estimator is not None else bootstrap_validation_estimator
+        )
         
         self._cv_splitter = None
         self._setup_splitter()
@@ -598,10 +623,24 @@ class TrustCVValidator:
         
             raise ValueError(
                 f"Unknown method: {self.method}. "
-                f"Use one of: 'kfold', 'stratified_kfold', 'patient_grouped_kfold', 'stratified_grouped_kfold', 'temporal' "
+                f"Use one of: 'kfold', 'stratified_kfold', 'patient_grouped_kfold', 'stratified_grouped_kfold', "
+                f"'temporal', 'holdout', 'repeated_kfold', 'loocv', 'lpocv', 'monte_carlo', 'bootstrap' "
                 f"(also accepts 'KFold', 'StratifiedKFold', 'GroupKFold', 'StratifiedGroupKFold', 'TimeSeriesSplit')."
             )
 
+
+    @staticmethod
+    def _validate_split_size(value: Union[float, int], name: str) -> Union[float, int]:
+        """Validate hold-out style split size parameters."""
+        if isinstance(value, float):
+            if not 0 < value < 1:
+                raise ValueError(f"{name} as float must be between 0 and 1.")
+            return value
+        if isinstance(value, int):
+            if value <= 0:
+                raise ValueError(f"{name} as int must be positive.")
+            return value
+        raise TypeError(f"{name} must be a float fraction or positive int.")
 
 
     def _normalize_method(self, method: str) -> str:
@@ -636,6 +675,7 @@ class TrustCVValidator:
             'holdoutvalidation': 'holdout',
             'holdoutsplit': 'holdout',
             'traintestsplit': 'holdout',
+            'train_test_split': 'holdout',
             'repeatedkfold': 'repeated_kfold',
             'repeated_kfold': 'repeated_kfold',
             'repeated-kfold': 'repeated_kfold',

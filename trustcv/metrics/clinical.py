@@ -332,11 +332,18 @@ class ClinicalMetrics:
         # Performance Metrics
         report += "\nPERFORMANCE METRICS\n"
         report += "-" * 30 + "\n"
-        report += f"Accuracy:     {metrics['accuracy']:.1%}\n"
-        report += f"F1 Score:     {metrics['f1_score']:.3f}\n"
+        report += f"Accuracy:         {metrics['accuracy']:.1%}\n"
+        report += f"Accuracy CI:      [{metrics['accuracy_ci'][0]:.1%}, {metrics['accuracy_ci'][1]:.1%}]\n"
+        report += f"F1 Score:         {metrics['f1_score']:.3f}\n"
         if 'auc_roc' in metrics:
-            report += f"AUC-ROC:      {metrics['auc_roc']:.3f} "
+            report += f"AUC-ROC:          {metrics['auc_roc']:.3f} "
             report += f"[{metrics['auc_roc_ci'][0]:.3f}, {metrics['auc_roc_ci'][1]:.3f}]\n"
+        if 'average_precision' in metrics:
+            report += f"Average Precision: {metrics['average_precision']:.3f}\n"
+        if 'optimal_threshold' in metrics:
+            report += f"Optimal Threshold (Youden): {metrics['optimal_threshold']:.3f}\n"
+            report += f"  ↳ Sensitivity @ Threshold: {metrics['optimal_sensitivity']:.1%}\n"
+            report += f"  ↳ Specificity @ Threshold: {metrics['optimal_specificity']:.1%}\n"
         
         # Clinical Utility
         report += "\nCLINICAL UTILITY\n"
@@ -344,10 +351,15 @@ class ClinicalMetrics:
         report += f"Youden's Index:     {metrics['youdens_index']:.3f}\n"
         report += f"LR+:                {metrics['lr_positive']:.2f}\n"
         report += f"LR-:                {metrics['lr_negative']:.2f}\n"
+        report += f"Diagnostic OR:      {metrics['diagnostic_odds_ratio']:.2f}\n"
         if metrics['nnt']:
             report += f"NNT:                {metrics['nnt']:.1f}\n"
+        else:
+            report += "NNT:                n/a\n"
         if metrics['nns']:
             report += f"NNS:                {metrics['nns']:.1f}\n"
+        else:
+            report += "NNS:                n/a\n"
         
         # Confusion Matrix
         report += "\nCONFUSION MATRIX\n"
