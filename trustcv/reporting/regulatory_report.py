@@ -8,6 +8,7 @@ import datetime
 from typing import Dict, Iterable, List, Optional, Union
 import numpy as np
 from pathlib import Path
+from string import Template
 
 
 class RegulatoryReport:
@@ -477,6 +478,359 @@ class RegulatoryReport:
         # Implementation would use matplotlib or plotly to generate curves
         pass
 
+    # --- clinical performance generation ---
+    def clinicalperformancereport(
+        self,
+        *,
+        metrics: Dict[str, Union[float, Dict]],
+        output_path: str,
+        format: str = 'html'
+    ) -> str:
+        """
+        Generate the styled clinical performance report from ClinicalMetrics output.
+        """
+        if not isinstance(metrics, dict):
+            raise ValueError("metrics must be a dictionary produced by ClinicalMetrics.calculate_all()")
+
+        report_id = f"VAL-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        report_date = datetime.datetime.now().strftime("%Y-%m-%d")
+
+        html_string = self._generate_clinical_performance_html(metrics, report_id, report_date)
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        lower_fmt = (format or "html").lower()
+        base_font = "10px" if lower_fmt == 'pdf' else "14px"
+        if lower_fmt == 'pdf':
+            try:
+                from weasyprint import HTML  # type: ignore
+                html_for_pdf = html_string.replace("__BASE_FONT_SIZE__", base_font)
+                HTML(string=html_for_pdf).write_pdf(str(path))
+                return str(path)
+            except ImportError:
+                fallback = path.with_suffix('.html')
+                fallback_html = html_string.replace("__BASE_FONT_SIZE__", "14px")
+                fallback.write_text(fallback_html, encoding='utf-8')
+                print(
+                    "weasyprint is not installed; saved HTML instead at "
+                    f"{fallback}. Install `weasyprint` to enable PDF export."
+                )
+                return str(fallback)
+
+        html_final = html_string.replace("__BASE_FONT_SIZE__", base_font)
+        path.write_text(html_final, encoding='utf-8')
+        return str(path)
+
+    def _generate_clinical_performance_html(
+        self,
+        metrics: Dict[str, Union[float, Dict]],
+        report_id: str,
+        report_date: str,
+    ) -> str:
+        dataset = self.dataset_info or {}
+        cv_info = self.cv_results or {}
+
+        def pct(val, default="n/a", precision=1):
+            try:
+                return f"{float(val) * 100:.{precision}f}%"
+            except (TypeError, ValueError):
+                return default
+
+        def ci_pct(ci):
+            if not ci or len(ci) < 2:
+                return "n/a"
+            return f"[{pct(ci[0])}, {pct(ci[1])}]"
+
+        def ci_float(ci, precision=1):
+            if not ci or len(ci) < 2:
+                return "n/a"
+            try:
+                lo = float(ci[0])
+                hi = float(ci[1])
+                return f"[{lo:.{precision}f}, {hi:.{precision}f}]"
+            except (TypeError, ValueError):
+                return "n/a"
+
+        def interpret_lr(value: float, positive: bool) -> str:
+            try:
+                val = float(value)
+            except (TypeError, ValueError):
+                return "Unavailable"
+            if positive:
+                if val >= 10:
+                    return "Strong increase in prob."
+                if val >= 5:
+                    return "Moderate increase in prob."
+                if val >= 2:
+                    return "Small increase in prob."
+                return "Minimal change"
+            else:
+                if val <= 0.1:
+                    return "Strong decrease in prob."
+                if val <= 0.2:
+                    return "Moderate decrease in prob."
+                if val <= 0.5:
+                    return "Small decrease in prob."
+                return "Minimal change"
+
+        def render_class_rows(class_dist: Dict[str, Dict[str, float]]) -> str:
+            if not class_dist:
+                return '<tr><td colspan="3">Not provided</td></tr>'
+            rows = []
+            for label, stats in class_dist.items():
+                count = stats.get('count', 'N/A')
+                pct_val = stats.get('percentage')
+                pct_str = f"{pct_val:.1f}%" if isinstance(pct_val, (int, float)) else (pct_val or "N/A")
+                rows.append(
+                    f"<tr><td>{label}</td><td>{count}</td><td>{pct_str}</td></tr>"
+                )
+            return "".join(rows)
+
+        def render_recommendations(recs: List[str]) -> str:
+            if not recs:
+                return "<li>No recommendations provided.</li>"
+            return "".join(f"<li>{rec}</li>" for rec in recs)
+
+        class_rows = render_class_rows(dataset.get('class_distribution', {}))
+        recs = metrics.get('clinical_significance', {}).get('recommendations', [])
+        recommendations_html = render_recommendations(recs)
+
+        cv_mean = cv_info.get('mean_score')
+        cv_std = cv_info.get('std_score')
+        if isinstance(cv_mean, (int, float)) and isinstance(cv_std, (int, float)):
+            mean_accuracy_text = f"{cv_mean:.3f} ± {cv_std:.3f}"
+        else:
+            mean_accuracy_text = "N/A"
+
+        confusion = metrics.get('confusion_matrix', {})
+        tp = confusion.get('true_positives', confusion.get('tp', 0))
+        tn = confusion.get('true_negatives', confusion.get('tn', 0))
+        fp = confusion.get('false_positives', confusion.get('fp', 0))
+        fn = confusion.get('false_negatives', confusion.get('fn', 0))
+
+        auc_val = metrics.get('auc_roc')
+        if isinstance(auc_val, (int, float)):
+            auc_value = f"{auc_val:.3f}"
+            auc_ci = ci_float(metrics.get('auc_roc_ci'), precision=3)
+        else:
+            auc_value = "N/A"
+            auc_ci = "n/a"
+
+        lr_pos = metrics.get('lr_positive')
+        lr_neg = metrics.get('lr_negative')
+
+        youden_threshold = metrics.get('optimal_threshold')
+        if isinstance(youden_threshold, (int, float)):
+            youden_detail = f"Max perf @ {youden_threshold:.3f}"
+        else:
+            youden_detail = "Threshold unavailable"
+
+        dor_val = metrics.get('diagnostic_odds_ratio')
+        dor_ci = ci_float(metrics.get('diagnostic_odds_ratio_ci'), precision=1)
+        dor_value = (
+            f"{dor_val:.2f}" if isinstance(dor_val, (int, float)) else str(dor_val or "n/a")
+        )
+
+        template = Template(
+            """<!DOCTYPE html>
+<html>
+<head>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+    :root {
+        --p-color: #870052;
+        --s-color: #FF876F;
+        --d-color: #4F0433;
+        --l-color: #EDF4F4;
+    }
+    body { font-family: 'Inter', sans-serif; background-color: var(--l-color); color: var(--d-color); margin: 0; padding: 36px; font-size: __BASE_FONT_SIZE__; }
+    .page { max-width: 950px; margin: 0 auto; background: #FFFFFF; box-shadow: 0 15px 50px rgba(79, 4, 51, 0.08); border-radius: 12px; overflow: hidden; }
+    header { background: var(--p-color); color: #FFFFFF; padding: 40px 44px; display: flex; justify-content: space-between; border-bottom: 6px solid var(--s-color); }
+    header h1 { margin: 0; font-weight: 300; font-size: 1.8rem; }
+    header .meta { text-align: right; font-size: 0.9rem; opacity: 0.85; }
+    .content { padding: 40px; }
+    h2 { color: var(--p-color); font-size: 1rem; text-transform: uppercase; letter-spacing: 1.1px; border-bottom: 1px solid #eee; padding-bottom: 0.6rem; margin-top: 2rem; margin-bottom: 1rem; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    .card { padding: 1.2rem; background: var(--l-color); border-radius: 8px; border-left: 3px solid var(--p-color); }
+    .card.highlight { background: #FFF0ED; border-left-color: var(--s-color); }
+    .card .label { font-size: 0.75rem; text-transform: uppercase; color: #555; letter-spacing: 0.04em; }
+    .card .value { font-size: 1.8rem; font-weight: 600; margin: 0.5rem 0; }
+    .card .sub { font-size: 0.8rem; color: #777; font-family: monospace; }
+    .split-container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+    .info-box { background: #FAFAFA; padding: 1.2rem; border-radius: 8px; border: 1px solid #eee; font-size: 0.95rem; }
+    table.clean-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    table.clean-table th { text-align: left; color: #888; font-weight: 500; font-size: 0.75rem; border-bottom: 1px solid #ddd; padding: 0.6rem 0; }
+    table.clean-table td { padding: 0.7rem 0; border-bottom: 1px solid #f5f5f5; font-weight: 600; font-size: 0.95rem; }
+    .cm-box { display: grid; grid-template-columns: auto 1fr 1fr; gap: 0.2rem; background: #fff; border: 1px solid #eee; padding: 1rem; border-radius: 8px; }
+    .cm-cell { padding: 1rem; text-align: center; border-radius: 6px; font-size: 0.95rem; }
+    .bg-tp { background: rgba(135, 0, 82, 0.1); color: var(--p-color); }
+    .bg-err { background: rgba(255, 135, 111, 0.14); color: var(--d-color); }
+    .footer { text-align: center; font-size: 0.8rem; color: #777; padding: 1.6rem; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <div>
+                <h1>CLINICAL PERFORMANCE REPORT</h1>
+                <div style="font-size: 14px; margin-top: 5px;">$model_title</div>
+            </div>
+            <div class="meta">
+                ID: $report_id<br>
+                Date: $report_date<br>
+                Std: $compliance_standard
+            </div>
+        </header>
+        <div class="content">
+            <h2>Primary Diagnostic Metrics</h2>
+            <div class="kpi-grid">
+                <div class="card highlight">
+                    <div class="label">Sensitivity</div>
+                    <div class="value">$sensitivity_value</div>
+                    <div class="sub">$sensitivity_ci</div>
+                </div>
+                <div class="card highlight">
+                    <div class="label">Specificity</div>
+                    <div class="value">$specificity_value</div>
+                    <div class="sub">$specificity_ci</div>
+                </div>
+                <div class="card">
+                    <div class="label">PPV (Precision)</div>
+                    <div class="value">$ppv_value</div>
+                    <div class="sub">$ppv_ci</div>
+                </div>
+                <div class="card">
+                    <div class="label">NPV</div>
+                    <div class="value">$npv_value</div>
+                    <div class="sub">$npv_ci</div>
+                </div>
+            </div>
+            <div class="split-container">
+                <div class="info-box">
+                    <h3 style="margin-top:0; color:#870052; font-size:14px;">DATASET CHARACTERISTICS</h3>
+                    <table class="clean-table">
+                        <tr><td>Total Patients</td><td><strong>$n_patients</strong></td></tr>
+                        <tr><td>Total Samples</td><td><strong>$n_samples</strong></td></tr>
+                        <tr><td>Features</td><td><strong>$n_features</strong></td></tr>
+                    </table>
+                    <h4 style="margin:15px 0 5px; font-size:12px; color:#666;">CLASS DISTRIBUTION</h4>
+                    <table class="clean-table" style="font-size:13px;">
+                        <tr><th>CLASS</th><th>COUNT</th><th>PCT</th></tr>
+                        $class_rows
+                    </table>
+                </div>
+                <div class="info-box">
+                    <h3 style="margin-top:0; color:#870052; font-size:14px;">VALIDATION METHODOLOGY</h3>
+                    <table class="clean-table">
+                        <tr><td>Method</td><td style="text-align:right; color:#870052; font-weight:bold;">$validation_method</td></tr>
+                        <tr><td>Number of Folds</td><td style="text-align:right;">$n_folds</td></tr>
+                        <tr><td>Mean Accuracy</td><td style="text-align:right;">$mean_accuracy_text</td></tr>
+                    </table>
+                    <p style="font-size:12px; color:#666; margin-top:15px; line-height:1.5;">
+                        $validation_notes
+                    </p>
+                </div>
+            </div>
+            <div class="split-container">
+                <div>
+                    <h2>Clinical Utility</h2>
+                    <table class="clean-table">
+                        <tr><th>METRIC</th><th>VALUE</th><th>CI / INTERPRETATION</th></tr>
+                        <tr><td>AUC-ROC</td><td style="color:#870052; font-weight:bold">$auc_value</td><td>$auc_ci</td></tr>
+                        <tr><td>Likelihood Ratio (+)</td><td>$lr_positive</td><td>$lr_plus_interp</td></tr>
+                        <tr><td>Likelihood Ratio (-)</td><td>$lr_negative</td><td>$lr_minus_interp</td></tr>
+                        <tr><td>Youden's Index</td><td>$youden_index</td><td>$youden_detail</td></tr>
+                        <tr><td>Diagnostic OR</td><td>$diagnostic_or</td><td>$diagnostic_or_ci</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h2>Confusion Matrix</h2>
+                    <div class="cm-box">
+                        <div></div>
+                        <div style="text-align:center; font-size:10px; color:#888;">PRED POS</div>
+                        <div style="text-align:center; font-size:10px; color:#888;">PRED NEG</div>
+                        <div style="font-size:10px; color:#888; display:flex; align-items:center;">ACT POS</div>
+                        <div class="cm-cell bg-tp">
+                            <div style="font-size:20px; font-weight:bold;">$tp</div>
+                            <div style="font-size:9px;">True Pos</div>
+                        </div>
+                        <div class="cm-cell bg-err">
+                            <div style="font-size:20px; font-weight:bold;">$fn</div>
+                            <div style="font-size:9px;">False Neg</div>
+                        </div>
+                        <div style="font-size:10px; color:#888; display:flex; align-items:center;">ACT NEG</div>
+                        <div class="cm-cell bg-err">
+                            <div style="font-size:20px; font-weight:bold;">$fp</div>
+                            <div style="font-size:9px;">False Pos</div>
+                        </div>
+                        <div class="cm-cell bg-tp" style="background: #f0f0f0; color:#4F0433">
+                            <div style="font-size:20px; font-weight:bold;">$tn</div>
+                            <div style="font-size:9px;">True Neg</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <h2>Clinical Recommendations</h2>
+            <div style="background:#EDF4F4; padding:20px; border-radius:8px;">
+                <ul style="margin:0; padding-left:20px; color:#4F0433;">
+                    $recommendations_html
+                </ul>
+            </div>
+        </div>
+        <div class="footer">
+            Generated by TrustCV | ${manufacturer} | ${intended_use}
+        </div>
+    </div>
+</body>
+</html>"""
+        )
+
+        def format_lr(value):
+            if isinstance(value, (int, float)):
+                return f"{value:.2f}"
+            return str(value or "n/a")
+
+        substitutions = {
+            "model_title": f"{self.model_name} v{self.model_version}",
+            "report_id": report_id,
+            "report_date": report_date,
+            "compliance_standard": self.compliance_standard,
+            "sensitivity_value": pct(metrics.get('sensitivity'), "0.0%"),
+            "sensitivity_ci": ci_pct(metrics.get('sensitivity_ci')),
+            "specificity_value": pct(metrics.get('specificity'), "0.0%"),
+            "specificity_ci": ci_pct(metrics.get('specificity_ci')),
+            "ppv_value": pct(metrics.get('ppv'), "0.0%"),
+            "ppv_ci": ci_pct(metrics.get('ppv_ci')),
+            "npv_value": pct(metrics.get('npv'), "0.0%"),
+            "npv_ci": ci_pct(metrics.get('npv_ci')),
+            "n_patients": dataset.get('n_patients', dataset.get('n_samples', 'N/A')),
+            "n_samples": dataset.get('n_samples', 'N/A'),
+            "n_features": dataset.get('n_features', 'N/A'),
+            "class_rows": class_rows,
+            "validation_method": self.validation_method or cv_info.get('method', 'Unknown'),
+            "n_folds": cv_info.get('n_splits', 'N/A'),
+            "mean_accuracy_text": mean_accuracy_text,
+            "validation_notes": "Validated using configured cross-validation strategy with leakage safeguards." if self.validation_method else "Validation method not specified.",
+            "auc_value": auc_value,
+            "auc_ci": auc_ci,
+            "lr_positive": format_lr(lr_pos),
+            "lr_negative": format_lr(lr_neg),
+            "lr_plus_interp": interpret_lr(lr_pos, positive=True),
+            "lr_minus_interp": interpret_lr(lr_neg, positive=False),
+            "youden_index": f"{metrics.get('youdens_index', 0):.3f}" if metrics.get('youdens_index') is not None else "N/A",
+            "youden_detail": youden_detail,
+            "diagnostic_or": dor_value,
+            "diagnostic_or_ci": dor_ci,
+            "tp": tp,
+            "tn": tn,
+            "fp": fp,
+            "fn": fn,
+            "recommendations_html": recommendations_html,
+            "manufacturer": self.manufacturer,
+            "intended_use": self.intended_use,
+        }
+        return template.safe_substitute(substitutions)
+
 
 # Example usage function that matches the README
 def validate_medical_model(model, data, patient_ids=None, compliance='FDA'):
@@ -528,4 +882,3 @@ def validate_medical_model(model, data, patient_ids=None, compliance='FDA'):
     )
     
     return report
-

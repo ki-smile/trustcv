@@ -60,9 +60,111 @@ class UniversalRegulatoryReport:
         """
         Build and save a regulatory report from UniversalCVRunner results.
         """
+        report, _ = cls._build_report(
+            runner_results=runner_results,
+            model=model,
+            data=data,
+            clinical_metrics=clinical_metrics,
+            report_format=report_format,
+            model_name=model_name,
+            model_version=model_version,
+            manufacturer=manufacturer,
+            intended_use=intended_use,
+            compliance_standard=compliance_standard,
+            project_name=project_name,
+            metric_priority=metric_priority,
+            positive_threshold=positive_threshold,
+            n_patients=n_patients,
+            demographics=demographics,
+            data_sources=data_sources,
+        )
+        output_path = str(Path(output_path))
+        return report.generate_regulatory_report(
+            output_path=output_path,
+            format=report_format,
+        )
+
+    @classmethod
+    def clinical_report_from_runner(
+        cls,
+        *,
+        runner_results,
+        model: Any,
+        data: Tuple[Any, Any],
+        clinical_metrics: Optional[Dict[str, Any]] = None,
+        output_path: str,
+        report_format: str = "html",
+        model_name: Optional[str] = None,
+        model_version: str = "1.0.0",
+        manufacturer: str = "Unknown",
+        intended_use: str = "Clinical decision support via machine learning.",
+        compliance_standard: str = "FDA",
+        project_name: Optional[str] = None,
+        metric_priority: Optional[Sequence[str]] = None,
+        positive_threshold: float = 0.5,
+        n_patients: Optional[int] = None,
+        demographics: Optional[Dict[str, Any]] = None,
+        data_sources: Optional[Iterable[str]] = None,
+    ) -> str:
+        """
+        Build the dedicated clinical performance report from UniversalCVRunner results.
+        """
+        report, perf_metrics = cls._build_report(
+            runner_results=runner_results,
+            model=model,
+            data=data,
+            clinical_metrics=clinical_metrics,
+            report_format=report_format,
+            model_name=model_name,
+            model_version=model_version,
+            manufacturer=manufacturer,
+            intended_use=intended_use,
+            compliance_standard=compliance_standard,
+            project_name=project_name,
+            metric_priority=metric_priority,
+            positive_threshold=positive_threshold,
+            n_patients=n_patients,
+            demographics=demographics,
+            data_sources=data_sources,
+        )
+        if not perf_metrics:
+            raise ValueError(
+                "Clinical metrics unavailable. Ensure predictions/probabilities are stored "
+                "or pass `clinical_metrics` explicitly."
+            )
+        output_path = str(Path(output_path))
+        return report.clinicalperformancereport(
+            metrics=perf_metrics,
+            output_path=output_path,
+            format=report_format,
+        )
+
+    # ----- helpers -----
+    @classmethod
+    def _build_report(
+        cls,
+        *,
+        runner_results,
+        model: Any,
+        data: Tuple[Any, Any],
+        clinical_metrics: Optional[Dict[str, Any]],
+        model_name: Optional[str],
+        model_version: str,
+        manufacturer: str,
+        intended_use: str,
+        compliance_standard: str,
+        project_name: Optional[str],
+        metric_priority: Optional[Sequence[str]],
+        positive_threshold: float,
+        n_patients: Optional[int],
+        demographics: Optional[Dict[str, Any]],
+        data_sources: Optional[Iterable[str]],
+        report_format: Optional[str] = None,
+    ) -> Tuple[RegulatoryReport, Optional[Dict[str, Any]]]:
         X, y = cls._unpack_xy(data)
         model_name = model_name or cls._infer_model_name(model)
 
+        metadata = cls._coerce_metadata(getattr(runner_results, "metadata", None))
         report = RegulatoryReport(
             model_name=model_name,
             model_version=model_version,
@@ -88,11 +190,20 @@ class UniversalRegulatoryReport:
         fold_scores, metric_name = cls._extract_fold_scores(
             runner_results, priority=metric_priority or cls.DEFAULT_METRICS_PRIORITY
         )
+        inferred_method = (
+            metadata.get("cv_method")
+            or metadata.get("method")
+            or getattr(runner_results, "method", None)
+            or "Unknown"
+        )
+        inferred_splits = (
+            metadata.get("n_splits")
+            or getattr(runner_results, "n_splits", None)
+            or len(fold_scores)
+        )
         report.add_cv_results(
-            method=runner_results.metadata.get("cv_method", "Unknown"),
-            n_splits=runner_results.metadata.get(
-                "n_splits", len(runner_results.scores or [])
-            ),
+            method=inferred_method,
+            n_splits=int(inferred_splits or len(fold_scores)),
             scores=fold_scores,
         )
 
@@ -103,14 +214,8 @@ class UniversalRegulatoryReport:
         )
         if perf_metrics:
             report.performance_metrics = perf_metrics
+        return report, perf_metrics
 
-        output_path = str(Path(output_path))
-        return report.generate_regulatory_report(
-            output_path=output_path,
-            format=report_format,
-        )
-
-    # ----- helpers -----
     @staticmethod
     def _unpack_xy(data: Tuple[Any, ...]) -> Tuple[Any, Any]:
         if not isinstance(data, tuple) or len(data) < 2:
@@ -141,11 +246,19 @@ class UniversalRegulatoryReport:
 
     @staticmethod
     def _extract_fold_scores(runner_results, priority: Sequence[str]) -> Tuple[list, str]:
+        raw_scores = getattr(runner_results, "scores", None) or []
+        if isinstance(raw_scores, dict):
+            usable_scores = UniversalRegulatoryReport._expand_score_dict(raw_scores)
+        else:
+            usable_scores = raw_scores
+
         scores = []
         metric_name = None
         for candidate in priority:
             collected = []
-            for fold in runner_results.scores or []:
+            for fold in usable_scores or []:
+                if not isinstance(fold, dict):
+                    continue
                 value = fold.get(candidate)
                 if value is None:
                     continue
@@ -157,9 +270,11 @@ class UniversalRegulatoryReport:
                 scores = collected
                 metric_name = candidate
                 break
-        if not scores and runner_results.scores:
+        if not scores and usable_scores:
             # fall back to first numeric entry per fold
-            for fold in runner_results.scores:
+            for fold in usable_scores:
+                if not isinstance(fold, dict):
+                    continue
                 for key, value in fold.items():
                     try:
                         val = float(np.asarray(value).ravel()[0])
@@ -174,13 +289,10 @@ class UniversalRegulatoryReport:
 
     @staticmethod
     def _compute_clinical_metrics(runner_results, y, threshold: float) -> Optional[Dict]:
-        if not runner_results.indices:
-            return None
-        from . import __all__  # noqa: F401  (keeps import order)
-
-        indices = runner_results.indices or []
+        indices = getattr(runner_results, "indices", None)
         if not indices:
             return None
+        from . import __all__  # noqa: F401  (keeps import order)
 
         y_true_all = []
         y_pred_all = []
@@ -221,6 +333,40 @@ class UniversalRegulatoryReport:
             y_proba=y_proba,
         )
         return metrics
+
+    @staticmethod
+    def _expand_score_dict(scores_dict: Dict[str, Any]) -> list:
+        """Convert ValidationResult-style score dicts into per-fold dictionaries."""
+        fold_data: list = []
+        max_len = 0
+        arrays: Dict[str, np.ndarray] = {}
+        for key, values in scores_dict.items():
+            try:
+                arr = np.asarray(values)
+            except Exception:
+                continue
+            if arr.ndim == 0:
+                continue
+            arr = arr.ravel()
+            if arr.size == 0:
+                continue
+            arrays[key] = arr
+            max_len = max(max_len, arr.size)
+
+        if max_len == 0:
+            return fold_data
+
+        fold_data = [dict() for _ in range(max_len)]
+        for key, arr in arrays.items():
+            for idx, val in enumerate(arr):
+                fold_data[idx][key] = float(val)
+        return fold_data
+
+    @staticmethod
+    def _coerce_metadata(metadata_obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if isinstance(metadata_obj, dict):
+            return metadata_obj
+        return {}
 
     @staticmethod
     def _compute_class_distribution(y: Any) -> Dict[str, Dict[str, float]]:

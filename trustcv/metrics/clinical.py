@@ -127,6 +127,7 @@ class ClinicalMetrics:
             metrics['diagnostic_odds_ratio'] = (tp * tn) / (fp * fn)
         else:
             metrics['diagnostic_odds_ratio'] = np.inf
+        metrics['diagnostic_odds_ratio_ci'] = self._diagnostic_odds_ci(tp, tn, fp, fn)
         
         # NNT and NNS
         metrics['nnt'] = calculate_nnt(sensitivity, specificity, self.prevalence)
@@ -360,6 +361,11 @@ class ClinicalMetrics:
             report += f"NNS:                {metrics['nns']:.1f}\n"
         else:
             report += "NNS:                n/a\n"
+        report += f"LR+ interpretation:  {self._interpret_lr_positive(metrics['lr_positive'])}\n"
+        report += f"LR- interpretation:  {self._interpret_lr_negative(metrics['lr_negative'])}\n"
+        if metrics.get('diagnostic_odds_ratio_ci'):
+            lo, hi = metrics['diagnostic_odds_ratio_ci']
+            report += f"Diagnostic OR CI:   [{lo:.1f}, {hi:.1f}]\n"
         
         # Confusion Matrix
         report += "\nCONFUSION MATRIX\n"
@@ -384,6 +390,56 @@ class ClinicalMetrics:
             report += f"• {rec}\n"
         
         return report
+
+
+    def _diagnostic_odds_ci(
+        self, tp: int, tn: int, fp: int, fn: int
+    ) -> Optional[Tuple[float, float]]:
+        """
+        Approximate CI for diagnostic odds ratio using log transformation.
+        """
+        import numpy as _np
+
+        cells = [tp, tn, fp, fn]
+        if any(v < 0 for v in cells):
+            return None
+
+        # Apply continuity correction if needed
+        corrected = [_v if _v > 0 else 0.5 for _v in cells]
+        tp_c, tn_c, fp_c, fn_c = corrected
+        if fp_c == 0 or fn_c == 0:
+            return None
+
+        dor = (tp_c * tn_c) / (fp_c * fn_c)
+        if dor <= 0:
+            return None
+
+        log_dor = _np.log(dor)
+        se = _np.sqrt(1 / tp_c + 1 / tn_c + 1 / fp_c + 1 / fn_c)
+        z = stats.norm.ppf(1 - (1 - self.confidence_level) / 2)
+        lo = _np.exp(log_dor - z * se)
+        hi = _np.exp(log_dor + z * se)
+        return (float(lo), float(hi))
+
+    @staticmethod
+    def _interpret_lr_positive(value: float) -> str:
+        if value >= 10:
+            return "Strong increase in post-test probability"
+        if value >= 5:
+            return "Moderate increase in post-test probability"
+        if value >= 2:
+            return "Small increase in post-test probability"
+        return "Minimal change"
+
+    @staticmethod
+    def _interpret_lr_negative(value: float) -> str:
+        if value <= 0.1:
+            return "Strong decrease in post-test probability"
+        if value <= 0.2:
+            return "Moderate decrease in post-test probability"
+        if value <= 0.5:
+            return "Small decrease in post-test probability"
+        return "Minimal change"
 
 
 def calculate_nnt(sensitivity: float, specificity: float, 
