@@ -191,25 +191,40 @@ class RepeatedKFold(BaseCrossValidator):
         Number of times to repeat the k-fold CV
     random_state : int or None, default=None
         Random state for reproducibility
+    stratify : bool, default=False
+        If True, uses RepeatedStratifiedKFold (requires labels)
     """
     
     def __init__(self, n_splits: int = 5, n_repeats: int = 10,
-                 random_state: Optional[int] = None):
+                 random_state: Optional[int] = None,
+                 stratify: bool = False):
         self.n_splits = n_splits
         self.n_repeats = n_repeats
         self.random_state = random_state
+        self.stratify = stratify
         
     def split(self, X, y=None, groups=None):
         """Generate train/test indices for repeated k-fold"""
-        from sklearn.model_selection import RepeatedKFold
-        
-        rkf = RepeatedKFold(
-            n_splits=self.n_splits,
-            n_repeats=self.n_repeats,
-            random_state=self.random_state
-        )
-        
-        for train_idx, test_idx in rkf.split(X, y):
+        if self.stratify:
+            if y is None:
+                raise ValueError("Stratified repeated k-fold requires y labels.")
+            from sklearn.model_selection import RepeatedStratifiedKFold
+            rkf = RepeatedStratifiedKFold(
+                n_splits=self.n_splits,
+                n_repeats=self.n_repeats,
+                random_state=self.random_state
+            )
+            splitter = rkf.split(X, y)
+        else:
+            from sklearn.model_selection import RepeatedKFold as _RepeatedKFold
+            rkf = _RepeatedKFold(
+                n_splits=self.n_splits,
+                n_repeats=self.n_repeats,
+                random_state=self.random_state
+            )
+            splitter = rkf.split(X, y)
+
+        for train_idx, test_idx in splitter:
             yield train_idx, test_idx
             
     def get_n_splits(self, X=None, y=None, groups=None):

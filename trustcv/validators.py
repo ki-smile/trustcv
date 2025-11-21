@@ -136,6 +136,7 @@ class TrustCVValidator:
         holdout_test_size: Union[float, int] = 0.2,
         holdout_stratify: bool = False,
         repeated_kfold_repeats: int = 1,
+        repeated_kfold_stratify: bool = False,
         n_repeats: Optional[int] = None,
         lpocv_p: int = 2,
         p: Optional[int] = None,
@@ -176,6 +177,8 @@ class TrustCVValidator:
             If True, enables stratified hold-out splitting (uses ``y`` labels)
         repeated_kfold_repeats : int
             Number of repetitions when ``method='repeated_kfold'`` (alias: ``n_repeats``)
+        repeated_kfold_stratify : bool
+            Whether to use stratified repeats (alias: ``stratify`` when ``method='repeated_kfold'``)
         lpocv_p : int
             Number of samples to leave out for ``method='lpocv'`` (alias: ``p``)
         monte_carlo_iterations : int
@@ -211,9 +214,14 @@ class TrustCVValidator:
         if test_size is not None:
             holdout_size_val = test_size
         self.holdout_test_size = self._validate_split_size(holdout_size_val, 'holdout_test_size')
+        method_key = self.method
         self.holdout_stratify = bool(holdout_stratify)
+        self.repeated_kfold_stratify = bool(repeated_kfold_stratify)
         if stratify is not None:
-            self.holdout_stratify = bool(stratify)
+            if method_key == 'holdout':
+                self.holdout_stratify = bool(stratify)
+            elif method_key == 'repeated_kfold':
+                self.repeated_kfold_stratify = bool(stratify)
 
         repeats_val = n_repeats if n_repeats is not None else repeated_kfold_repeats
         self.repeated_kfold_repeats = max(int(repeats_val), 1)
@@ -551,7 +559,8 @@ class TrustCVValidator:
             self._cv_splitter = _TCVRepeatedKFold(
                 n_splits=self.n_splits,
                 n_repeats=self.repeated_kfold_repeats,
-                random_state=self.random_state
+                random_state=self.random_state,
+                stratify=self.repeated_kfold_stratify
             )
         elif method_key == 'loocv':
             if _TCVLOOCV is None:
