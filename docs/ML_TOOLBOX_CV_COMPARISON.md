@@ -1,419 +1,526 @@
+
 # ML/DL Toolbox Cross-Validation Support Comparison
 
 ## Top 20 Machine Learning & Deep Learning Training Toolboxes
 
-Comprehensive comparison of CV methods supported by popular ML/DL frameworks.
+A comparative overview of how common ML/DL frameworks handle cross-validation (CV), with a focus on medical and clinical use cases (grouped patients, temporal validation, class imbalance).
 
 ---
 
 ## 📊 Summary Table
 
-| Toolbox | Default CV | Built-in Methods | Medical CV Support | Extensibility | Rating |
-|---------|------------|------------------|-------------------|---------------|--------|
-| **Scikit-Learn** | 5-Fold | 15+ methods | ⭐⭐ | ⭐⭐⭐ | 🥇 |
-| **TensorFlow/Keras** | None | Manual only | ⭐ | ⭐⭐ | 🥈 |
-| **PyTorch** | None | Manual only | ⭐ | ⭐⭐ | 🥈 |
-| **XGBoost** | 3-Fold | 5 methods | ⭐⭐ | ⭐⭐ | 🥉 |
-| **LightGBM** | 5-Fold | 4 methods | ⭐⭐ | ⭐⭐ | 🥉 |
-| **CatBoost** | 3-Fold | 3 methods | ⭐ | ⭐⭐ | ⭐⭐ |
-| **MLflow** | None | Logging only | ⭐ | ⭐⭐⭐ | ⭐⭐ |
-| **Optuna** | User-defined | Any via callback | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
-| **Weights & Biases** | None | Tracking only | ⭐ | ⭐⭐ | ⭐⭐ |
-| **Fast.ai** | 5-Fold | 6 methods | ⭐ | ⭐⭐ | ⭐⭐ |
-| **H2O.ai** | 5-Fold | 8 methods | ⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **Auto-sklearn** | 10-Fold | 12 methods | ⭐⭐ | ⭐ | ⭐⭐ |
-| **TPOT** | 5-Fold | 8 methods | ⭐ | ⭐ | ⭐⭐ |
-| **PyCaret** | 10-Fold | 15+ methods | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
-| **scikit-multilearn** | 3-Fold | 5 methods | ⭐ | ⭐⭐ | ⭐⭐ |
-| **Dask-ML** | 5-Fold | 10 methods | ⭐ | ⭐⭐ | ⭐⭐ |
-| **Spark MLlib** | 3-Fold | 4 methods | ⭐ | ⭐ | ⭐⭐ |
-| **Vowpal Wabbit** | None | Manual only | ⭐ | ⭐ | ⭐⭐ |
-| **JAX/Flax** | None | Manual only | ⭐ | ⭐⭐ | ⭐⭐ |
-| **Hugging Face** | None | Manual only | ⭐ | ⭐⭐ | ⭐⭐ |
+**Interpretation notes**
 
-**Rating Key:** 🥇 Excellent | 🥈 Very Good | 🥉 Good | ⭐⭐⭐ Great | ⭐⭐ Moderate | ⭐ Basic
+* **Default CV** = behaviour when you use the “standard” helper (e.g. `cv=None` in scikit-learn, or leaving resampling at defaults).
+* **Built-in CV support** = what the library actually provides, not what is usually hand-implemented around it.
+* “Medical CV support” is qualitative: can it natively express *patient-level grouping*, *time-respecting splits*, etc., without a lot of custom plumbing?
+
+| Toolbox               | Default CV (typical)                                                  | Built-in CV support                                                                                       | Medical CV support             | Extensibility | Rating |
+| --------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------- | ------ |
+| **Scikit-Learn**      | 5-fold in `GridSearchCV`, `cross_val_score`, etc. ([Scikit-learn][1]) | Rich set: KFold, Stratified, Group, TimeSeries, Leave-One-Out, Repeated, etc.                             | ⭐⭐ Good (groups + basic time)  | ⭐⭐⭐ Excellent | 🥇     |
+| **TensorFlow/Keras**  | None (single train/val split; CV is manual)                           | No dedicated CV module; manual loops or sklearn wrappers                                                  | ⭐ Basic (manual only)          | ⭐⭐ Moderate   | 🥈     |
+| **PyTorch**           | None (manual)                                                         | No CV module; use `DataLoader` + external splitters                                                       | ⭐ Basic (manual only)          | ⭐⭐ Moderate   | 🥈     |
+| **XGBoost**           | 3-fold in `xgboost.cv` (`nfold=3`) ([LightGBM Documentation][2])      | K-fold, stratified (for classification), custom folds via `folds`                                         | ⭐⭐ Moderate (via custom folds) | ⭐⭐ Moderate   | 🥉     |
+| **LightGBM**          | 5-fold in `lightgbm.cv` (`nfold=5`) ([LightGBM Documentation][2])     | K-fold, stratified, custom folds via `folds`, early stopping                                              | ⭐⭐ Moderate (via custom folds) | ⭐⭐ Moderate   | 🥉     |
+| **CatBoost**          | 3-fold in `catboost.cv` (`fold_count=3`) ([CatBoost][3])              | K-fold, stratified; grouping via `GroupId` (CLI) / group columns                                          | ⭐⭐ Moderate (native groups)    | ⭐⭐ Moderate   | ⭐⭐     |
+| **MLflow**            | None                                                                  | No CV engine; tracks any CV you run                                                                       | ⭐ Basic (logging only)         | ⭐⭐⭐ Excellent | ⭐⭐     |
+| **Optuna**            | User-defined                                                          | Integrates with any CV loop you define                                                                    | ⭐⭐ Moderate (via callbacks)    | ⭐⭐⭐ Excellent | ⭐⭐⭐    |
+| **Weights & Biases**  | None                                                                  | Logging/monitoring; no CV engine                                                                          | ⭐ Basic (logging only)         | ⭐⭐ Moderate   | ⭐⭐     |
+| **Fast.ai**           | Single train/valid split (no built-in K-fold) ([Walk with fastai][4]) | DataBlock splitters (random, stratified, folder-based, time-based). Full K-fold CV is manual with sklearn | ⭐ Basic (manual K-fold)        | ⭐⭐ Moderate   | ⭐⭐     |
+| **H2O.ai**            | No CV by default (`nfolds=0`) ([H2O Release][5])                      | K-fold via `nfolds`; grouping/time-like schemes via `fold_column`                                         | ⭐⭐ Good (fold_column)          | ⭐⭐ Moderate   | ⭐⭐⭐    |
+| **Auto-sklearn**      | Holdout 67/33 (`resampling_strategy="holdout"`) ([AutoML][6])         | Optional K-fold CV (`resampling_strategy="cv"`, user-chosen folds)                                        | ⭐⭐ Moderate (custom splitter)  | ⭐ Moderate    | ⭐⭐     |
+| **TPOT**              | 5-fold (default `cv=5`)                                               | Uses sklearn CV internally (KFold, StratifiedKFold, custom)                                               | ⭐ Basic (via sklearn)          | ⭐ Moderate    | ⭐⭐     |
+| **PyCaret**           | 10-fold (`fold=10` in `setup`) ([AutoML][6])                          | KFold, StratifiedKFold, GroupKFold, TimeSeriesSplit, custom folds                                         | ⭐⭐⭐ Strong (simple group/time) | ⭐⭐ Moderate   | ⭐⭐⭐    |
+| **scikit-multilearn** | 3-fold (typical)                                                      | Wraps sklearn; supports multi-label CV                                                                    | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
+| **Dask-ML**           | Often 3-fold in `GridSearchCV` (`cv=None`) ([ml.dask.org][7])         | Distributed versions of sklearn CV/GS; KFold/Stratified via sklearn APIs                                  | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
+| **Spark MLlib**       | 3-fold in `CrossValidator` (default) ([H2O.ai][8])                    | K-fold CV and train/validation split                                                                      | ⭐ Basic                        | ⭐ Basic       | ⭐⭐     |
+| **Vowpal Wabbit**     | None                                                                  | Online learning; CV is manual (resampling or streaming evaluation)                                        | ⭐ Basic                        | ⭐ Basic       | ⭐⭐     |
+| **JAX/Flax**          | None                                                                  | No CV module; rely on sklearn/JAX ecosystem                                                               | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
+| **Hugging Face**      | None                                                                  | Datasets + Trainer use single train/valid splits; K-fold is manual                                        | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
+
+**Rating key:**
+🥇 Excellent overall; 🥈 Very good; 🥉 Good
+⭐⭐⭐ Strong; ⭐⭐ Moderate; ⭐ Basic
 
 ---
 
-## 🔍 Detailed Analysis
+## 🔍 Detailed Notes on Key Toolboxes
 
-### 1. **Scikit-Learn** 🥇
-- **Default CV**: `KFold(n_splits=5)`
-- **Built-in Methods**: 15+ comprehensive methods
-  - ✅ KFold, StratifiedKFold, GroupKFold, TimeSeriesSplit
-  - ✅ LeaveOneOut, LeavePOut, ShuffleSplit
-  - ✅ RepeatedKFold, RepeatedStratifiedKFold
-  - ✅ StratifiedGroupKFold, GroupShuffleSplit
-- **Medical Features**: 
-  - ✅ Patient grouping (GroupKFold)
-  - ✅ Class stratification
-  - ⚠️ Limited temporal methods
-- **Integration**: Perfect with sklearn ecosystem
+### 1. Scikit-Learn 🥇
+
+* **Default CV**
+
+  * `GridSearchCV`, `RandomizedSearchCV`, `cross_val_score`, `cross_validate` use 5-fold CV when `cv=None`. ([Scikit-learn][1])
+* **Built-in splitters (partial list)**
+
+  * `KFold`, `StratifiedKFold`, `GroupKFold`, `GroupShuffleSplit`
+  * `TimeSeriesSplit`
+  * `LeaveOneOut`, `LeavePOut`, `ShuffleSplit`
+  * `RepeatedKFold`, `RepeatedStratifiedKFold`
+  * `StratifiedGroupKFold` (recent versions)
+* **Medical orientation**
+
+  * **Patient-level grouping**: `GroupKFold` / `GroupShuffleSplit` with `patient_id`.
+  * **Temporal**: basic `TimeSeriesSplit`, but no native purging/embargo.
+  * **Metrics**: full sklearn metrics; medical metrics (e.g. sensitivity/specificity, PR-AUC) easily composed.
+
 ```python
-from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-scores = cross_val_score(model, X, y, cv=cv, scoring='roc_auc')
+scores = cross_val_score(model, X, y, cv=cv, scoring="roc_auc")
+print(f"AUC: {scores.mean():.3f} ± {scores.std():.3f}")
 ```
 
-### 2. **TensorFlow/Keras** 🥈
-- **Default CV**: None (manual implementation required)
-- **Built-in Methods**: None directly
-- **Medical Features**: Manual implementation only
-- **Integration**: Requires custom loops
-```python
-from tensorflow.keras.models import clone_model
-from sklearn.model_selection import KFold
+---
 
-kf = KFold(n_splits=5)
+### 2. TensorFlow / Keras 🥈
+
+* **Default CV**: none. You typically do one train/validation split.
+* **CV strategy**:
+
+  * Manual loops with `KFold`/`StratifiedKFold` from sklearn.
+  * Or wrap `tf.keras.wrappers.scikit_learn.KerasClassifier` and use sklearn’s CV.
+
+```python
+from sklearn.model_selection import KFold
+from tensorflow.keras.models import clone_model
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
 scores = []
+
 for train_idx, val_idx in kf.split(X):
     model = clone_model(base_model)
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['auc'])
+    model.compile(optimizer="adam", loss="binary_crossentropy", metrics=["AUC"])
     model.fit(X[train_idx], y[train_idx], epochs=50, verbose=0)
-    score = model.evaluate(X[val_idx], y[val_idx], verbose=0)[1]
+    score = model.evaluate(X[val_idx], y[val_idx], verbose=0)[1]  # AUC
     scores.append(score)
+
+print(f"Keras AUC: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 ```
 
-### 3. **PyTorch** 🥈
-- **Default CV**: None
-- **Built-in Methods**: None directly
-- **Medical Features**: Manual implementation required
-- **Integration**: Custom training loops needed
+---
+
+### 3. PyTorch 🥈
+
+* **Default CV**: none.
+* **Typical pattern**:
+
+  * Use sklearn splitters to generate indices.
+  * Wrap subsets using `torch.utils.data.Subset` or `SubsetRandomSampler`.
+
 ```python
-from torch.utils.data import SubsetRandomSampler
 from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, SubsetRandomSampler
 
-kf = KFold(n_splits=5)
-for train_idx, val_idx in kf.split(dataset):
-    train_sampler = SubsetRandomSampler(train_idx)
-    val_sampler = SubsetRandomSampler(val_idx)
-    train_loader = DataLoader(dataset, sampler=train_sampler)
-    val_loader = DataLoader(dataset, sampler=val_sampler)
-    # Custom training loop here
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+for train_idx, val_idx in kf.split(range(len(dataset))):
+    train_loader = DataLoader(dataset, sampler=SubsetRandomSampler(train_idx), batch_size=64)
+    val_loader   = DataLoader(dataset, sampler=SubsetRandomSampler(val_idx),   batch_size=64)
+    # your training loop here
 ```
 
-### 4. **XGBoost** 🥉
-- **Default CV**: `cv.cv(nfolds=3)`
-- **Built-in Methods**:
-  - ✅ K-Fold
-  - ✅ Stratified K-Fold  
-  - ✅ Custom folds
-  - ⚠️ Limited advanced methods
-- **Medical Features**: Group folding via custom folds
+---
+
+### 4. XGBoost 🥉
+
+* **Built-in CV**: `xgboost.cv` with `nfold=3` by default. 
+* **Capabilities**:
+
+  * K-fold and stratified CV (for classification) via `nfold` + `stratified=True`.
+  * Custom folds via `folds` argument (list of `(train_idx, test_idx)` pairs).
+* **Medical usage**:
+
+  * Patient-group CV via sklearn `GroupKFold` and passing `folds`.
+
 ```python
 import xgboost as xgb
-# Built-in CV
+from sklearn.model_selection import GroupKFold
+
+dtrain = xgb.DMatrix(X, label=y)
+
+# simple stratified CV (classification)
 results = xgb.cv(
     params=params,
     dtrain=dtrain,
-    nfold=5,
-    stratified=True,  # For classification
-    seed=42
-)
-
-# Custom CV for medical data
-from sklearn.model_selection import GroupKFold
-gkf = GroupKFold(n_splits=5)
-custom_folds = list(gkf.split(X, y, groups=patient_ids))
-results = xgb.cv(params, dtrain, folds=custom_folds)
-```
-
-### 5. **LightGBM** 🥉
-- **Default CV**: `cv(nfolds=5)`
-- **Built-in Methods**:
-  - ✅ K-Fold
-  - ✅ Stratified K-Fold
-  - ✅ Custom folds
-  - ✅ Early stopping
-- **Medical Features**: Custom folds support
-```python
-import lightgbm as lgb
-# Built-in CV
-results = lgb.cv(
-    params=params,
-    train_set=train_data,
     nfold=5,
     stratified=True,
     seed=42
 )
 
-# Custom medical CV
-custom_folds = [(train_idx, val_idx) for train_idx, val_idx in group_kfold.split(X, y, groups)]
-results = lgb.cv(params, train_data, folds=custom_folds)
+# patient-level CV
+gkf = GroupKFold(n_splits=5)
+custom_folds = list(gkf.split(X, y, groups=patient_ids))
+
+results_med = xgb.cv(params, dtrain, folds=custom_folds)
 ```
 
-### 6. **CatBoost**
-- **Default CV**: `cv(fold_count=3)`
-- **Built-in Methods**:
-  - ✅ K-Fold
-  - ✅ Stratified K-Fold
-  - ✅ Time series split
-- **Medical Features**: Limited
-```python
-from catboost import CatBoostClassifier, cv, Pool
+---
 
-pool = Pool(X, y, cat_features=categorical_features)
+### 5. LightGBM 🥉
+
+* **Built-in CV**: `lightgbm.cv` with `nfold=5` by default. ([LightGBM Documentation][2])
+* **Capabilities**:
+
+  * K-fold & stratified CV (`nfold`, `stratified=True`).
+  * Custom folds via `folds` (sklearn splitter or list of index tuples).
+  * Early stopping, custom metrics.
+* **Medical usage**:
+
+  * Use `GroupKFold` (sklearn) and pass to `folds`.
+
+```python
+import lightgbm as lgb
+from sklearn.model_selection import GroupKFold
+
+train_data = lgb.Dataset(X, label=y)
+gkf = GroupKFold(n_splits=5)
+custom_folds = list(gkf.split(X, y, groups=patient_ids))
+
+results = lgb.cv(
+    params=params,
+    train_set=train_data,
+    folds=custom_folds,
+    seed=42
+)
+```
+
+---
+
+### 6. CatBoost ⭐⭐
+
+* **Default CV**: `catboost.cv` uses `fold_count=3` unless overridden. ([CatBoost][3])
+* **Capabilities**:
+
+  * K-fold and stratified K-fold.
+  * Group-aware CV: if your dataset contains a `GroupId` column, all rows from the same group go to the same fold in CV. ([CatBoost][9])
+  * No separate “TimeSeriesSplit” object; time-respecting CV is done by disabling shuffling and ordering data yourself.
+* **Medical usage**:
+
+  * Use `GroupId=patient_id` to ensure patient-level CV.
+
+```python
+from catboost import Pool, cv
+
+pool = Pool(
+    X,
+    y,
+    cat_features=categorical_features,
+    group_id=patient_ids   # ensures grouped CV
+)
+
 cv_results = cv(
     pool=pool,
     params=params,
     fold_count=5,
     stratified=True,
+    shuffle=False,  # important for temporal data
     seed=42
 )
 ```
 
-### 7. **MLflow**
-- **Default CV**: None (tracking/logging only)
-- **Built-in Methods**: Experiment tracking
-- **Integration**: Works with any CV method
+---
+
+### 7. MLflow
+
+* **Role**: experiment tracking & model registry.
+* **CV**: none; it simply logs whatever CV you run.
+
 ```python
 import mlflow
 from sklearn.model_selection import cross_val_score
 
 with mlflow.start_run():
-    scores = cross_val_score(model, X, y, cv=5, scoring='roc_auc')
+    scores = cross_val_score(model, X, y, cv=group_kfold, scoring="roc_auc")
     mlflow.log_metric("cv_mean_auc", scores.mean())
-    mlflow.log_metric("cv_std_auc", scores.std())
+    mlflow.log_metric("cv_std_auc",  scores.std())
 ```
 
-### 8. **Optuna** ⭐⭐⭐
-- **Default CV**: User-defined
-- **Built-in Methods**: Flexible integration with any method
-- **Medical Features**: Via custom callbacks
+---
+
+### 8. Optuna ⭐⭐⭐
+
+* **Role**: hyperparameter optimisation.
+* **CV**: entirely user-defined – you plug in any splitter or CV scheme.
+
 ```python
 import optuna
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GroupKFold, cross_val_score
+
+gkf = GroupKFold(n_splits=5)
 
 def objective(trial):
-    # Hyperparameter suggestions
-    n_estimators = trial.suggest_int('n_estimators', 50, 300)
-    max_depth = trial.suggest_int('max_depth', 3, 10)
-    
+    n_estimators = trial.suggest_int("n_estimators", 50, 300)
+    max_depth    = trial.suggest_int("max_depth", 3, 10)
+
     model = RandomForestClassifier(
         n_estimators=n_estimators,
         max_depth=max_depth,
         random_state=42
     )
-    
-    # Use any CV method
-    scores = cross_val_score(model, X, y, cv=group_kfold, scoring='roc_auc')
+    scores = cross_val_score(model, X, y, cv=gkf, scoring="roc_auc", groups=patient_ids)
     return scores.mean()
 
-study = optuna.create_study(direction='maximize')
+study = optuna.create_study(direction="maximize")
 study.optimize(objective, n_trials=100)
 ```
 
-### 9. **PyCaret** ⭐⭐⭐
-- **Default CV**: `fold=10`
-- **Built-in Methods**: 15+ methods with simple interface
-  - ✅ KFold, StratifiedKFold, GroupKFold
-  - ✅ TimeSeriesSplit, Custom folds
-- **Medical Features**: Excellent medical data support
+---
+
+### 9. PyCaret ⭐⭐⭐
+
+* **Default CV**: 10-fold (`fold=10`) in `setup` for classification. 
+* **Built-in CV options**:
+
+  * `fold_strategy = "kfold"`, `"stratifiedkfold"`, `"groupkfold"`, `"timeseries"`, or custom sklearn splitter.
+* **Medical usage**:
+
+  * Very convenient for grouped CV: `fold_strategy="groupkfold"`, `fold_groups="patient_id"`.
+
 ```python
 import pycaret.classification as pc
 
-# Setup with custom CV
 clf = pc.setup(
     data=df,
-    target='disease',
-    fold_strategy='groupkfold',  # Medical grouping
-    fold_groups='patient_id',    # Patient ID column
+    target="disease",
+    fold_strategy="groupkfold",
+    fold_groups="patient_id",
     fold=5,
     session_id=42
 )
 
-# Compare models with automatic CV
 best_models = pc.compare_models(
-    include=['rf', 'xgboost', 'lightgbm'],
-    sort='AUC',
+    include=["rf", "xgboost", "lightgbm"],
+    sort="AUC",
     n_select=3
-)
-```
-
-### 10. **H2O.ai** ⭐⭐⭐
-- **Default CV**: `nfolds=5`
-- **Built-in Methods**: 8 comprehensive methods
-- **Medical Features**: Good support for grouped data
-```python
-import h2o
-from h2o.estimators import H2ORandomForestEstimator
-
-# Initialize H2O
-h2o.init()
-
-# Load data
-df = h2o.H2OFrame(your_data)
-
-# Built-in CV
-model = H2ORandomForestEstimator(
-    nfolds=5,
-    fold_assignment="stratified",  # or "modulo", "random"
-    keep_cross_validation_predictions=True,
-    seed=42
-)
-
-# Custom fold assignment for medical data
-df['fold_id'] = patient_based_folds  # Your custom fold assignment
-model = H2ORandomForestEstimator(
-    nfolds=5,
-    fold_column='fold_id'  # Use custom folds
 )
 ```
 
 ---
 
-## 🏥 Medical-Specific Capabilities Comparison
+### 10. H2O.ai ⭐⭐⭐
+
+* **Default CV**: `nfolds=0` by default – i.e., no CV unless you set it. ([H2O Release][5])
+* **Capabilities**:
+
+  * K-fold CV via `nfolds >= 2`.
+  * Custom grouping (including patient-like grouping) via `fold_column`.
+  * No dedicated time-series CV; time-based folds are expressed via `fold_column` or manual splitting. ([Cross Validated][10])
+
+```python
+import h2o
+from h2o.estimators import H2ORandomForestEstimator
+
+h2o.init()
+hf = h2o.H2OFrame(df)
+
+# standard k-fold CV
+model = H2ORandomForestEstimator(
+    nfolds=5,
+    fold_assignment="Stratified",
+    keep_cross_validation_predictions=True,
+    seed=42
+)
+
+# patient-level CV via fold_column
+hf["fold_id"] = patient_based_fold_ids
+model_grouped = H2ORandomForestEstimator(
+    nfolds=5,
+    fold_column="fold_id",
+    keep_cross_validation_predictions=True,
+    seed=42
+)
+```
+
+---
+
+## 🏥 Medical-Specific Capabilities
 
 ### Patient Grouping Support
-| Toolbox | Native Support | Workaround Required | Implementation Difficulty |
-|---------|----------------|-------------------|--------------------------|
-| Scikit-Learn | ✅ GroupKFold | ❌ | Easy |
-| XGBoost | ✅ Custom folds | ❌ | Easy |
-| LightGBM | ✅ Custom folds | ❌ | Easy |
-| PyCaret | ✅ GroupKFold | ❌ | Very Easy |
-| H2O.ai | ✅ Fold column | ❌ | Easy |
-| TensorFlow | ❌ | ✅ | Moderate |
-| PyTorch | ❌ | ✅ | Moderate |
-| CatBoost | ⚠️ Limited | ✅ | Moderate |
+
+| Toolbox                   | Native support                      | Workaround needed? | Implementation difficulty |
+| ------------------------- | ----------------------------------- | ------------------ | ------------------------- |
+| Scikit-Learn              | ✅ `GroupKFold`, `GroupShuffleSplit` | ❌                  | Easy                      |
+| XGBoost                   | ✅ Custom `folds` indices            | ❌                  | Easy                      |
+| LightGBM                  | ✅ Custom `folds` indices            | ❌                  | Easy                      |
+| PyCaret                   | ✅ `fold_strategy="groupkfold"`      | ❌                  | Very easy                 |
+| H2O.ai                    | ✅ `fold_column`                     | ❌                  | Easy                      |
+| CatBoost                  | ✅ `GroupId`/group columns           | ❌                  | Easy–Moderate             |
+| TensorFlow                | ❌ (no CV engine)                    | ✅ via sklearn      | Moderate                  |
+| PyTorch                   | ❌ (no CV engine)                    | ✅ via sklearn      | Moderate                  |
+| Others (AutoML, tracking) | Indirect via sklearn/etc            | ✅                  | Varies                    |
+
+---
 
 ### Temporal Validation Support
-| Toolbox | Native Support | Methods Available | Medical Suitability |
-|---------|----------------|------------------|-------------------|
-| Scikit-Learn | ✅ | TimeSeriesSplit | Good |
-| trustcv (Ours) | ✅ | 8 temporal methods | Excellent |
-| XGBoost | ⚠️ | Custom implementation | Moderate |
-| Fast.ai | ⚠️ | Limited | Poor |
-| H2O.ai | ✅ | Time-based splitting | Good |
-| Others | ❌ | Manual required | Poor |
 
-### Class Imbalance Handling
-| Toolbox | Stratification | Medical Metrics | Threshold Optimization |
-|---------|---------------|-----------------|----------------------|
-| Scikit-Learn | ✅ Excellent | ⚠️ Basic | ✅ Good |
-| PyCaret | ✅ Excellent | ✅ Good | ✅ Good |
-| H2O.ai | ✅ Good | ✅ Excellent | ✅ Good |
-| XGBoost | ✅ Good | ⚠️ Basic | ⚠️ Limited |
-| CatBoost | ✅ Good | ⚠️ Basic | ⚠️ Limited |
-| TensorFlow | ⚠️ Manual | ⚠️ Manual | ⚠️ Manual |
+Here “temporal” means respecting time order (no leakage from future to past). Some libraries have dedicated objects, others rely on manual folds.
+
+| Toolbox            | Native temporal CV object              | Methods available                                        | Medical suitability |
+| ------------------ | -------------------------------------- | -------------------------------------------------------- | ------------------- |
+| Scikit-Learn       | ✅ `TimeSeriesSplit`                    | Expanding window, sliding window (by configuration)      | Good                |
+| **trustcv (ours)** | ✅ Medical-oriented temporal splitters  | 3 main methods: TimeSeries, Blocked, Purged Group TS     | Excellent           |
+| XGBoost            | ⚠️ Via custom `folds` only             | Any temporal scheme you implement                        | Moderate            |
+| LightGBM           | ⚠️ Via custom `folds` only             | Any temporal scheme you implement                        | Moderate            |
+| CatBoost           | ⚠️ Ordered data + no shuffle           | Manual time-respecting CV only                           | Moderate            |
+| H2O.ai             | ⚠️ `fold_column` built from timestamps | Time-based folds via user-generated `fold_column`        | Moderate            |
+| Fast.ai            | ⚠️ Time-aware splitters, no full CV    | Single temporal split; full K-fold temporal CV is manual | Poor–Moderate       |
+| Others             | ❌ No direct support                    | Manual only                                              | Poor                |
+
+> In `trustcv`, temporal splitters are designed explicitly to avoid leakage (e.g. *purged group* time-series CV, which removes data around the test window for groups such as patients).
+
+---
+
+### Class Imbalance & Thresholding
+
+| Toolbox      | Stratified CV support                  | Medical metrics (e.g. sensitivity, specificity) | Threshold optimisation    |
+| ------------ | -------------------------------------- | ----------------------------------------------- | ------------------------- |
+| Scikit-Learn | ✅ Strong (`Stratified*`)               | ⚠️ Basic but flexible (`make_scorer`)           | ✅ Good (manual / custom)  |
+| PyCaret      | ✅ Strong (default stratified)          | ✅ Built-in AUC, F1, recall, etc.                | ✅ Good (plot-based tools) |
+| H2O.ai       | ✅ Good (`balance_classes`, stratified) | ✅ Excellent (full report, gains, lift)          | ✅ Good                    |
+| XGBoost      | ✅ Good (stratified CV)                 | ⚠️ Basic (via external metrics)                 | ⚠️ Limited (manual)       |
+| CatBoost     | ✅ Good                                 | ⚠️ Basic out-of-the-box                         | ⚠️ Limited (manual)       |
+| TensorFlow   | ⚠️ Manual (class weights, sampling)    | ⚠️ Manual via custom Keras metrics              | ⚠️ Manual                 |
 
 ---
 
 ## 🔧 Integration Recommendations
 
-### For Medical Research
-**Recommended Stack:**
-1. **Data Preparation**: Pandas + trustcv splitters
-2. **Model Training**: Scikit-Learn / PyCaret / H2O.ai
-3. **Deep Learning**: PyTorch + custom CV loops
-4. **Hyperparameter Tuning**: Optuna
-5. **Experiment Tracking**: MLflow or Weights & Biases
+### For Medical Research Pipelines
 
-### For Clinical Applications
-**Recommended Stack:**
-1. **Validation**: trustcv (our package)
-2. **Traditional ML**: Scikit-Learn + XGBoost/LightGBM
-3. **AutoML**: PyCaret or H2O.ai
-4. **Production**: MLflow for model management
+**Suggested stack:**
 
-### For Academic Research
-**Recommended Stack:**
-1. **Experimentation**: Scikit-Learn + trustcv
-2. **Deep Learning**: PyTorch with custom CV
-3. **Analysis**: Custom implementations for novel methods
-4. **Reproducibility**: Save CV splits + use fixed seeds
+1. **Data & splitting**: `pandas` + **trustcv** (patient, temporal, spatial splitters).
+2. **Model training**: scikit-learn, XGBoost, LightGBM, CatBoost.
+3. **Deep learning**: PyTorch (with trustcv/split indices).
+4. **Hyperparameter tuning**: Optuna (using the same trustcv splits).
+5. **Experiment tracking**: MLflow or Weights & Biases.
+
+### For Clinical / Production-oriented Systems
+
+1. **Validation logic**: encode in **trustcv** and persist folds.
+2. **Robust tabular models**: XGBoost / LightGBM / CatBoost on trustcv folds.
+3. **AutoML for baseline**: PyCaret or H2O AutoML.
+4. **Deployment & monitoring**: MLflow Model Registry + tracking.
+
+### For Academic Work
+
+1. **Experiments**: scikit-learn + trustcv (explicit split reproducibility).
+2. **Deep models**: PyTorch or TensorFlow with *the same* split indices.
+3. **Novel CV methods**: implement as new `trustcv` splitter classes.
 
 ---
 
-## 📝 Quick Implementation Cheatsheet
+## 📝 Implementation Cheatsheet
 
-### Convert Between CV Methods
+### Passing the Same Splits Across Libraries
+
 ```python
-# From sklearn to XGBoost
 from sklearn.model_selection import GroupKFold
 import xgboost as xgb
+import lightgbm as lgb
 
 gkf = GroupKFold(n_splits=5)
-custom_folds = list(gkf.split(X, y, groups=patient_ids))
+splits = list(gkf.split(X, y, groups=patient_ids))
 
-# Use in XGBoost
+# XGBoost
 dtrain = xgb.DMatrix(X, label=y)
-results = xgb.cv(params, dtrain, folds=custom_folds)
+xgb_cv = xgb.cv(params, dtrain, folds=splits)
 
-# From sklearn to LightGBM
+# LightGBM
 train_data = lgb.Dataset(X, label=y)
-results = lgb.cv(params, train_data, folds=custom_folds)
+lgb_cv = lgb.cv(params, train_set=train_data, folds=splits)
 
-# From sklearn to PyTorch (manual loop)
-for train_idx, val_idx in gkf.split(X, y, groups=patient_ids):
-    train_loader = DataLoader(dataset, sampler=SubsetRandomSampler(train_idx))
-    val_loader = DataLoader(dataset, sampler=SubsetRandomSampler(val_idx))
-    # Training code here
+# PyTorch / Keras / any DL
+for fold_id, (train_idx, test_idx) in enumerate(splits):
+    X_tr, X_te = X[train_idx], X[test_idx]
+    y_tr, y_te = y[train_idx], y[test_idx]
+    # train your DL model here
 ```
 
-### Medical CV Template
+---
+
+### Medical CV Template with `trustcv`
+
 ```python
+import numpy as np
+
 def medical_cv_template(X, y, patient_ids=None, timestamps=None, coordinates=None):
-    """Template for medical cross-validation"""
-    
+    """
+    Generic medical CV template using trustcv.
+    Chooses an appropriate splitter based on the structure of the data.
+    """
+
+    # 1) Patient-level grouping
     if patient_ids is not None:
-        # Grouped data - use GroupKFold
         from trustcv.splitters.grouped import GroupKFoldMedical
         cv = GroupKFoldMedical(n_splits=5)
         splits = cv.split(X, y, groups=patient_ids)
-        
+
+    # 2) Temporal data (e.g. longitudinal, follow-up)
     elif timestamps is not None:
-        # Temporal data - use TimeSeriesSplit
         from trustcv.splitters.temporal import TimeSeriesSplit
         cv = TimeSeriesSplit(n_splits=5)
+        # TimeSeriesSplit usually operates on ordered indices; ensure X is sorted by time
         splits = cv.split(X)
-        
+
+    # 3) Spatial data (e.g. imaging sites / geographic blocks)
     elif coordinates is not None:
-        # Spatial data - use SpatialBlockCV
         from trustcv.splitters.spatial import SpatialBlockCV
         cv = SpatialBlockCV(n_splits=5, block_size=0.1)
         splits = cv.split(X, coordinates=coordinates)
-        
+
+    # 4) IID fallback (stratified k-fold)
     else:
-        # IID data - use StratifiedKFold
         from trustcv.splitters.iid import StratifiedKFoldMedical
         cv = StratifiedKFoldMedical(n_splits=5, shuffle=True, random_state=42)
         splits = cv.split(X, y)
-    
-    return splits
 
-# Usage with any ML framework
+    return list(splits)
+
+
+# Example usage with any model
 splits = medical_cv_template(X, y, patient_ids=patient_ids)
 scores = []
 
 for train_idx, test_idx in splits:
-    # Use with any framework
-    model = your_model()  # sklearn, xgb, pytorch, etc.
+    model = make_model()  # sklearn, XGBoost, LightGBM, CatBoost, DL wrapper, etc.
     model.fit(X[train_idx], y[train_idx])
-    score = evaluate_model(model, X[test_idx], y[test_idx])
+    score = evaluate_model(model, X[test_idx], y[test_idx])  # e.g. AUC
     scores.append(score)
 
-print(f"Medical CV Score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+print(f"Medical CV score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 ```
 
 ---
 
-## 🎯 Conclusion
+## 🎯 Conclusions
 
-**Best Overall for Medical ML:**
-1. **Scikit-Learn + trustcv**: Most comprehensive and medical-specific
-2. **PyCaret**: Easiest to use with good medical support  
-3. **H2O.ai**: Great for larger datasets with built-in medical features
-4. **XGBoost/LightGBM**: Excellent performance with custom CV support
+* **Most powerful and explicit for CV**:
 
-**Key Takeaways:**
-- Most frameworks require custom implementation for medical-specific CV
-- Scikit-Learn has the best native CV support
-- Deep learning frameworks (TensorFlow, PyTorch) need manual CV loops
-- AutoML tools (PyCaret, H2O.ai) provide good medical data handling
-- Always verify that your chosen method supports your data structure (grouped, temporal, spatial)
+  * **Scikit-Learn + trustcv** for transparent, medically-aware cross-validation (grouped, temporal, spatial).
+* **Most convenient “batteries included” option**:
 
-Choose your toolbox based on:
-- **Data complexity**: Simple → PyCaret, Complex → Scikit-Learn + trustcv
-- **Model type**: Traditional ML → Scikit-Learn/XGBoost, Deep Learning → PyTorch
-- **Team expertise**: Beginners → PyCaret, Advanced → Custom implementations
-- **Deployment needs**: Production → MLflow + robust frameworks
+  * **PyCaret** when you want a high-level API with good grouped/temporal support out of the box.
+* **Best for large-scale / distributed data**:
+
+  * **H2O.ai**, **Dask-ML**, **Spark MLlib** with carefully designed folds (often generated by trustcv / sklearn).
+* **High-performance gradient boosting**:
+
+  * **XGBoost**, **LightGBM**, **CatBoost** all work very well once you standardise your folds.
+
+**Key practical rule for medical ML**
+
+> Decide your cross-validation design (grouping, temporal windows, spatial blocking) **first**, encode it in a single source of truth (e.g. trustcv splitter), and then reuse the exact same folds across all toolboxes you compare.
+
+[1]: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html?utm_source=chatgpt.com "GridSearchCV — scikit-learn 1.7.2 documentation"
+[2]: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.cv.html?utm_source=chatgpt.com "lightgbm.cv — LightGBM 4.6.0.99 documentation"
+[3]: https://catboost.ai/docs/en/concepts/python-reference_cv?utm_source=chatgpt.com "cv"
+[4]: https://walkwithfastai.com/Cross_Validation?utm_source=chatgpt.com "Lesson 3 - Cross-Validation"
+[5]: https://h2o-release.s3.amazonaws.com/h2o/rel-vajda/2/docs-website/h2o-py/docs/modeling.html?utm_source=chatgpt.com "Modeling In H2O — H2O documentation"
+
+[7]: https://ml.dask.org/modules/generated/dask_ml.model_selection.GridSearchCV.html?utm_source=chatgpt.com "dask_ml.model_selection.GridSearchCV"
+[8]: https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/_modules/h2o/estimators/stackedensemble.html?utm_source=chatgpt.com "h2o.estimators.stackedensemble"
+[9]: https://catboost.ai/docs/en/features/cross-validation?utm_source=chatgpt.com "Cross-validation"
+[10]: https://stats.stackexchange.com/questions/278810/how-does-h2o-handle-time-series-cross-validation?utm_source=chatgpt.com "How does h2o handle time-series cross validation?"
