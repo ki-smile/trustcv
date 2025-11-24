@@ -125,7 +125,7 @@ print(results.summary())
 ```
 
 For a higher-level workflow with leakage and balance checks, see the
- [Quickstart: IID CV with TrustCV](https://chatgpt.com/g/g-p-68e8ba2f78888191b457b8f28c5dcbc2-trustcv-insidmemory-v1/c/docs/quickstart_iid.md) tutorial.
+ [Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) tutorial.
 
 ------
 
@@ -161,7 +161,7 @@ TrustCV v0.1 focuses on IID evaluation. Future versions will formalize:
 
 ## Contributors
 
-See [AUTHORS.md](AUTHORS.md) for a full list of contributors and acknowledgments.
+See [AUTHORS.md](https://github.com/ki-smile/trustcv/blob/main/AUTHORS.md) for a full list of contributors and acknowledgments.
 
 ### Lead Contributors
 - **[Farhad Abtahi](https://github.com/farhad-abtahi)**
@@ -180,8 +180,8 @@ We welcome contributions!
 
 Please see:
 
-- [`CONTRIBUTING.md`](https://github.com/abdkar/TrustCV_v1/blob/main/CONTRIBUTING.md)
-- [`CODE_OF_CONDUCT.md`](https://CODE_OF_CONDUCT.md)
+- [`CONTRIBUTING.md`](https://github.com/ki-smile/trustcv/blob/main/CONTRIBUTING.md)
+- [`CODE_OF_CONDUCT.md`](https://github.com/ki-smile/trustcv/blob/main/CODE_OF_CONDUCT.md)
 
 ------
 
@@ -219,7 +219,7 @@ If you use trustcv in your research, please cite:
 ```bibtex
 @software{trustcv2025,
   title = {trustcv: Trustworthy Cross-Validation Toolkit},
-  author = {Abtahi, Farhad and Karbalaie, Abdelamir},
+  author = {Abtahi, Farhad and Karbalaie, Abdolamir},
   year = {2025},
   url = {https://github.com/ki-smile/trustcv}
 }

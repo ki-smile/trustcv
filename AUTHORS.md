@@ -7,7 +7,7 @@
   - Email: farhad.abtahi@ki.se
   
 - **Abdelamir Karbalaie**
-  - Email: abdelamir.karbalaie@ki.se
+  - Email: abdolamir.karbalaie@ki.se
 
 ## Acknowledgments
 
