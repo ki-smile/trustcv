@@ -124,6 +124,7 @@ class TrustCVValidator:
         method: str = 'stratified_kfold',
         n_splits: int = 5,
         random_state: int = 42,
+        shuffle: bool = True,
         check_leakage: bool = True,
         check_balance: bool = True,
         compliance: Optional[str] = None,
@@ -165,6 +166,8 @@ class TrustCVValidator:
             Number of CV folds
         random_state : int
             Random seed for reproducibility
+        shuffle : bool
+            Whether to shuffle data when using k-fold style splitters (default: True)
         check_leakage : bool
             Whether to check for data leakage
         check_balance : bool
@@ -199,6 +202,7 @@ class TrustCVValidator:
         method_key = self.method
         self.n_splits = n_splits
         self.random_state = random_state
+        self.shuffle = bool(shuffle)
         self.check_leakage = check_leakage
         self.check_balance = check_balance
         self.compliance = compliance
@@ -523,13 +527,13 @@ class TrustCVValidator:
         if method_key == 'kfold':
             self._cv_splitter = KFold(
                 n_splits=self.n_splits,
-                shuffle=True,
+                shuffle=self.shuffle,
                 random_state=self.random_state
             )
         elif method_key == 'stratified_kfold':
             self._cv_splitter = StratifiedKFold(
                 n_splits=self.n_splits,
-                shuffle=True,
+                shuffle=self.shuffle,
                 random_state=self.random_state
             )
         elif method_key == 'patient_grouped_kfold':
@@ -594,14 +598,14 @@ class TrustCVValidator:
         
             if namelow in ('stratifiedkfold', 'stratified_kfold'):
                 self._cv_splitter = StratifiedKFold(
-                    n_splits=self.n_splits, shuffle=True, random_state=self.random_state
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
                 )
                 self.method = 'stratified_kfold'
                 return
         
             if namelow in ('kfold',):
                 self._cv_splitter = KFold(
-                    n_splits=self.n_splits, shuffle=True, random_state=self.random_state
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
                 )
                 self.method = 'kfold'
                 return

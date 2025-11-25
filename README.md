@@ -125,7 +125,7 @@ print(results.summary())
 ```
 
 For a higher-level workflow with leakage and balance checks, see the
- [Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) tutorial.
+ [Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) and  [IID Splitters](https://github.com/ki-smile/trustcv/blob/main/docs/iid_splitters.md) tutorial.
 
  ### Run the example notebooks
 
