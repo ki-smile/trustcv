@@ -29,7 +29,7 @@ This directory contains comprehensive documentation for TrustCV, a toolkit imple
 | Document | Description |
 |----------|-------------|
 | [Framework Integration Guide](FRAMEWORK_GUIDE.md) | Using TrustCV with PyTorch, TensorFlow, MONAI |
-| [Regulatory CV Guidelines](REGULATORY_CV_GUIDELINES.md) | FDA/CE MDR compliance considerations |
+| [Regulatory CV Guidelines](REGULATORY_CV_GUIDELINES.md) | Mapping to FDA/CE MDR documentation requirements |
 | [ML Toolbox Comparison](ML_TOOLBOX_CV_COMPARISON.md) | TrustCV vs scikit-learn and other libraries |
 
 ### API Reference

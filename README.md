@@ -12,9 +12,9 @@ It builds on familiar scikit-learn idioms, but adds:
 - Carefully designed cross-validation splitters (starting with IID in v0.1).
 - Automatic **data leakage** and **class balance** checks.
 - **Clinical/industrial metrics** with confidence intervals.
-- Simple, **regulatory-ready reporting**.
+- Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.0.0 – Production release with 29 CV methods across IID, Grouped, Temporal, and Spatial categories. Full data leakage detection and regulatory compliance features.
+> **Status:** v1.0.0 – Production release with 29 CV methods across IID, Grouped, Temporal, and Spatial categories. Full data leakage detection and reporting utilities for regulatory documentation.
 
 ---
 
@@ -62,8 +62,8 @@ This release includes **29 cross-validation methods** across four categories:
 - **Clinical/medical metrics**:
   `ClinicalMetrics` with confidence intervals (sensitivity, specificity, PPV/NPV, etc.).
 
-- **Regulatory reporting**:
-  `RegulatoryReport` for FDA/CE MDR compliance documentation.
+- **Regulatory documentation support**:
+  `RegulatoryReport` for generating documentation that maps to FDA/CE MDR requirements.
 
 ---
 
@@ -255,6 +255,8 @@ MIT License — see [LICENSE](LICENSE).
 ## ⚠️ Disclaimer
 
 This toolkit is for research and educational purposes. Always validate results with domain experts before clinical deployment.
+
+**Regulatory Note**: TrustCV provides documentation templates and structured outputs that can support regulatory submissions, but regulatory compliance depends on the complete device lifecycle and cannot be guaranteed by any single tool. Always consult with regulatory affairs professionals for your specific submission requirements.
 
 ---
 

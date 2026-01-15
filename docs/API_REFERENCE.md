@@ -30,7 +30,7 @@ validator = TrustCVValidator(
 | `random_state` | int | 42 | Random seed for reproducibility |
 | `check_leakage` | bool | True | Enable data leakage detection |
 | `check_balance` | bool | True | Check class balance |
-| `compliance` | str/None | None | Regulatory mode ('FDA', 'CE', None) |
+| `compliance` | str/None | None | Report format for regulatory documentation ('FDA', 'CE', None) |
 | `metrics` | list[str]/None | ['accuracy','roc_auc','sensitivity','specificity','precision','recall','f1'] | Metrics reported by both validation paths (case-insensitive) |
 | `return_confidence_intervals` | bool | False | Enable 95% confidence interval reporting |
 | `ci_method` | str | 'bootstrap' | Interval estimator ('bootstrap' or 't-interval') |

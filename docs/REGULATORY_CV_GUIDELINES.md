@@ -4,6 +4,8 @@
 
 *Last updated: January 2025*
 
+> **Disclaimer**: This document provides guidance on cross-validation practices that can support regulatory submissions. TrustCV provides documentation templates and structured outputs that can assist with regulatory documentation, but regulatory compliance depends on the complete device lifecycle and cannot be guaranteed by any single tool. Always consult with regulatory affairs professionals and refer to the official guidance documents for your specific submission requirements.
+
 ---
 
 ## Table of Contents
@@ -14,7 +16,7 @@
 4. [TRIPOD+AI Scientific Standards](#tripodai-scientific-standards)
 5. [Comparative Requirements](#comparative-requirements)
 6. [Implementation Guide](#implementation-guide)
-7. [Compliance Checklists](#compliance-checklists)
+7. [Documentation Checklists](#documentation-checklists)
 8. [Official Sources & References](#official-sources--references)
 
 ---
@@ -410,9 +412,11 @@ class RegulatoryCompliantValidator:
 
 ---
 
-## Compliance Checklists
+## Documentation Checklists
 
-### FDA 510(k) Submission Checklist
+These checklists can help ensure your validation documentation addresses common regulatory requirements. They are not exhaustive - always refer to official guidance for your specific submission.
+
+### FDA 510(k) Documentation Checklist
 
 - [ ] Pre-specified validation plan documented before data analysis
 - [ ] Test set (15-20%) locked and never used during development

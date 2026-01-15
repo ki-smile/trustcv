@@ -18,7 +18,7 @@ TrustCV v1.0.0 provides framework-agnostic cross-validation, allowing you to use
 1. **Medical/Clinical Research**: Use specialized CV methods not available in standard libraries
 2. **Deep Learning**: Apply proper CV to neural networks with minimal code
 3. **Medical Imaging**: MONAI integration for 3D medical image validation
-4. **Regulatory Compliance**: Consistent validation across all frameworks
+4. **Regulatory Documentation**: Consistent validation outputs that support regulatory submissions
 
 ### Key Innovation: Custom CV Methods for Any Framework
 
@@ -508,20 +508,22 @@ def select_cv_method(data_type, has_groups, has_time, has_space):
         return StratifiedKFoldMedical()
 ```
 
-### 3. Regulatory Compliance
+### 3. Regulatory Documentation Support
+
+> **Disclaimer**: TrustCV provides documentation templates and structured outputs that can support regulatory submissions, but regulatory compliance depends on the complete device lifecycle and cannot be guaranteed by any single tool.
 
 ```python
-from trustcv.core.callbacks import RegulatoryComplianceLogger
+from trustcv.core.callbacks import RegulatoryDocumentationLogger
 
-# For FDA/CE MDR submissions
-compliance_logger = RegulatoryComplianceLogger(
+# For generating documentation that maps to FDA/CE MDR requirements
+doc_logger = RegulatoryDocumentationLogger(
     output_dir='./regulatory_docs',
     study_name='ModelValidation_2024',
     include_data_characteristics=True,
     include_model_details=True
 )
 
-runner.run(model, data, callbacks=[compliance_logger])
+runner.run(model, data, callbacks=[doc_logger])
 ```
 
 ---
@@ -533,7 +535,7 @@ TrustCV v1.0.0 provides:
 1. **29 CV methods** - Many NOT available in scikit-learn
 2. **Framework agnostic** - Works with PyTorch, TensorFlow, MONAI, etc.
 3. **Medical focus** - Patient grouping, temporal purging, spatial blocking
-4. **Best practices** - Automatic leakage detection, compliance logging
+4. **Best practices** - Automatic leakage detection, documentation logging
 5. **Production ready** - Callbacks, checkpointing, monitoring
 
 For more examples, see the `examples/` directory in the repository.

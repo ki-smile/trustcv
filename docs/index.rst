@@ -17,7 +17,7 @@ Features
 * **Medical-Specific CV Methods**: Patient-aware, temporal, and grouped cross-validation
 * **Data Leakage Detection**: Automatic detection of common pitfalls
 * **Clinical Metrics**: Sensitivity, specificity, PPV, NPV, NNT with confidence intervals
-* **Regulatory Compliance**: FDA and CE-ready validation reports
+* **Regulatory Documentation**: Reports that support FDA and CE MDR submissions
 * **Interactive Tutorials**: Learn through hands-on examples
 
 Quick Start

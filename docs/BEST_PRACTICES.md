@@ -5,7 +5,7 @@
 2. [Method Selection Guide](#method-selection-guide)
 3. [Common Pitfalls](#common-pitfalls)
 4. [Medical-Specific Considerations](#medical-specific-considerations)
-5. [Regulatory Compliance](#regulatory-compliance)
+5. [Regulatory Documentation](#regulatory-documentation)
 6. [Code Examples](#code-examples)
 
 ---
@@ -18,7 +18,7 @@
 - **Check for data leakage** before training
 - **Report confidence intervals** not just mean performance
 - **Save random seeds** for reproducibility
-- **Document preprocessing steps** for regulatory compliance
+- **Document preprocessing steps** for regulatory documentation
 
 ### ❌ Never Do
 - **Don't preprocess before splitting** - causes leakage
@@ -227,38 +227,42 @@ for train_idx, test_idx in skf.split(X, y):
 
 ---
 
-## Regulatory Compliance
+## Regulatory Documentation
 
-### FDA Requirements
+> **Disclaimer**: TrustCV provides documentation templates and structured outputs that can support regulatory submissions, but regulatory compliance depends on the complete device lifecycle and cannot be guaranteed by any single tool. Always consult with regulatory affairs professionals for your specific submission requirements.
+
+### Mapping to FDA Requirements
+
+TrustCV supports generating documentation that maps to FDA validation requirements. Note that the tool itself does not provide certification - it helps structure your validation workflow and documentation.
 
 ```python
 from trustcv import TrustCVValidator
 
-validator = TrustCVValidator(compliance='FDA')
+validator = TrustCVValidator(report_format='FDA')
 
-# Automatically ensures:
-# 1. Separate holdout test set (FDA requirement)
-# 2. Documentation of all preprocessing
+# Supports documentation of:
+# 1. Separate holdout test set (commonly required)
+# 2. Preprocessing steps and parameters
 # 3. Confidence intervals for all metrics
 # 4. Subgroup analysis (age, sex, ethnicity)
 # 5. Failure mode analysis
 
 results = validator.fit_validate(model, X, y)
-results.generate_fda_report('validation_report.pdf')
+results.generate_report('validation_report.pdf')
 ```
 
-### Key FDA Metrics
+### Key Metrics for FDA Submissions
 - **Sensitivity (Recall)**: True Positive Rate
 - **Specificity**: True Negative Rate  
 - **PPV**: Positive Predictive Value
 - **NPV**: Negative Predictive Value
 - **AUC-ROC**: With 95% confidence intervals
 
-### CE Mark Requirements
-- Transparency and explainability
-- GDPR compliance for data handling
+### CE MDR Documentation Considerations
+- Transparency and explainability documentation
+- Data handling documentation (GDPR-related)
 - Clinical evaluation metrics
-- Risk classification
+- Risk classification documentation
 
 ---
 
@@ -295,7 +299,7 @@ validator = TrustCVValidator(
     n_splits=5,
     check_leakage=True,
     check_balance=True,
-    compliance='FDA'  # Generate FDA-ready reports
+    report_format='FDA'  # Generate reports mapping to FDA documentation requirements
 )
 
 # 4. Perform validation
@@ -308,8 +312,8 @@ results = validator.fit_validate(
 # 5. Get comprehensive results
 print(results.summary())
 
-# 6. Generate regulatory report
-results.generate_compliance_report('fda_submission.pdf')
+# 6. Generate report for regulatory documentation
+results.generate_report('validation_report.pdf')
 
 # 7. Save for reproducibility
 results.save('validation_results.pkl')

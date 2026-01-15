@@ -33,7 +33,7 @@ A comparative overview of how common ML/DL frameworks handle cross-validation (C
 | **Hierarchical** | HierarchicalCV, NestedGroupedCV | ❌ None |
 | **Medical-specific** | Rolling/Expanding Window CV, BlockedTimeSeries | ❌ Basic TimeSeriesSplit only |
 | **Leakage Detection** | 6 types (patient, temporal, spatial, preprocessing, duplicate, feature-target) | ❌ None |
-| **Regulatory Compliance** | FDA/CE MDR reporting | ❌ None |
+| **Regulatory Documentation** | Supports mapping to FDA/CE MDR requirements | ❌ None |
 
 ---
 
@@ -97,7 +97,7 @@ A comparative overview of how common ML/DL frameworks handle cross-validation (C
   * ❌ Purged/embargo temporal methods (financial/ICU monitoring)
   * ❌ Bootstrap validation or Monte Carlo CV as splitter classes
   * ❌ Built-in data leakage detection
-  * ❌ Regulatory compliance features (FDA/CE MDR)
+  * ❌ Regulatory documentation support (FDA/CE MDR mapping)
   * ❌ Hierarchical/multilevel CV for nested patient structures
 * **Medical orientation**
 
@@ -553,7 +553,7 @@ print(f"Medical CV score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 
 * **Most comprehensive CV for medical ML**:
 
-  * **TrustCV** provides 29 methods covering all data types (IID, grouped, temporal, spatial) with built-in leakage detection and regulatory compliance features.
+  * **TrustCV** provides 29 methods covering all data types (IID, grouped, temporal, spatial) with built-in leakage detection and reporting utilities that support regulatory documentation.
 
 * **Best general-purpose foundation**:
 
