@@ -7,6 +7,36 @@ A comparative overview of how common ML/DL frameworks handle cross-validation (C
 
 ---
 
+## 📈 CV Method Count Comparison
+
+| Toolbox | Built-in CV Splitters | Notes |
+|---------|----------------------|-------|
+| **TrustCV** | **29** | IID (9), Grouped (8), Temporal (8), Spatial (4) |
+| **Scikit-learn** | **15** | KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, LeaveOneOut, LeavePOut, LeaveOneGroupOut, LeavePGroupsOut, ShuffleSplit, StratifiedShuffleSplit, GroupShuffleSplit, RepeatedKFold, RepeatedStratifiedKFold, TimeSeriesSplit, PredefinedSplit |
+| **CatBoost** | **3 types** | Classical, Inverted, TimeSeries + stratified option |
+| **PyCaret** | **5 strategies** | kfold, stratifiedkfold, groupkfold, timeseries, sliding + custom |
+| **H2O.ai** | **4 assignments** | Auto, Random, Modulo, Stratified + fold_column |
+| **XGBoost** | **2** | KFold, StratifiedKFold via `xgb.cv` + custom folds |
+| **LightGBM** | **2** | KFold, StratifiedKFold via `lgb.cv` + custom folds |
+| **TensorFlow/Keras** | **0** | No CV module; manual loops with sklearn |
+| **PyTorch** | **0** | No CV module; use sklearn splitters |
+| **MONAI** | **1** | CrossValidation dataset + partition_dataset utility |
+| **Fast.ai** | **0** | IndexSplitter only; K-fold requires sklearn |
+
+### What TrustCV Provides That Scikit-learn Lacks
+
+| Category | TrustCV Methods | Scikit-learn Equivalent |
+|----------|-----------------|------------------------|
+| **Spatial CV** | SpatialBlockCV, BufferedSpatialCV, SpatiotemporalBlockCV, EnvironmentalHealthCV | ❌ None |
+| **Purged Temporal** | PurgedKFoldCV, CombinatorialPurgedCV, EmbargoCV | ❌ None |
+| **Bootstrap/Monte Carlo** | BootstrapValidation, MonteCarloCV | ❌ None (only ShuffleSplit) |
+| **Hierarchical** | HierarchicalCV, NestedGroupedCV | ❌ None |
+| **Medical-specific** | Rolling/Expanding Window CV, BlockedTimeSeries | ❌ Basic TimeSeriesSplit only |
+| **Leakage Detection** | 6 types (patient, temporal, spatial, preprocessing, duplicate, feature-target) | ❌ None |
+| **Regulatory Compliance** | FDA/CE MDR reporting | ❌ None |
+
+---
+
 ## 📊 Summary Table
 
 **Interpretation notes**
@@ -15,32 +45,34 @@ A comparative overview of how common ML/DL frameworks handle cross-validation (C
 * **Built-in CV support** = what the library actually provides, not what is usually hand-implemented around it.
 * “Medical CV support” is qualitative: can it natively express *patient-level grouping*, *time-respecting splits*, etc., without a lot of custom plumbing?
 
-| Toolbox               | Default CV (typical)                                                  | Built-in CV support                                                                                       | Medical CV support             | Extensibility | Rating |
-| --------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------ | ------------- | ------ |
-| **Scikit-Learn**      | 5-fold in `GridSearchCV`, `cross_val_score`, etc. ([Scikit-learn][1]) | Rich set: KFold, Stratified, Group, TimeSeries, Leave-One-Out, Repeated, etc.                             | ⭐⭐ Good (groups + basic time)  | ⭐⭐⭐ Excellent | 🥇     |
-| **TensorFlow/Keras**  | None (single train/val split; CV is manual)                           | No dedicated CV module; manual loops or sklearn wrappers                                                  | ⭐ Basic (manual only)          | ⭐⭐ Moderate   | 🥈     |
-| **PyTorch**           | None (manual)                                                         | No CV module; use `DataLoader` + external splitters                                                       | ⭐ Basic (manual only)          | ⭐⭐ Moderate   | 🥈     |
-| **XGBoost**           | 3-fold in `xgboost.cv` (`nfold=3`) ([LightGBM Documentation][2])      | K-fold, stratified (for classification), custom folds via `folds`                                         | ⭐⭐ Moderate (via custom folds) | ⭐⭐ Moderate   | 🥉     |
-| **LightGBM**          | 5-fold in `lightgbm.cv` (`nfold=5`) ([LightGBM Documentation][2])     | K-fold, stratified, custom folds via `folds`, early stopping                                              | ⭐⭐ Moderate (via custom folds) | ⭐⭐ Moderate   | 🥉     |
-| **CatBoost**          | 3-fold in `catboost.cv` (`fold_count=3`) ([CatBoost][3])              | K-fold, stratified; grouping via `GroupId` (CLI) / group columns                                          | ⭐⭐ Moderate (native groups)    | ⭐⭐ Moderate   | ⭐⭐     |
-| **MLflow**            | None                                                                  | No CV engine; tracks any CV you run                                                                       | ⭐ Basic (logging only)         | ⭐⭐⭐ Excellent | ⭐⭐     |
-| **Optuna**            | User-defined                                                          | Integrates with any CV loop you define                                                                    | ⭐⭐ Moderate (via callbacks)    | ⭐⭐⭐ Excellent | ⭐⭐⭐    |
-| **Weights & Biases**  | None                                                                  | Logging/monitoring; no CV engine                                                                          | ⭐ Basic (logging only)         | ⭐⭐ Moderate   | ⭐⭐     |
-| **Fast.ai**           | Single train/valid split (no built-in K-fold) ([Walk with fastai][4]) | DataBlock splitters (random, stratified, folder-based, time-based). Full K-fold CV is manual with sklearn | ⭐ Basic (manual K-fold)        | ⭐⭐ Moderate   | ⭐⭐     |
-| **H2O.ai**            | No CV by default (`nfolds=0`) ([H2O Release][5])                      | K-fold via `nfolds`; grouping/time-like schemes via `fold_column`                                         | ⭐⭐ Good (fold_column)          | ⭐⭐ Moderate   | ⭐⭐⭐    |
-| **Auto-sklearn**      | Holdout 67/33 (`resampling_strategy="holdout"`) ([AutoML][6])         | Optional K-fold CV (`resampling_strategy="cv"`, user-chosen folds)                                        | ⭐⭐ Moderate (custom splitter)  | ⭐ Moderate    | ⭐⭐     |
-| **TPOT**              | 5-fold (default `cv=5`)                                               | Uses sklearn CV internally (KFold, StratifiedKFold, custom)                                               | ⭐ Basic (via sklearn)          | ⭐ Moderate    | ⭐⭐     |
-| **PyCaret**           | 10-fold (`fold=10` in `setup`) ([AutoML][6])                          | KFold, StratifiedKFold, GroupKFold, TimeSeriesSplit, custom folds                                         | ⭐⭐⭐ Strong (simple group/time) | ⭐⭐ Moderate   | ⭐⭐⭐    |
-| **scikit-multilearn** | 3-fold (typical)                                                      | Wraps sklearn; supports multi-label CV                                                                    | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
-| **Dask-ML**           | Often 3-fold in `GridSearchCV` (`cv=None`) ([ml.dask.org][7])         | Distributed versions of sklearn CV/GS; KFold/Stratified via sklearn APIs                                  | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
-| **Spark MLlib**       | 3-fold in `CrossValidator` (default) ([H2O.ai][8])                    | K-fold CV and train/validation split                                                                      | ⭐ Basic                        | ⭐ Basic       | ⭐⭐     |
-| **Vowpal Wabbit**     | None                                                                  | Online learning; CV is manual (resampling or streaming evaluation)                                        | ⭐ Basic                        | ⭐ Basic       | ⭐⭐     |
-| **JAX/Flax**          | None                                                                  | No CV module; rely on sklearn/JAX ecosystem                                                               | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
-| **Hugging Face**      | None                                                                  | Datasets + Trainer use single train/valid splits; K-fold is manual                                        | ⭐ Basic                        | ⭐⭐ Moderate   | ⭐⭐     |
+| Toolbox               | CV Methods | Default CV (typical)                                                  | Built-in CV support                                                                                       | Medical CV support             | Rating |
+| --------------------- | ---------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------ | ------ |
+| **TrustCV (ours)**    | **29**     | Configurable                                                          | IID (9), Grouped (8), Temporal (8), Spatial (4) + leakage detection                                       | ⭐⭐⭐ Excellent                   | 🥇     |
+| **Scikit-Learn**      | **15**     | 5-fold in `GridSearchCV`, `cross_val_score`, etc. ([Scikit-learn][1]) | KFold, Stratified, Group, TimeSeries, Leave-One-Out, Repeated, PredefinedSplit                            | ⭐⭐ Good (groups + basic time)  | 🥈     |
+| **PyCaret**           | **5**      | 10-fold (`fold=10` in `setup`) ([AutoML][6])                          | KFold, StratifiedKFold, GroupKFold, TimeSeriesSplit, sliding + custom                                     | ⭐⭐⭐ Strong (simple group/time) | 🥉     |
+| **H2O.ai**            | **4**      | No CV by default (`nfolds=0`) ([H2O Release][5])                      | Auto, Random, Modulo, Stratified via `fold_assignment` + `fold_column`                                    | ⭐⭐ Good (fold_column)          | ⭐⭐⭐    |
+| **CatBoost**          | **3**      | 3-fold in `catboost.cv` (`fold_count=3`) ([CatBoost][3])              | Classical, Inverted, TimeSeries types + stratified + GroupId                                              | ⭐⭐ Moderate (native groups)    | ⭐⭐     |
+| **XGBoost**           | **2**      | 3-fold in `xgboost.cv` (`nfold=3`)                                    | K-fold, stratified via `stratified=True`, custom folds via `folds`                                        | ⭐⭐ Moderate (via custom folds) | ⭐⭐     |
+| **LightGBM**          | **2**      | 5-fold in `lightgbm.cv` (`nfold=5`) ([LightGBM Documentation][2])     | K-fold, stratified, custom folds via `folds`, early stopping                                              | ⭐⭐ Moderate (via custom folds) | ⭐⭐     |
+| **MONAI**             | **1**      | None (manual)                                                         | CrossValidation dataset + partition_dataset utility                                                       | ⭐⭐ Moderate (medical imaging)  | ⭐⭐     |
+| **TensorFlow/Keras**  | **0**      | None (single train/val split; CV is manual)                           | No dedicated CV module; manual loops or sklearn wrappers                                                  | ⭐ Basic (manual only)          | ⭐⭐     |
+| **PyTorch**           | **0**      | None (manual)                                                         | No CV module; use `DataLoader` + external splitters                                                       | ⭐ Basic (manual only)          | ⭐⭐     |
+| **Fast.ai**           | **0**      | Single train/valid split ([Walk with fastai][4])                      | IndexSplitter only; full K-fold CV requires sklearn                                                       | ⭐ Basic (manual K-fold)        | ⭐⭐     |
+| **MLflow**            | **0**      | None                                                                  | No CV engine; tracks any CV you run                                                                       | ⭐ Basic (logging only)         | ⭐⭐     |
+| **Optuna**            | **0**      | User-defined                                                          | Integrates with any CV loop you define                                                                    | ⭐⭐ Moderate (via callbacks)    | ⭐⭐⭐    |
+| **Weights & Biases**  | **0**      | None                                                                  | Logging/monitoring; no CV engine                                                                          | ⭐ Basic (logging only)         | ⭐⭐     |
+| **Auto-sklearn**      | **0**      | Holdout 67/33 (`resampling_strategy="holdout"`) ([AutoML][6])         | Optional K-fold CV (uses sklearn internally)                                                              | ⭐⭐ Moderate (custom splitter)  | ⭐⭐     |
+| **TPOT**              | **0**      | 5-fold (default `cv=5`)                                               | Uses sklearn CV internally                                                                                | ⭐ Basic (via sklearn)          | ⭐⭐     |
+| **scikit-multilearn** | **0**      | 3-fold (typical)                                                      | Wraps sklearn; supports multi-label CV                                                                    | ⭐ Basic                        | ⭐⭐     |
+| **Dask-ML**           | **0**      | Often 3-fold in `GridSearchCV` ([ml.dask.org][7])                     | Distributed versions of sklearn CV/GS                                                                     | ⭐ Basic                        | ⭐⭐     |
+| **Spark MLlib**       | **1**      | 3-fold in `CrossValidator` (default)                                  | K-fold CV only                                                                                            | ⭐ Basic                        | ⭐⭐     |
+| **Vowpal Wabbit**     | **0**      | None                                                                  | Online learning; CV is manual                                                                             | ⭐ Basic                        | ⭐⭐     |
+| **JAX/Flax**          | **0**      | None                                                                  | No CV module; rely on sklearn ecosystem                                                                   | ⭐ Basic                        | ⭐⭐     |
+| **Hugging Face**      | **0**      | None                                                                  | Datasets + Trainer use single splits; K-fold is manual                                                    | ⭐ Basic                        | ⭐⭐     |
 
 **Rating key:**
-🥇 Excellent overall; 🥈 Very good; 🥉 Good
-⭐⭐⭐ Strong; ⭐⭐ Moderate; ⭐ Basic
+🥇 Best for medical CV; 🥈 Very good; 🥉 Good
+⭐⭐⭐ Strong medical support; ⭐⭐ Moderate; ⭐ Basic
 
 ---
 
@@ -51,13 +83,22 @@ A comparative overview of how common ML/DL frameworks handle cross-validation (C
 * **Default CV**
 
   * `GridSearchCV`, `RandomizedSearchCV`, `cross_val_score`, `cross_validate` use 5-fold CV when `cv=None`. ([Scikit-learn][1])
-* **Built-in splitters (partial list)**
+* **Built-in splitters (15 total)**
 
-  * `KFold`, `StratifiedKFold`, `GroupKFold`, `GroupShuffleSplit`
-  * `TimeSeriesSplit`
-  * `LeaveOneOut`, `LeavePOut`, `ShuffleSplit`
-  * `RepeatedKFold`, `RepeatedStratifiedKFold`
-  * `StratifiedGroupKFold` (recent versions)
+  * **Basic**: `KFold`, `StratifiedKFold`, `ShuffleSplit`, `StratifiedShuffleSplit`
+  * **Group-aware**: `GroupKFold`, `StratifiedGroupKFold`, `GroupShuffleSplit`
+  * **Leave-out**: `LeaveOneOut`, `LeavePOut`, `LeaveOneGroupOut`, `LeavePGroupsOut`
+  * **Repeated**: `RepeatedKFold`, `RepeatedStratifiedKFold`
+  * **Temporal**: `TimeSeriesSplit`
+  * **Other**: `PredefinedSplit`
+* **What sklearn lacks**
+
+  * ❌ Spatial CV methods (geographic/imaging data)
+  * ❌ Purged/embargo temporal methods (financial/ICU monitoring)
+  * ❌ Bootstrap validation or Monte Carlo CV as splitter classes
+  * ❌ Built-in data leakage detection
+  * ❌ Regulatory compliance features (FDA/CE MDR)
+  * ❌ Hierarchical/multilevel CV for nested patient structures
 * **Medical orientation**
 
   * **Patient-level grouping**: `GroupKFold` / `GroupShuffleSplit` with `patient_id`.
@@ -355,20 +396,20 @@ model_grouped = H2ORandomForestEstimator(
 
 ### Temporal Validation Support
 
-Here “temporal” means respecting time order (no leakage from future to past). Some libraries have dedicated objects, others rely on manual folds.
+Here "temporal" means respecting time order (no leakage from future to past). Some libraries have dedicated objects, others rely on manual folds.
 
 | Toolbox            | Native temporal CV object              | Methods available                                        | Medical suitability |
 | ------------------ | -------------------------------------- | -------------------------------------------------------- | ------------------- |
-| Scikit-Learn       | ✅ `TimeSeriesSplit`                    | Expanding window, sliding window (by configuration)      | Good                |
-| **trustcv (ours)** | ✅ Medical-oriented temporal splitters  | 3 main methods: TimeSeries, Blocked, Purged Group TS     | Excellent           |
+| Scikit-Learn       | ✅ `TimeSeriesSplit` (1 method)         | Expanding window only                                    | Basic               |
+| **TrustCV (ours)** | ✅ **8 temporal splitters**             | TimeSeriesSplit, RollingWindowCV, ExpandingWindowCV, BlockedTimeSeries, PurgedKFoldCV, CombinatorialPurgedCV, NestedTemporalCV, EmbargoCV | Excellent           |
+| CatBoost           | ✅ TimeSeries type (1 method)           | Forward-chaining only                                    | Moderate            |
 | XGBoost            | ⚠️ Via custom `folds` only             | Any temporal scheme you implement                        | Moderate            |
 | LightGBM           | ⚠️ Via custom `folds` only             | Any temporal scheme you implement                        | Moderate            |
-| CatBoost           | ⚠️ Ordered data + no shuffle           | Manual time-respecting CV only                           | Moderate            |
 | H2O.ai             | ⚠️ `fold_column` built from timestamps | Time-based folds via user-generated `fold_column`        | Moderate            |
 | Fast.ai            | ⚠️ Time-aware splitters, no full CV    | Single temporal split; full K-fold temporal CV is manual | Poor–Moderate       |
 | Others             | ❌ No direct support                    | Manual only                                              | Poor                |
 
-> In `trustcv`, temporal splitters are designed explicitly to avoid leakage (e.g. *purged group* time-series CV, which removes data around the test window for groups such as patients).
+> In TrustCV, temporal splitters are designed explicitly to avoid leakage (e.g. *purged k-fold* CV removes data around the test window to prevent look-ahead bias in financial/ICU monitoring scenarios).
 
 ---
 
@@ -497,22 +538,42 @@ print(f"Medical CV score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 
 ## 🎯 Conclusions
 
-* **Most powerful and explicit for CV**:
+### CV Method Count Summary
 
-  * **Scikit-Learn + trustcv** for transparent, medically-aware cross-validation (grouped, temporal, spatial).
-* **Most convenient “batteries included” option**:
+| Category | TrustCV | Scikit-learn | Others |
+|----------|---------|--------------|--------|
+| **Total splitters** | **29** | 15 | 0-5 |
+| **IID methods** | 9 | 9 | varies |
+| **Grouped methods** | 8 | 5 | 0-2 |
+| **Temporal methods** | 8 | 1 | 0-1 |
+| **Spatial methods** | 4 | 0 | 0 |
+| **Leakage detection** | ✅ 6 types | ❌ | ❌ |
+
+### Recommendations
+
+* **Most comprehensive CV for medical ML**:
+
+  * **TrustCV** provides 29 methods covering all data types (IID, grouped, temporal, spatial) with built-in leakage detection and regulatory compliance features.
+
+* **Best general-purpose foundation**:
+
+  * **Scikit-Learn** (15 methods) offers excellent coverage for standard use cases; combine with TrustCV for medical-specific needs.
+
+* **Most convenient "batteries included" option**:
 
   * **PyCaret** when you want a high-level API with good grouped/temporal support out of the box.
+
 * **Best for large-scale / distributed data**:
 
-  * **H2O.ai**, **Dask-ML**, **Spark MLlib** with carefully designed folds (often generated by trustcv / sklearn).
+  * **H2O.ai**, **Dask-ML**, **Spark MLlib** with carefully designed folds (often generated by TrustCV / sklearn).
+
 * **High-performance gradient boosting**:
 
   * **XGBoost**, **LightGBM**, **CatBoost** all work very well once you standardise your folds.
 
 **Key practical rule for medical ML**
 
-> Decide your cross-validation design (grouping, temporal windows, spatial blocking) **first**, encode it in a single source of truth (e.g. trustcv splitter), and then reuse the exact same folds across all toolboxes you compare.
+> Decide your cross-validation design (grouping, temporal windows, spatial blocking) **first**, encode it in a single source of truth (e.g. TrustCV splitter), and then reuse the exact same folds across all toolboxes you compare.
 
 [1]: https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html?utm_source=chatgpt.com "GridSearchCV — scikit-learn 1.7.2 documentation"
 [2]: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.cv.html?utm_source=chatgpt.com "lightgbm.cv — LightGBM 4.6.0.99 documentation"
