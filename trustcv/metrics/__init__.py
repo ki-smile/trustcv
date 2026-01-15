@@ -13,13 +13,17 @@ import numpy as np
 from .clinical import ClinicalMetrics, calculate_clinical_significance, calculate_nnt
 from .medical_metrics import (
     clinical_utility_score,
-    likelihood_ratio_negative as lr_negative,
-    likelihood_ratio_positive as lr_positive,
+)
+from .medical_metrics import likelihood_ratio_negative as lr_negative
+from .medical_metrics import likelihood_ratio_positive as lr_positive
+from .medical_metrics import negative_predictive_value as npv
+from .medical_metrics import (
     net_benefit,
-    negative_predictive_value as npv,
-    positive_predictive_value as ppv,
-    sensitivity as sensitivity_score,
-    specificity as specificity_score,
+)
+from .medical_metrics import positive_predictive_value as ppv
+from .medical_metrics import sensitivity as sensitivity_score
+from .medical_metrics import specificity as specificity_score
+from .medical_metrics import (
     youden_index,
 )
 
@@ -28,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def oob_clinical_metrics(
-    results: 'CVResults',
+    results: "CVResults",
     y: Sequence,
     *,
     clinical: Optional[ClinicalMetrics] = None,
@@ -102,17 +106,17 @@ def oob_clinical_metrics(
 
 
 __all__ = [
-    'ClinicalMetrics',
-    'calculate_nnt',
-    'calculate_clinical_significance',
-    'sensitivity_score',
-    'specificity_score',
-    'ppv',
-    'npv',
-    'lr_positive',
-    'lr_negative',
-    'youden_index',
-    'net_benefit',
-    'clinical_utility_score',
-    'oob_clinical_metrics',
+    "ClinicalMetrics",
+    "calculate_nnt",
+    "calculate_clinical_significance",
+    "sensitivity_score",
+    "specificity_score",
+    "ppv",
+    "npv",
+    "lr_positive",
+    "lr_negative",
+    "youden_index",
+    "net_benefit",
+    "clinical_utility_score",
+    "oob_clinical_metrics",
 ]

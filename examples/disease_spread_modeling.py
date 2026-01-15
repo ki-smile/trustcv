@@ -448,11 +448,11 @@ def evaluate_spatial_cv_strategies(X, y, coordinates, timestamps, location_ids):
     # 4. Spatiotemporal Cross-Validation
     print("\n4. Spatiotemporal Block Cross-Validation")
     print("-"*50)
-    
-    st_cv = SpatiotemporalBlockCV(n_splits=5, spatial_block_size=1.0, temporal_block_size=7)
+
+    st_cv = SpatiotemporalBlockCV(n_spatial_blocks=3, n_temporal_blocks=3)
     st_scores = []
     
-    for fold, (train_idx, test_idx) in enumerate(st_cv.split(X, coordinates=coordinates, times=timestamps), 1):
+    for fold, (train_idx, test_idx) in enumerate(st_cv.split(X, coordinates=coordinates, timestamps=timestamps), 1):
         if len(test_idx) < 20:
             print(f"Fold {fold}: Skipped (insufficient test samples: {len(test_idx)})")
             continue
@@ -653,7 +653,8 @@ def main():
     print("="*60)
     
     # Create disease spread dataset
-    df = create_disease_spread_data(n_locations=200, n_time_points=30)
+    # Reduced dataset size for faster execution
+    df = create_disease_spread_data(n_locations=50, n_time_points=20)
     
     # Analyze spatial patterns
     correlations = analyze_spatial_autocorrelation(df)

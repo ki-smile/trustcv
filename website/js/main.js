@@ -611,12 +611,12 @@ function selectDataType(type) {
             
         case 'grouped':
             recommendations = `
-                <h3>Grouped/Hierarchical Data Methods (6 methods)</h3>
+                <h3>Grouped/Hierarchical Data Methods (8 methods)</h3>
                 <div class="method-card">
-                    <h4>1. Patient Group K-Fold</h4>
+                    <h4>1. Group K-Fold</h4>
                     <p>All records from a patient stay together</p>
                     <p>Best for: Multiple records per patient</p>
-                    <code>PatientGroupKFold(n_splits=5)</code>
+                    <code>GroupKFold(n_splits=5)</code>
                 </div>
                 <div class="method-card">
                     <h4>2. Stratified Group K-Fold</h4>
@@ -625,25 +625,37 @@ function selectDataType(type) {
                     <code>StratifiedGroupKFold(n_splits=5)</code>
                 </div>
                 <div class="method-card">
-                    <h4>3. Leave-One-Group-Out (LOGOCV)</h4>
+                    <h4>3. Leave-One-Group-Out</h4>
                     <p>Each group (patient/hospital) as test set once</p>
                     <p>Best for: Multi-site trials, new patient generalization</p>
                     <code>LeaveOneGroupOut()</code>
                 </div>
                 <div class="method-card">
-                    <h4>4. Repeated Group K-Fold</h4>
+                    <h4>4. Leave-p-Groups-Out</h4>
+                    <p>Multiple groups (p) left out for testing</p>
+                    <p>Best for: Multi-center validation, robustness testing</p>
+                    <code>LeavePGroupsOut(n_groups=2)</code>
+                </div>
+                <div class="method-card">
+                    <h4>5. Repeated Group K-Fold</h4>
                     <p>Multiple runs of group k-fold</p>
                     <p>Best for: Variance reduction in grouped data</p>
                     <code>RepeatedGroupKFold(n_splits=5, n_repeats=10)</code>
                 </div>
                 <div class="method-card">
-                    <h4>5. Hierarchical Group K-Fold</h4>
+                    <h4>6. Hierarchical Group K-Fold</h4>
                     <p>Handles nested structures (Hospital→Department→Patient)</p>
                     <p>Best for: Multi-level medical hierarchies</p>
-                    <code>HierarchicalGroupKFold(n_splits=5, hierarchy_level='patient')</code>
+                    <code>HierarchicalGroupKFold(n_splits=5)</code>
                 </div>
                 <div class="method-card">
-                    <h4>6. Nested Grouped CV</h4>
+                    <h4>7. Multi-level CV</h4>
+                    <p>Cross-validation across multiple hierarchy levels</p>
+                    <p>Best for: Site→Department→Patient validation</p>
+                    <code>MultilevelCV(n_splits=5, hierarchy_levels=['site', 'department'])</code>
+                </div>
+                <div class="method-card">
+                    <h4>8. Nested Grouped CV</h4>
                     <p>Nested CV preserving group structure</p>
                     <p>Best for: Grouped hyperparameter tuning</p>
                     <code>NestedGroupedCV(outer_cv=GroupKFold(5), inner_cv=GroupKFold(3))</code>
@@ -1152,6 +1164,22 @@ function visualizeLOGO() {
     `;
 }
 
+function visualizeLPGO() {
+    const container = document.getElementById('cv-visualization');
+    container.innerHTML = `
+        <div class="method-description">
+            <h3>Leave-p-Groups-Out CV</h3>
+            <p>Leave p groups out for testing at each iteration.</p>
+            <ul>
+                <li>✓ Tests on multiple groups at once</li>
+                <li>✓ Good for multi-center studies</li>
+                <li>✗ Many iterations: C(n,p)</li>
+                <li>✗ Expensive for large number of groups</li>
+            </ul>
+        </div>
+    `;
+}
+
 function visualizeRepeatedGrouped(nSplits) {
     const container = document.getElementById('cv-visualization');
     container.innerHTML = `
@@ -1177,6 +1205,22 @@ function visualizeHierarchical() {
                 <li>✓ Multi-level validation</li>
                 <li>✓ Respects hierarchy</li>
                 <li>✗ Complex implementation</li>
+            </ul>
+        </div>
+    `;
+}
+
+function visualizeMultilevel() {
+    const container = document.getElementById('cv-visualization');
+    container.innerHTML = `
+        <div class="method-description">
+            <h3>Multi-level Cross-Validation</h3>
+            <p>Cross-validation across multiple hierarchy levels in medical data.</p>
+            <ul>
+                <li>✓ Site → Department → Patient validation</li>
+                <li>✓ Tests generalization at each level</li>
+                <li>✓ Proper nested structure handling</li>
+                <li>✗ Requires clear hierarchy definition</li>
             </ul>
         </div>
     `;

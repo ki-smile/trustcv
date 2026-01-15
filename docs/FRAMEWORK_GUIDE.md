@@ -1,4 +1,4 @@
-# trustcv v2.0 - Framework-Agnostic Cross-Validation Guide
+# TrustCV v1.0.0 - Framework-Agnostic Cross-Validation Guide
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -8,13 +8,12 @@
 5. [PyTorch Deep Learning](#pytorch-deep-learning)
 6. [TensorFlow/Keras](#tensorflow-keras)
 7. [Best Practices](#best-practices)
-8. [Migration from v1.0](#migration-guide)
 
 ---
 
 ## Introduction
 
-trustcv v2.0 introduces framework-agnostic cross-validation, allowing you to use the same CV strategies across scikit-learn, PyTorch, TensorFlow, MONAI, and more. This is particularly important for:
+TrustCV v1.0.0 provides framework-agnostic cross-validation, allowing you to use the same CV strategies across scikit-learn, PyTorch, TensorFlow, MONAI, and more. This is particularly important for:
 
 1. **Medical/Clinical Research**: Use specialized CV methods not available in standard libraries
 2. **Deep Learning**: Apply proper CV to neural networks with minimal code
@@ -527,38 +526,9 @@ runner.run(model, data, callbacks=[compliance_logger])
 
 ---
 
-## Migration Guide
-
-### Upgrading from v1.0 to v2.0
-
-```python
-# Old way (v1.0) - Still works!
-from trustcv import GroupKFoldMedical
-cv = GroupKFoldMedical(n_splits=5)
-for train_idx, test_idx in cv.split(X, y, groups):
-    model.fit(X[train_idx], y[train_idx])
-    score = model.score(X[test_idx], y[test_idx])
-
-# New way (v2.0) - Framework agnostic
-from trustcv import UniversalCVRunner, GroupKFoldMedical
-runner = UniversalCVRunner(cv_splitter=GroupKFoldMedical(n_splits=5))
-results = runner.run(model, data=(X, y), groups=groups)
-print(results.summary())
-```
-
-### New Features in v2.0
-
-1. **Framework Detection**: Automatically detects PyTorch, TensorFlow, etc.
-2. **Unified Interface**: Same API for all frameworks
-3. **Advanced Callbacks**: Early stopping, checkpointing, logging
-4. **MONAI Integration**: Medical imaging support
-5. **Regulatory Tools**: Compliance logging and reporting
-
----
-
 ## Summary
 
-trustcv v2.0 provides:
+TrustCV v1.0.0 provides:
 
 1. **29 CV methods** - Many NOT available in scikit-learn
 2. **Framework agnostic** - Works with PyTorch, TensorFlow, MONAI, etc.

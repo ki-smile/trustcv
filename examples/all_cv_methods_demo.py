@@ -14,21 +14,22 @@ warnings.filterwarnings('ignore')
 
 # Import all CV methods
 from trustcv.splitters import (
-    # I.I.D. methods
+    # I.I.D. methods (9)
     HoldOut, KFoldMedical, StratifiedKFoldMedical,
     RepeatedKFold, LOOCV, LPOCV, BootstrapValidation,
     MonteCarloCV, NestedCV,
-    # Grouped methods
+    # Grouped methods (8)
     GroupKFoldMedical, StratifiedGroupKFold,
-    LeaveOneGroupOut, RepeatedGroupKFold,
-    NestedGroupedCV,
-    # Temporal methods
+    LeaveOneGroupOut, LeavePGroupsOut, RepeatedGroupKFold,
+    HierarchicalGroupKFold, MultilevelCV, NestedGroupedCV,
+    # Temporal methods (8)
     TimeSeriesSplit, BlockedTimeSeries,
     RollingWindowCV, ExpandingWindowCV,
     PurgedKFoldCV, CombinatorialPurgedCV,
-    # Spatial methods
+    PurgedGroupTimeSeriesSplit, NestedTemporalCV,
+    # Spatial methods (4)
     SpatialBlockCV, BufferedSpatialCV,
-    SpatiotemporalBlockCV
+    SpatiotemporalBlockCV, EnvironmentalHealthCV
 )
 
 
@@ -131,6 +132,34 @@ def demo_iid_methods(X, y):
         scores.append(score)
     print(f"   OOB accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 
+    # 7. LOOCV (Leave-One-Out)
+    print("\n7. Leave-One-Out CV (LOOCV)")
+    # Use small subset to avoid long runtime
+    X_small, y_small = X[:50], y[:50]
+    cv = LOOCV()
+    scores = []
+    for train_idx, test_idx in cv.split(X_small, y_small):
+        model.fit(X_small[train_idx], y_small[train_idx])
+        score = accuracy_score(y_small[test_idx], model.predict(X_small[test_idx]))
+        scores.append(score)
+    print(f"   {len(scores)} iterations (n samples)")
+    print(f"   Mean accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
+    # 8. LPOCV (Leave-P-Out)
+    print("\n8. Leave-P-Out CV (LPOCV, p=2)")
+    # Use very small subset due to combinatorial explosion
+    X_tiny, y_tiny = X[:20], y[:20]
+    cv = LPOCV(p=2)
+    scores = []
+    for i, (train_idx, test_idx) in enumerate(cv.split(X_tiny, y_tiny)):
+        if i >= 50:  # Limit iterations for demo
+            break
+        model.fit(X_tiny[train_idx], y_tiny[train_idx])
+        score = accuracy_score(y_tiny[test_idx], model.predict(X_tiny[test_idx]))
+        scores.append(score)
+    print(f"   C(20,2) = {cv.get_n_splits(X_tiny)} total iterations")
+    print(f"   First 50 iterations accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
 
 def demo_grouped_methods(X, y, patient_ids):
     """Demonstrate grouped cross-validation methods"""
@@ -169,7 +198,7 @@ def demo_grouped_methods(X, y, patient_ids):
     # Use only first 10 patients for demo (LOGO is expensive)
     mask = np.isin(patient_ids, range(10))
     X_sub, y_sub, groups_sub = X[mask], y[mask], patient_ids[mask]
-    
+
     scores = []
     for i, (train_idx, test_idx) in enumerate(cv.split(X_sub, y_sub, groups_sub)):
         if i >= 5:  # Limit to 5 iterations for demo
@@ -180,6 +209,75 @@ def demo_grouped_methods(X, y, patient_ids):
         test_group = groups_sub[test_idx][0]
         print(f"   Patient {test_group}: {score:.3f}")
     print(f"   Mean (first 5): {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
+    # 4. Leave-P-Groups-Out
+    print("\n4. Leave-P-Groups-Out CV (p=2)")
+    cv = LeavePGroupsOut(n_groups=2)
+    scores = []
+    for i, (train_idx, test_idx) in enumerate(cv.split(X_sub, y_sub, groups_sub)):
+        if i >= 5:  # Limit iterations
+            break
+        model.fit(X_sub[train_idx], y_sub[train_idx])
+        score = accuracy_score(y_sub[test_idx], model.predict(X_sub[test_idx]))
+        scores.append(score)
+        test_groups = np.unique(groups_sub[test_idx])
+        print(f"   Groups {test_groups}: {score:.3f}")
+    print(f"   C(10,2) = {cv.get_n_splits(groups=groups_sub)} total iterations")
+
+    # 5. Repeated Group K-Fold
+    print("\n5. Repeated Group K-Fold (2 repeats)")
+    cv = RepeatedGroupKFold(n_splits=3, n_repeats=2, random_state=42)
+    scores = []
+    for train_idx, test_idx in cv.split(X, y, patient_ids):
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+    print(f"   {len(scores)} iterations (3 folds × 2 repeats)")
+    print(f"   Mean accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
+    # 6. Hierarchical Group K-Fold
+    print("\n6. Hierarchical Group K-Fold")
+    # Create hierarchy: hospital -> department -> patient
+    n_samples = len(X)
+    hospitals = patient_ids // 25  # 4 hospitals
+    departments = patient_ids // 10  # 10 departments
+    hierarchy = {
+        'hospital': hospitals,
+        'department': departments,
+        'patient': patient_ids
+    }
+    cv = HierarchicalGroupKFold(n_splits=3, hierarchy_level='hospital', random_state=42)
+    scores = []
+    for fold, (train_idx, test_idx) in enumerate(cv.split(X, y, hierarchy=hierarchy), 1):
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+        test_hospitals = np.unique(hospitals[test_idx])
+        print(f"   Fold {fold}: {score:.3f} (test hospitals: {test_hospitals})")
+    print(f"   Mean accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
+    # 7. Multi-level CV
+    print("\n7. Multi-level CV (department level)")
+    groups_dict = {
+        'hospital': hospitals,
+        'department': departments,
+        'patient': patient_ids
+    }
+    cv = MultilevelCV(n_splits=3, validation_level='department')
+    scores = []
+    for fold, (train_idx, test_idx) in enumerate(cv.split(X, y, groups=groups_dict), 1):
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+    print(f"   Mean accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
+
+    # 8. Nested Grouped CV (split demonstration only)
+    print("\n8. Nested Grouped CV")
+    outer_cv = GroupKFoldMedical(n_splits=3, random_state=42)
+    inner_cv = GroupKFoldMedical(n_splits=2, random_state=42)
+    nested_cv = NestedGroupedCV(outer_cv=outer_cv, inner_cv=inner_cv)
+    print(f"   Outer splits: {nested_cv.get_n_splits()}")
+    print("   (Use fit_predict() for full nested CV with hyperparameter tuning)")
 
 
 def demo_temporal_methods(X, y, timestamps):
@@ -238,15 +336,45 @@ def demo_temporal_methods(X, y, timestamps):
         scores.append(score)
         print(f"   Fold {fold}: {score:.3f} (train: {len(train_idx)}, test: {len(test_idx)})")
 
+    # 5. Combinatorial Purged CV
+    print("\n5. Combinatorial Purged CV")
+    cv = CombinatorialPurgedCV(n_splits=4, n_test_splits=2, purge_gap=5)
+    scores = []
+    for i, (train_idx, test_idx) in enumerate(cv.split(X, y)):
+        if i >= 3:  # Limit iterations
+            break
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+        print(f"   Combination {i+1}: {score:.3f} (train: {len(train_idx)}, test: {len(test_idx)})")
 
-def demo_spatial_methods(X, y, coordinates):
+    # 6. Purged Group Time Series Split
+    print("\n6. Purged Group Time Series Split")
+    cv = PurgedGroupTimeSeriesSplit(n_splits=3, purge_gap=10, embargo_size=0.02)
+    scores = []
+    for fold, (train_idx, test_idx) in enumerate(cv.split(X, y, timestamps=timestamps), 1):
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+        print(f"   Fold {fold}: {score:.3f} (train: {len(train_idx)}, test: {len(test_idx)})")
+
+    # 7. Nested Temporal CV (split demonstration only)
+    print("\n7. Nested Temporal CV")
+    outer_cv = ExpandingWindowCV(min_train_size=200, step_size=100, forecast_horizon=50)
+    inner_cv = RollingWindowCV(window_size=100, step_size=50, forecast_horizon=20)
+    nested_cv = NestedTemporalCV(outer_cv=outer_cv, inner_cv=inner_cv)
+    print("   Outer: ExpandingWindowCV, Inner: RollingWindowCV")
+    print("   (Use fit_predict() for full nested CV with hyperparameter tuning)")
+
+
+def demo_spatial_methods(X, y, coordinates, timestamps):
     """Demonstrate spatial cross-validation methods"""
     print("\n" + "="*60)
     print("SPATIAL CROSS-VALIDATION METHODS")
     print("="*60)
-    
+
     model = LogisticRegression(max_iter=1000)
-    
+
     # 1. Spatial Block CV
     print("\n1. Spatial Block CV")
     cv = SpatialBlockCV(n_splits=4, block_shape='grid', random_state=42)
@@ -258,7 +386,7 @@ def demo_spatial_methods(X, y, coordinates):
         test_coords = coordinates[test_idx]
         print(f"   Block {fold}: {score:.3f}")
         print(f"      Test region center: ({test_coords[:, 0].mean():.1f}, {test_coords[:, 1].mean():.1f})")
-    
+
     # 2. Buffered Spatial CV
     print("\n2. Buffered Spatial CV")
     cv = BufferedSpatialCV(n_splits=3, buffer_size=2.0, random_state=42)
@@ -268,7 +396,7 @@ def demo_spatial_methods(X, y, coordinates):
         score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
         scores.append(score)
         print(f"   Block {fold}: {score:.3f} (train: {len(train_idx)}, test: {len(test_idx)})")
-    
+
     # 3. Spatiotemporal Block CV
     print("\n3. Spatiotemporal Block CV")
     cv = SpatiotemporalBlockCV(
@@ -285,6 +413,35 @@ def demo_spatial_methods(X, y, coordinates):
         score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
         scores.append(score)
         print(f"   Spatiotemporal block {fold}: {score:.3f}")
+
+    # 4. Environmental Health CV
+    print("\n4. Environmental Health CV (seasonal strategy)")
+    # Create environmental data
+    environmental_data = {
+        'temperature': np.random.randn(len(X)) * 10 + 20,
+        'humidity': np.random.randn(len(X)) * 20 + 60
+    }
+    cv = EnvironmentalHealthCV(
+        spatial_blocks=3,
+        temporal_strategy='seasonal',
+        environmental_vars=['temperature'],
+        buffer_config={'temperature': 5.0}
+    )
+    scores = []
+    for fold, (train_idx, test_idx) in enumerate(
+        cv.split(X, y, coordinates=coordinates, timestamps=timestamps,
+                 environmental_data=environmental_data), 1
+    ):
+        if fold > 4:  # Limit iterations
+            break
+        if len(np.unique(y[train_idx])) < 2 or len(np.unique(y[test_idx])) < 2:
+            continue
+        model.fit(X[train_idx], y[train_idx])
+        score = accuracy_score(y[test_idx], model.predict(X[test_idx]))
+        scores.append(score)
+        print(f"   Block {fold}: {score:.3f} (train: {len(train_idx)}, test: {len(test_idx)})")
+    if scores:
+        print(f"   Mean accuracy: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 
 
 def main():
@@ -310,7 +467,7 @@ def main():
     demo_iid_methods(X, y)
     demo_grouped_methods(X, y, patient_ids)
     demo_temporal_methods(X, y, timestamps)
-    demo_spatial_methods(X, y, coordinates)
+    demo_spatial_methods(X, y, coordinates, timestamps)
     
     print("\n" + "="*60)
     print("DEMONSTRATION COMPLETE")

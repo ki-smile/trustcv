@@ -87,12 +87,12 @@
         <div class="container">
             <h1 class="page-title">📊 Cross-Validation Methods Comparison</h1>
             <p class="page-subtitle">
-                Comprehensive overview of 29+ cross-validation methods organized by category and medical application area.
+                Comprehensive overview of 29 cross-validation methods organized into 4 categories: I.I.D., Grouped, Temporal, and Spatial.
                 Use this guide to select the most appropriate validation strategy for your medical machine learning project.
             </p>
             <div class="header-badges">
-                <span class="badge">29+ CV Methods</span>
-                <span class="badge">7 Categories</span>
+                <span class="badge">29 CV Methods</span>
+                <span class="badge">4 Categories</span>
                 <span class="badge">Medical Applications</span>
                 <span class="badge">Best Practice Guidelines</span>
             </div>
@@ -156,13 +156,22 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Standard Methods -->
+                        <!-- I.I.D. Methods (9 methods) -->
                         <tr class="category-header">
-                            <td colspan="7" class="category-title">🔄 Standard Cross-Validation</td>
+                            <td colspan="7" class="category-title">🔄 I.I.D. Cross-Validation (9 Methods)</td>
+                        </tr>
+                        <tr data-tags="independent small medium basic">
+                            <td><strong>HoldOut</strong></td>
+                            <td>I.I.D.</td>
+                            <td>Quick prototyping</td>
+                            <td>Initial model screening, large datasets</td>
+                            <td>Large dataset (>5000)</td>
+                            <td>Fast, simple baseline</td>
+                            <td>High variance, wastes data</td>
                         </tr>
                         <tr data-tags="independent medium large basic">
-                            <td><strong>K-Fold CV</strong></td>
-                            <td>Standard</td>
+                            <td><strong>KFold</strong></td>
+                            <td>I.I.D.</td>
                             <td>Independent samples</td>
                             <td>Basic diagnostic models, single-visit data</td>
                             <td>Independent observations</td>
@@ -170,17 +179,26 @@
                             <td>Assumes independence</td>
                         </tr>
                         <tr data-tags="independent medium large imbalanced">
-                            <td><strong>Stratified K-Fold</strong></td>
-                            <td>Standard</td>
+                            <td><strong>StratifiedKFold</strong></td>
+                            <td>I.I.D.</td>
                             <td>Imbalanced outcomes</td>
                             <td>Rare diseases, cancer detection</td>
                             <td>Class labels available</td>
                             <td>Preserves class distribution</td>
                             <td>Still assumes independence</td>
                         </tr>
+                        <tr data-tags="independent medium large repeated">
+                            <td><strong>RepeatedKFold</strong></td>
+                            <td>I.I.D.</td>
+                            <td>Stable estimates</td>
+                            <td>Clinical trials, biomarker validation</td>
+                            <td>Sufficient samples</td>
+                            <td>Reduces variance</td>
+                            <td>Computationally expensive</td>
+                        </tr>
                         <tr data-tags="independent small">
-                            <td><strong>Leave-One-Out (LOO)</strong></td>
-                            <td>Standard</td>
+                            <td><strong>LOOCV</strong></td>
+                            <td>I.I.D.</td>
                             <td>Very small datasets</td>
                             <td>Rare diseases, pilot studies</td>
                             <td>&lt;100 samples</td>
@@ -188,27 +206,45 @@
                             <td>High variance, computationally expensive</td>
                         </tr>
                         <tr data-tags="independent small exhaustive">
-                            <td><strong>Leave-p-Out (LPOCV)</strong></td>
-                            <td>Standard</td>
+                            <td><strong>LPOCV</strong></td>
+                            <td>I.I.D.</td>
                             <td>Exhaustive validation</td>
                             <td>Small critical datasets</td>
                             <td>&lt;50 samples</td>
                             <td>Tests all p-combinations</td>
                             <td>Combinatorial explosion C(n,p)</td>
                         </tr>
-                        <tr data-tags="independent medium large repeated">
-                            <td><strong>Repeated K-Fold</strong></td>
-                            <td>Standard</td>
-                            <td>Stable estimates</td>
-                            <td>Clinical trials, biomarker validation</td>
-                            <td>Sufficient samples</td>
-                            <td>Reduces variance</td>
+                        <tr data-tags="independent small medium bootstrap">
+                            <td><strong>BootstrapValidation</strong></td>
+                            <td>I.I.D.</td>
+                            <td>Small medical datasets</td>
+                            <td>Rare diseases, clinical trials</td>
+                            <td>&lt;500 samples typically</td>
+                            <td>Stable estimates (.632/.632+ correction)</td>
+                            <td>May be optimistic without correction</td>
+                        </tr>
+                        <tr data-tags="independent medium large custom">
+                            <td><strong>MonteCarloCV</strong></td>
+                            <td>I.I.D.</td>
+                            <td>Flexible repeated sampling</td>
+                            <td>Complex medical datasets</td>
+                            <td>Custom sampling needs</td>
+                            <td>Highly customizable</td>
+                            <td>Requires careful design</td>
+                        </tr>
+                        <tr data-tags="independent medium large hyperparameter-tuning">
+                            <td><strong>NestedCV</strong></td>
+                            <td>I.I.D.</td>
+                            <td>Model selection + evaluation</td>
+                            <td>Biomarker discovery, precision medicine</td>
+                            <td>Hyperparameter tuning needs</td>
+                            <td>Unbiased performance estimates</td>
                             <td>Computationally expensive</td>
                         </tr>
                         
-                        <!-- Temporal Methods -->
+                        <!-- Temporal Methods (8 methods) -->
                         <tr class="category-header">
-                            <td colspan="7" class="category-title">⏰ Temporal Cross-Validation</td>
+                            <td colspan="7" class="category-title">⏰ Temporal Cross-Validation (8 Methods)</td>
                         </tr>
                         <tr data-tags="temporal icu medium large">
                             <td><strong>Time Series Split</strong></td>
@@ -283,9 +319,9 @@
                             <td>Extremely expensive</td>
                         </tr>
                         
-                        <!-- Grouped Methods -->
+                        <!-- Grouped Methods (8 methods) -->
                         <tr class="category-header">
-                            <td colspan="7" class="category-title">👥 Grouped Cross-Validation</td>
+                            <td colspan="7" class="category-title">👥 Grouped Cross-Validation (8 Methods)</td>
                         </tr>
                         <tr data-tags="grouped medium large longitudinal">
                             <td><strong>Group K-Fold</strong></td>
@@ -360,9 +396,9 @@
                             <td>Very computationally intensive</td>
                         </tr>
                         
-                        <!-- Spatial Methods -->
+                        <!-- Spatial Methods (4 methods) -->
                         <tr class="category-header">
-                            <td colspan="7" class="category-title">🌍 Spatial Cross-Validation</td>
+                            <td colspan="7" class="category-title">🌍 Spatial Cross-Validation (4 Methods)</td>
                         </tr>
                         <tr data-tags="spatial epidemiology large geographic">
                             <td><strong>Spatial Block CV</strong></td>
@@ -401,106 +437,6 @@
                             <td>Requires environmental data</td>
                         </tr>
                         
-                        <!-- Bootstrap Methods -->
-                        <tr class="category-header">
-                            <td colspan="7" class="category-title">🔄 Bootstrap Methods</td>
-                        </tr>
-                        <tr data-tags="small clinical-trials bootstrap">
-                            <td><strong>Bootstrap .632</strong></td>
-                            <td>Bootstrap</td>
-                            <td>Small medical datasets</td>
-                            <td>Rare diseases, clinical trials</td>
-                            <td>Limited sample size</td>
-                            <td>Stable estimates</td>
-                            <td>May be overly optimistic</td>
-                        </tr>
-                        <tr data-tags="small clinical-trials bootstrap">
-                            <td><strong>Bootstrap .632+</strong></td>
-                            <td>Bootstrap</td>
-                            <td>Small datasets with overfitting</td>
-                            <td>Complex models on limited data</td>
-                            <td>&lt;500 samples typically</td>
-                            <td>Corrects .632 optimism</td>
-                            <td>More complex to compute</td>
-                        </tr>
-                        
-                        <!-- Nested Methods -->
-                        <tr class="category-header">
-                            <td colspan="7" class="category-title">🔄 Nested Cross-Validation</td>
-                        </tr>
-                        <tr data-tags="medium large hyperparameter-tuning">
-                            <td><strong>Nested K-Fold</strong></td>
-                            <td>Nested</td>
-                            <td>Model selection + evaluation</td>
-                            <td>Biomarker discovery, precision medicine</td>
-                            <td>Hyperparameter tuning needs</td>
-                            <td>Unbiased performance estimates</td>
-                            <td>Computationally expensive</td>
-                        </tr>
-                        <tr data-tags="grouped large hyperparameter-tuning longitudinal">
-                            <td><strong>Nested Group K-Fold</strong></td>
-                            <td>Nested</td>
-                            <td>Patient-grouped model selection</td>
-                            <td>Personalized medicine, longitudinal ML</td>
-                            <td>Groups + hyperparameter tuning</td>
-                            <td>Prevents leakage in model selection</td>
-                            <td>Very computationally intensive</td>
-                        </tr>
-                        
-                        <!-- Specialized Medical Methods -->
-                        <tr class="category-header">
-                            <td colspan="7" class="category-title">🏥 Medical-Specific Methods</td>
-                        </tr>
-                        <tr data-tags="imaging medium large">
-                            <td><strong>Patient-Aware CV</strong></td>
-                            <td>Medical</td>
-                            <td>Medical imaging</td>
-                            <td>Radiology, pathology, dermatology</td>
-                            <td>Patient-image mappings</td>
-                            <td>Prevents patient-level leakage</td>
-                            <td>Requires patient metadata</td>
-                        </tr>
-                        <tr data-tags="grouped clinical-trials large hierarchical">
-                            <td><strong>Hierarchical CV</strong></td>
-                            <td>Medical</td>
-                            <td>Multi-level healthcare data</td>
-                            <td>Patients → Wards → Hospitals</td>
-                            <td>Hierarchical structure</td>
-                            <td>Models complex dependencies</td>
-                            <td>Complex implementation</td>
-                        </tr>
-                        <tr data-tags="temporal grouped icu medium large">
-                            <td><strong>Temporal-Patient CV</strong></td>
-                            <td>Medical</td>
-                            <td>Longitudinal patient monitoring</td>
-                            <td>Chronic disease, ICU data</td>
-                            <td>Time + patient structure</td>
-                            <td>Handles both dependencies</td>
-                            <td>Requires careful design</td>
-                        </tr>
-                        
-                        <!-- Advanced Methods -->
-                        <tr class="category-header">
-                            <td colspan="7" class="category-title">🔬 Advanced Methods</td>
-                        </tr>
-                        <tr data-tags="medium large custom">
-                            <td><strong>Monte Carlo CV</strong></td>
-                            <td>Advanced</td>
-                            <td>Flexible repeated sampling</td>
-                            <td>Complex medical datasets</td>
-                            <td>Custom sampling needs</td>
-                            <td>Highly customizable</td>
-                            <td>Requires careful design</td>
-                        </tr>
-                        <tr data-tags="large critical">
-                            <td><strong>Combinatorial CV</strong></td>
-                            <td>Advanced</td>
-                            <td>Maximum validation rigor</td>
-                            <td>Critical medical applications</td>
-                            <td>Sufficient computational resources</td>
-                            <td>Comprehensive validation</td>
-                            <td>Extremely expensive</td>
-                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -539,48 +475,51 @@
                 <div class="example-card">
                     <h3>👥 Patient-Level Splitting</h3>
                     <div class="code-example">
-                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> GroupKFold
-<span class="keyword">from</span> trustcv <span class="keyword">import</span> PatientAwareCV
+                        <pre><code><span class="keyword">from</span> trustcv <span class="keyword">import</span> TrustCVValidator
+<span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> GroupKFold, StratifiedGroupKFold
 
-<span class="comment"># Basic patient grouping</span>
+<span class="comment"># Basic patient-grouped cross-validation</span>
 cv = GroupKFold(n_splits=<span class="number">5</span>)
-scores = cross_val_score(model, X, y, cv=cv, groups=patient_ids)
+validator = TrustCVValidator(cv=cv, check_leakage=<span class="keyword">True</span>)
+results = validator.fit_validate(model, X, y, groups=patient_ids)
 
-<span class="comment"># Advanced patient-aware CV</span>
-cv = PatientAwareCV(n_splits=<span class="number">5</span>, check_leakage=<span class="keyword">True</span>)
-scores = cv.fit_validate(model, X, y, patient_ids=patient_ids)</code></pre>
+<span class="comment"># Stratified patient grouping (preserves class balance)</span>
+cv = StratifiedGroupKFold(n_splits=<span class="number">5</span>)
+results = validator.fit_validate(model, X, y, groups=patient_ids)</code></pre>
                     </div>
                 </div>
-                
+
                 <div class="example-card">
                     <h3>⏰ Temporal Validation</h3>
                     <div class="code-example">
-                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> TimeSeriesSplit
-<span class="keyword">from</span> trustcv <span class="keyword">import</span> RollingWindowCV
+                        <pre><code><span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> TimeSeriesSplit, RollingWindowCV
+<span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> PurgedKFoldCV
 
 <span class="comment"># Basic temporal split</span>
 cv = TimeSeriesSplit(n_splits=<span class="number">5</span>)
-scores = cross_val_score(model, X, y, cv=cv)
 
 <span class="comment"># Rolling window for real-time prediction</span>
 cv = RollingWindowCV(window_size=<span class="number">30</span>, gap=<span class="number">2</span>)  <span class="comment"># 30 days, 2-day gap</span>
-scores = cv.fit_validate(model, X, y, timestamps=timestamps)</code></pre>
+
+<span class="comment"># Purged K-Fold to prevent temporal leakage</span>
+cv = PurgedKFoldCV(n_splits=<span class="number">5</span>, purge_gap=<span class="number">5</span>)</code></pre>
                     </div>
                 </div>
-                
+
                 <div class="example-card">
                     <h3>🏥 Multi-Site Validation</h3>
                     <div class="code-example">
-                        <pre><code><span class="keyword">from</span> sklearn.model_selection <span class="keyword">import</span> LeaveOneGroupOut
-<span class="keyword">from</span> trustcv <span class="keyword">import</span> MultiSiteCV
+                        <pre><code><span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> LeaveOneGroupOut, LeavePGroupsOut
+<span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> HierarchicalGroupKFold
 
-<span class="comment"># Leave-one-site-out</span>
+<span class="comment"># Leave-one-site-out validation</span>
 cv = LeaveOneGroupOut()
-scores = cross_val_score(model, X, y, cv=cv, groups=site_ids)
 
-<span class="comment"># Advanced multi-site with stratification</span>
-cv = MultiSiteCV(test_size=<span class="number">0.2</span>, stratify_by_site=<span class="keyword">True</span>)
-scores = cv.fit_validate(model, X, y, site_ids=site_ids)</code></pre>
+<span class="comment"># Leave-p-sites-out for multi-center studies</span>
+cv = LeavePGroupsOut(n_groups=<span class="number">2</span>)
+
+<span class="comment"># Hierarchical: Hospital → Department → Patient</span>
+cv = HierarchicalGroupKFold(n_splits=<span class="number">5</span>)</code></pre>
                     </div>
                 </div>
             </div>

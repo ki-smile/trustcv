@@ -193,12 +193,12 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
         score = roc_auc_score(y[test_idx], y_pred_proba)
         scores.append(score)
         
-        train_time_range = (timestamps[train_idx].min(), timestamps[train_idx].max())
-        test_time_range = (timestamps[test_idx].min(), timestamps[test_idx].max())
-        
+        train_time_range = (pd.Timestamp(timestamps[train_idx].min()), pd.Timestamp(timestamps[train_idx].max()))
+        test_time_range = (pd.Timestamp(timestamps[test_idx].min()), pd.Timestamp(timestamps[test_idx].max()))
+
         print(f"Fold {fold}: ROC-AUC = {score:.4f}")
-        print(f"  Train: {train_time_range[0]:%Y-%m-%d} to {train_time_range[1]:%Y-%m-%d}")
-        print(f"  Test:  {test_time_range[0]:%Y-%m-%d} to {test_time_range[1]:%Y-%m-%d}")
+        print(f"  Train: {train_time_range[0].strftime('%Y-%m-%d')} to {train_time_range[1].strftime('%Y-%m-%d')}")
+        print(f"  Test:  {test_time_range[0].strftime('%Y-%m-%d')} to {test_time_range[1].strftime('%Y-%m-%d')}")
     
     results['Time Series Split'] = {
         'scores': scores,
@@ -210,9 +210,9 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     # 2. Rolling Window CV
     print("\n2. Rolling Window CV (Fixed 48-hour Training Window)")
     print("-"*40)
-    
+
     # Convert to hourly indices for rolling window
-    unique_hours = timestamps.unique()
+    unique_hours = np.unique(timestamps)
     hour_to_idx = {hour: idx for idx, hour in enumerate(unique_hours)}
     time_indices = np.array([hour_to_idx[t] for t in timestamps])
     
@@ -225,13 +225,18 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     scores = []
     for fold, (train_idx, test_idx) in enumerate(rolling_cv.split(time_indices), 1):
         if len(train_idx) > 0 and len(test_idx) > 0:
+            # Skip if not enough classes in train or test
+            if len(np.unique(y[train_idx])) < 2 or len(np.unique(y[test_idx])) < 2:
+                print(f"Window {fold}: Skipped (single class)")
+                continue
+
             model = RandomForestClassifier(n_estimators=50, random_state=42)
             model.fit(X[train_idx], y[train_idx])
-            
+
             y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
             score = roc_auc_score(y[test_idx], y_pred_proba)
             scores.append(score)
-            
+
             print(f"Window {fold}: ROC-AUC = {score:.4f} "
                   f"(train size: {len(train_idx)}, test size: {len(test_idx)})")
     
@@ -281,26 +286,24 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     # 4. Blocked Time Series (Daily Blocks)
     print("\n4. Blocked Time Series CV (Daily Blocks)")
     print("-"*40)
-    
+
     # Create day blocks
     days = pd.to_datetime(timestamps).normalize()
-    unique_days = days.unique()
-    day_groups = np.array([np.where(unique_days == d)[0][0] for d in days])
-    
-    blocked_cv = BlockedTimeSeries(n_splits=5)
+
+    blocked_cv = BlockedTimeSeries(n_splits=5, block_size='day')
     scores = []
-    
-    for fold, (train_idx, test_idx) in enumerate(blocked_cv.split(X, groups=day_groups), 1):
+
+    for fold, (train_idx, test_idx) in enumerate(blocked_cv.split(X, timestamps=timestamps), 1):
         model = RandomForestClassifier(n_estimators=50, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
         score = roc_auc_score(y[test_idx], y_pred_proba)
         scores.append(score)
-        
+
         train_days = np.unique(days[train_idx])
         test_days = np.unique(days[test_idx])
-        
+
         print(f"Fold {fold}: ROC-AUC = {score:.4f}")
         print(f"  Train days: {len(train_days)}, Test days: {len(test_days)}")
     

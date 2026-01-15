@@ -195,7 +195,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     # 1. Standard K-Fold (WRONG - ignores groups)
     print("\n1. Standard K-Fold (IGNORING SITES - WRONG!)")
     print("-"*40)
-    from trustcv import KFoldMedical
+    from trustcv.splitters.iid import KFoldMedical
     
     kf = KFoldMedical(n_splits=5, shuffle=True, random_state=42)
     scores = []

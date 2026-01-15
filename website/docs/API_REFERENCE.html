@@ -61,12 +61,11 @@
                     <h3>📑 Table of Contents</h3>
                     <ul class="docs-toc">
                         <li><a href="#getting-started">Getting Started</a></li>
-                        <li><a href="#iid-methods">I.I.D. Methods</a></li>
-                        <li><a href="#temporal-methods">Temporal Methods</a></li>
-                        <li><a href="#grouped-methods">Grouped Methods</a></li>
-                        <li><a href="#spatial-methods">Spatial Methods</a></li>
-                        <li><a href="#bootstrap-methods">Bootstrap Methods</a></li>
-                        <li><a href="#utility-functions">Utility Functions</a></li>
+                        <li><a href="#iid-methods">I.I.D. Methods (9)</a></li>
+                        <li><a href="#grouped-methods">Grouped Methods (8)</a></li>
+                        <li><a href="#temporal-methods">Temporal Methods (8)</a></li>
+                        <li><a href="#spatial-methods">Spatial Methods (4)</a></li>
+                        <li><a href="#validators">Validators & Checkers</a></li>
                         <li><a href="#examples">Examples</a></li>
                     </ul>
                 </div>
@@ -107,80 +106,91 @@ scores_grouped = cross_val_score(RandomForestClassifier(), X, y,
                     </section>
 
                     <section id="iid-methods" class="docs-section">
-                        <h2>🎲 I.I.D. Methods</h2>
+                        <h2>🎲 I.I.D. Methods (9)</h2>
                         <p>Cross-validation methods for independent and identically distributed data.</p>
 
                         <div class="api-method">
-                            <h3>StratifiedKFoldMedical</h3>
-                            <p>Enhanced stratified K-Fold with medical-specific features.</p>
+                            <h3>HoldOut</h3>
+                            <p>Simple train-test split for initial model evaluation.</p>
                             <div class="method-signature">
-                                <code>StratifiedKFoldMedical(n_splits=5, shuffle=False, random_state=None)</code>
-                            </div>
-                            <div class="parameters">
-                                <h4>Parameters:</h4>
-                                <ul>
-                                    <li><strong>n_splits</strong> (int): Number of folds</li>
-                                    <li><strong>shuffle</strong> (bool): Whether to shuffle data</li>
-                                    <li><strong>random_state</strong> (int): Random seed for reproducibility</li>
-                                </ul>
+                                <code>HoldOut(test_size=0.2, random_state=None, stratify=True)</code>
                             </div>
                         </div>
 
                         <div class="api-method">
                             <h3>KFoldMedical</h3>
-                            <p>Basic K-Fold with medical data validation.</p>
+                            <p>Standard K-Fold cross-validation.</p>
                             <div class="method-signature">
                                 <code>KFoldMedical(n_splits=5, shuffle=False, random_state=None)</code>
                             </div>
                         </div>
-                    </section>
-
-                    <section id="temporal-methods" class="docs-section">
-                        <h2>⏰ Temporal Methods</h2>
-                        <p>Cross-validation methods for time-series and temporal medical data.</p>
 
                         <div class="api-method">
-                            <h3>TimeSeriesSplit</h3>
-                            <p>Time-aware splitting for temporal validation.</p>
+                            <h3>StratifiedKFoldMedical</h3>
+                            <p>Stratified K-Fold preserving class distribution in each fold.</p>
                             <div class="method-signature">
-                                <code>TimeSeriesSplit(n_splits=5, test_size=None, gap=0)</code>
-                            </div>
-                            <div class="parameters">
-                                <h4>Parameters:</h4>
-                                <ul>
-                                    <li><strong>n_splits</strong> (int): Number of splits</li>
-                                    <li><strong>test_size</strong> (int): Size of test set</li>
-                                    <li><strong>gap</strong> (int): Gap between train and test</li>
-                                </ul>
+                                <code>StratifiedKFoldMedical(n_splits=5, shuffle=False, random_state=None)</code>
                             </div>
                         </div>
 
                         <div class="api-method">
-                            <h3>PurgedKFold</h3>
-                            <p>K-Fold with purged samples to prevent temporal leakage.</p>
+                            <h3>RepeatedKFold</h3>
+                            <p>Repeated K-Fold for more stable estimates.</p>
                             <div class="method-signature">
-                                <code>PurgedKFold(n_splits=5, purge_gap=1)</code>
+                                <code>RepeatedKFold(n_splits=5, n_repeats=10, random_state=None)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>LOOCV</h3>
+                            <p>Leave-One-Out Cross-Validation for small datasets.</p>
+                            <div class="method-signature">
+                                <code>LOOCV()</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>LPOCV</h3>
+                            <p>Leave-p-Out Cross-Validation for exhaustive testing.</p>
+                            <div class="method-signature">
+                                <code>LPOCV(p=2)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>BootstrapValidation</h3>
+                            <p>Bootstrap validation with .632/.632+ estimators.</p>
+                            <div class="method-signature">
+                                <code>BootstrapValidation(n_iterations=100, estimator='.632', random_state=None)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>MonteCarloCV</h3>
+                            <p>Random sub-sampling cross-validation.</p>
+                            <div class="method-signature">
+                                <code>MonteCarloCV(n_iterations=100, test_size=0.2, random_state=None)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>NestedCV</h3>
+                            <p>Nested cross-validation for unbiased hyperparameter tuning.</p>
+                            <div class="method-signature">
+                                <code>NestedCV(outer_cv=None, inner_cv=None)</code>
                             </div>
                         </div>
                     </section>
 
                     <section id="grouped-methods" class="docs-section">
-                        <h2>👥 Grouped Methods</h2>
+                        <h2>👥 Grouped Methods (8)</h2>
                         <p>Cross-validation methods for grouped medical data (patients, sites, etc.).</p>
 
                         <div class="api-method">
                             <h3>GroupKFoldMedical</h3>
                             <p>Patient-level grouping to prevent data leakage.</p>
                             <div class="method-signature">
-                                <code>GroupKFoldMedical(n_splits=5)</code>
-                            </div>
-                            <div class="example">
-                                <h4>Example:</h4>
-                                <pre><code>cv = GroupKFoldMedical(n_splits=5)
-for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
-    # No patient appears in both train and test sets
-    model.fit(X[train_idx], y[train_idx])
-    predictions = model.predict(X[test_idx])</code></pre>
+                                <code>GroupKFoldMedical(n_splits=5, shuffle=False)</code>
                             </div>
                         </div>
 
@@ -191,30 +201,195 @@ for train_idx, test_idx in cv.split(X, y, groups=patient_ids):
                                 <code>StratifiedGroupKFold(n_splits=5, shuffle=False, random_state=None)</code>
                             </div>
                         </div>
-                    </section>
-
-                    <section id="spatial-methods" class="docs-section">
-                        <h2>🌍 Spatial Methods</h2>
-                        <p>Cross-validation methods for geographic and spatial medical data.</p>
 
                         <div class="api-method">
-                            <h3>SpatialKFold</h3>
-                            <p>Spatial blocking for geographic data.</p>
+                            <h3>LeaveOneGroupOut</h3>
+                            <p>Leave one group (patient/hospital) out for testing.</p>
                             <div class="method-signature">
-                                <code>SpatialKFold(n_splits=5, coordinates=None, buffer_size=0)</code>
+                                <code>LeaveOneGroupOut()</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>LeavePGroupsOut</h3>
+                            <p>Leave p groups out for testing.</p>
+                            <div class="method-signature">
+                                <code>LeavePGroupsOut(n_groups=2)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>RepeatedGroupKFold</h3>
+                            <p>Repeated grouped K-Fold for stable estimates.</p>
+                            <div class="method-signature">
+                                <code>RepeatedGroupKFold(n_splits=5, n_repeats=10, random_state=None)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>HierarchicalGroupKFold</h3>
+                            <p>Handles nested hierarchical structures (Hospital→Department→Patient).</p>
+                            <div class="method-signature">
+                                <code>HierarchicalGroupKFold(n_splits=5)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>MultilevelCV</h3>
+                            <p>Cross-validation across multiple hierarchy levels.</p>
+                            <div class="method-signature">
+                                <code>MultilevelCV(n_splits=5)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>NestedGroupedCV</h3>
+                            <p>Nested CV maintaining group structure in both loops.</p>
+                            <div class="method-signature">
+                                <code>NestedGroupedCV(outer_cv=None, inner_cv=None)</code>
                             </div>
                         </div>
                     </section>
 
-                    <section id="bootstrap-methods" class="docs-section">
-                        <h2>🔄 Bootstrap Methods</h2>
-                        <p>Bootstrap validation methods for small datasets and confidence intervals.</p>
+                    <section id="temporal-methods" class="docs-section">
+                        <h2>⏰ Temporal Methods (8)</h2>
+                        <p>Cross-validation methods for time-series and temporal medical data.</p>
 
                         <div class="api-method">
-                            <h3>Bootstrap632</h3>
-                            <p>Bootstrap .632 method for small medical datasets.</p>
+                            <h3>TimeSeriesSplit</h3>
+                            <p>Time-aware splitting for temporal validation.</p>
                             <div class="method-signature">
-                                <code>Bootstrap632(n_bootstrap=100, random_state=None)</code>
+                                <code>TimeSeriesSplit(n_splits=5, test_size=None, gap=0)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>BlockedTimeSeries</h3>
+                            <p>Block-based time series splitting.</p>
+                            <div class="method-signature">
+                                <code>BlockedTimeSeries(n_splits=5)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>RollingWindowCV</h3>
+                            <p>Fixed-size rolling window cross-validation.</p>
+                            <div class="method-signature">
+                                <code>RollingWindowCV(window_size=100, forecast_horizon=10, gap=0)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>ExpandingWindowCV</h3>
+                            <p>Expanding window cross-validation.</p>
+                            <div class="method-signature">
+                                <code>ExpandingWindowCV(min_train_size=50, forecast_horizon=10)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>PurgedKFoldCV</h3>
+                            <p>K-Fold with purged samples to prevent temporal leakage.</p>
+                            <div class="method-signature">
+                                <code>PurgedKFoldCV(n_splits=5, purge_gap=1)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>CombinatorialPurgedCV</h3>
+                            <p>Multiple train/test combinations with purging.</p>
+                            <div class="method-signature">
+                                <code>CombinatorialPurgedCV(n_splits=5, n_test_groups=2, purge_gap=0)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>PurgedGroupTimeSeriesSplit</h3>
+                            <p>Combines temporal, grouping, and purging.</p>
+                            <div class="method-signature">
+                                <code>PurgedGroupTimeSeriesSplit(n_splits=5, purge_gap=0)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>NestedTemporalCV</h3>
+                            <p>Nested CV respecting temporal order in both loops.</p>
+                            <div class="method-signature">
+                                <code>NestedTemporalCV(outer_cv=None, inner_cv=None)</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="spatial-methods" class="docs-section">
+                        <h2>🌍 Spatial Methods (4)</h2>
+                        <p>Cross-validation methods for geographic and spatial medical data.</p>
+
+                        <div class="api-method">
+                            <h3>SpatialBlockCV</h3>
+                            <p>Spatial block cross-validation for geographic data.</p>
+                            <div class="method-signature">
+                                <code>SpatialBlockCV(n_splits=5, n_blocks=None)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>BufferedSpatialCV</h3>
+                            <p>Spatial CV with buffer zones to reduce autocorrelation.</p>
+                            <div class="method-signature">
+                                <code>BufferedSpatialCV(n_splits=5, buffer_size=1.0)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>SpatiotemporalBlockCV</h3>
+                            <p>Combined spatial and temporal blocking.</p>
+                            <div class="method-signature">
+                                <code>SpatiotemporalBlockCV(n_spatial_blocks=3, n_temporal_blocks=3)</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>EnvironmentalHealthCV</h3>
+                            <p>Specialized CV for environmental health studies.</p>
+                            <div class="method-signature">
+                                <code>EnvironmentalHealthCV(spatial_blocks=4, temporal_strategy='seasonal')</code>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="validators" class="docs-section">
+                        <h2>🔍 Validators & Checkers</h2>
+                        <p>High-level validators and data quality checkers.</p>
+
+                        <div class="api-method">
+                            <h3>TrustCVValidator</h3>
+                            <p>Main entry point for cross-validation with automatic leakage detection.</p>
+                            <div class="method-signature">
+                                <code>TrustCVValidator(cv=None, check_leakage=True)</code>
+                            </div>
+                            <div class="example">
+                                <h4>Example:</h4>
+                                <pre><code>from trustcv import TrustCVValidator
+from trustcv.splitters import GroupKFold
+
+validator = TrustCVValidator(cv=GroupKFold(n_splits=5), check_leakage=True)
+results = validator.fit_validate(model, X, y, groups=patient_ids)</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>DataLeakageChecker</h3>
+                            <p>Automatic detection of 6 types of data leakage.</p>
+                            <div class="method-signature">
+                                <code>DataLeakageChecker()</code>
+                            </div>
+                        </div>
+
+                        <div class="api-method">
+                            <h3>BalanceChecker</h3>
+                            <p>Check class and group balance in CV splits.</p>
+                            <div class="method-signature">
+                                <code>BalanceChecker()</code>
                             </div>
                         </div>
                     </section>

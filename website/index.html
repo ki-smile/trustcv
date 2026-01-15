@@ -289,25 +289,25 @@
         <div class="container">
             <h2>Quick Start</h2>
             <div class="code-example">
-                <pre><code class="python">from trustcv import MedicalValidator
+                <pre><code class="python">from trustcv import TrustCVValidator
+from trustcv.splitters import GroupKFold
 from sklearn.ensemble import RandomForestClassifier
 
 # Initialize with medical-specific settings
-validator = MedicalValidator(
-    method='patient_grouped_kfold',
-    n_splits=5,
-    check_leakage=True
+validator = TrustCVValidator(
+    cv=GroupKFold(n_splits=5),  # Patient-grouped cross-validation
+    check_leakage=True          # Automatic data leakage detection
 )
 
-# Validate your model
+# Validate your model with patient grouping
 results = validator.fit_validate(
     model=RandomForestClassifier(),
     X=X_features,
     y=y_labels,
-    patient_ids=patient_ids
+    groups=patient_ids  # Ensure patient-level splits
 )
 
-# Get comprehensive results
+# Get comprehensive results with clinical metrics
 print(results.summary())</code></pre>
             </div>
             <div class="quick-actions">

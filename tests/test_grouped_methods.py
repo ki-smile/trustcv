@@ -183,13 +183,13 @@ class TestGroupedMethods:
         """Test Nested Grouped CV"""
         outer_cv = GroupKFoldMedical(n_splits=3)
         inner_cv = GroupKFoldMedical(n_splits=2)
-        
+
         cv = NestedGroupedCV(outer_cv=outer_cv, inner_cv=inner_cv)
-        
-        # Get outer splits
-        outer_splits = list(cv.split(
-            self.X_small, 
-            self.y_small, 
+
+        # NestedGroupedCV doesn't have split() - use outer_cv.split()
+        outer_splits = list(cv.outer_cv.split(
+            self.X_small,
+            self.y_small,
             groups=self.groups_small
         ))
         

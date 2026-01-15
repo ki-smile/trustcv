@@ -264,9 +264,11 @@ class TestDataLeakage:
         leakage_report = self.leakage_checker.check_feature_target_leakage(X_leaky, self.y)
         
         assert leakage_report['has_leakage'], "Should detect feature leakage"
-        assert 0 in leakage_report['suspicious_features'], \
+        # suspicious_features is a list of dicts with 'index' key
+        suspicious_indices = [f['index'] for f in leakage_report['suspicious_features']]
+        assert 0 in suspicious_indices, \
             "Should identify feature 0 as suspicious"
-        assert 1 in leakage_report['suspicious_features'], \
+        assert 1 in suspicious_indices, \
             "Should identify feature 1 as suspicious"
     
     def test_bootstrap_leakage(self):

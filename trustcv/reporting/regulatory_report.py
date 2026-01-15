@@ -3,32 +3,35 @@ Regulatory Compliance Report Generator for Trustworthy Cross-Validation
 Generates FDA/CE-compliant validation reports from cross-validation results
 """
 
-import json
 import datetime
-from typing import Dict, Iterable, List, Optional, Union
-import numpy as np
+import json
 from pathlib import Path
 from string import Template
+from typing import Dict, Iterable, List, Optional, Union
+
+import numpy as np
 
 
 class RegulatoryReport:
     """
     Generate regulatory-compliant validation reports for AI systems.
-    
+
     This class creates FDA 510(k) and CE MDR compliant reports documenting
     the validation methodology and performance of AI models.
     """
-    
-    def __init__(self, 
-                 model_name: str,
-                 model_version: str,
-                 manufacturer: str,
-                 intended_use: str,
-                 compliance_standard: str = 'FDA',
-                 project_name: Optional[str] = None):
+
+    def __init__(
+        self,
+        model_name: str,
+        model_version: str,
+        manufacturer: str,
+        intended_use: str,
+        compliance_standard: str = "FDA",
+        project_name: Optional[str] = None,
+    ):
         """
         Initialize regulatory report generator.
-        
+
         Parameters
         ----------
         model_name : str
@@ -48,7 +51,7 @@ class RegulatoryReport:
         self.intended_use = intended_use
         self.compliance_standard = compliance_standard
         self.project_name = project_name
-        
+
         # Store validation results
         self.cv_results = {}
         self.dataset_info = {}
@@ -56,9 +59,13 @@ class RegulatoryReport:
         self.validation_method = None
 
     # --- convenience helpers ---
-    def generate_from_validator(self, validator, run_id: Optional[str] = None,
-                                output_path: Optional[str] = None,
-                                format: str = 'html') -> str:
+    def generate_from_validator(
+        self,
+        validator,
+        run_id: Optional[str] = None,
+        output_path: Optional[str] = None,
+        format: str = "html",
+    ) -> str:
         """
         Build and save a regulatory report from a TrustCVValidator instance.
 
@@ -67,17 +74,17 @@ class RegulatoryReport:
         """
         # Extract CV config
         try:
-            method = getattr(validator, 'method', None)
-            n_splits = int(getattr(validator, 'n_splits', 0) or 0)
+            method = getattr(validator, "method", None)
+            n_splits = int(getattr(validator, "n_splits", 0) or 0)
         except Exception:
             method, n_splits = None, 0
 
         # Pull last validation result if available
-        valres = getattr(validator, 'last_result', None)
+        valres = getattr(validator, "last_result", None)
         scores_list = []
         if valres is not None:
             # Choose a primary metric to summarize per-fold results
-            metric_priority = ['accuracy', 'roc_auc', 'f1', 'score']
+            metric_priority = ["accuracy", "roc_auc", "f1", "score"]
             chosen = None
             for m in metric_priority:
                 if m in valres.scores:
@@ -88,162 +95,173 @@ class RegulatoryReport:
             if chosen is not None:
                 try:
                     import numpy as _np
+
                     scores_arr = _np.asarray(valres.scores[chosen], dtype=float)
                     scores_list = scores_arr.ravel().tolist()
                 except Exception:
                     scores_list = []
 
         # Fill CV section
-        self.add_cv_results(method=str(method) if method else 'unknown',
-                            n_splits=n_splits or (len(scores_list) or 0),
-                            scores=scores_list or [])
+        self.add_cv_results(
+            method=str(method) if method else "unknown",
+            n_splits=n_splits or (len(scores_list) or 0),
+            scores=scores_list or [],
+        )
 
         # Include run id in metadata if provided via generate_regulatory_report
         # The underlying generator will record report_id; we can carry run_id in device_info
         if run_id:
             # attach to dataset_info for traceability
-            self.dataset_info.setdefault('run_id', run_id)
+            self.dataset_info.setdefault("run_id", run_id)
 
         # Finally, generate report file or return JSON/HTML string path
         if output_path is None:
             # Default filename
             output_path = f"regulatory_report_{run_id or 'cv'}.{ 'html' if format=='html' else ( 'json' if format=='json' else 'pdf' ) }"
         return self.generate_regulatory_report(output_path=output_path, format=format)
-        
-    def add_dataset_info(self, 
-                        n_patients: int,
-                        n_samples: int,
-                        n_features: int,
-                        demographics: Optional[Dict] = None,
-                        data_sources: Optional[List[str]] = None,
-                        class_distribution: Optional[Dict[str, Dict[str, float]]] = None):
+
+    def add_dataset_info(
+        self,
+        n_patients: int,
+        n_samples: int,
+        n_features: int,
+        demographics: Optional[Dict] = None,
+        data_sources: Optional[List[str]] = None,
+        class_distribution: Optional[Dict[str, Dict[str, float]]] = None,
+    ):
         """Add dataset information to the report."""
         self.dataset_info = {
-            'n_patients': n_patients,
-            'n_samples': n_samples,
-            'n_features': n_features,
-            'demographics': demographics or {},
-            'data_sources': data_sources or [],
-            'class_distribution': class_distribution or {}
+            "n_patients": n_patients,
+            "n_samples": n_samples,
+            "n_features": n_features,
+            "demographics": demographics or {},
+            "data_sources": data_sources or [],
+            "class_distribution": class_distribution or {},
         }
-        
-    def add_cv_results(self,
-                       method: str,
-                       n_splits: int,
-                       scores: List[float],
-                       confusion_matrices: Optional[List] = None):
+
+    def add_cv_results(
+        self,
+        method: str,
+        n_splits: int,
+        scores: List[float],
+        confusion_matrices: Optional[List] = None,
+    ):
         """Add cross-validation results."""
         self.validation_method = method
         self.cv_results = {
-            'method': method,
-            'n_splits': n_splits,
-            'scores': scores,
-            'mean_score': np.mean(scores),
-            'std_score': np.std(scores),
-            'confusion_matrices': confusion_matrices
+            "method": method,
+            "n_splits": n_splits,
+            "scores": scores,
+            "mean_score": np.mean(scores),
+            "std_score": np.std(scores),
+            "confusion_matrices": confusion_matrices,
         }
-        
-    def calculate_clinical_metrics(self, 
-                                  y_true: np.ndarray,
-                                  y_pred: np.ndarray,
-                                  y_proba: Optional[np.ndarray] = None):
+
+    def calculate_clinical_metrics(
+        self, y_true: np.ndarray, y_pred: np.ndarray, y_proba: Optional[np.ndarray] = None
+    ):
         """Calculate clinical performance metrics."""
         from sklearn.metrics import (
-            accuracy_score, precision_score, recall_score,
-            roc_auc_score, confusion_matrix
+            accuracy_score,
+            confusion_matrix,
+            precision_score,
+            recall_score,
+            roc_auc_score,
         )
-        
+
         # Calculate metrics
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-        
+
         self.performance_metrics = {
-            'accuracy': accuracy_score(y_true, y_pred),
-            'sensitivity': recall_score(y_true, y_pred),  # TPR
-            'specificity': tn / (tn + fp),  # TNR
-            'ppv': precision_score(y_true, y_pred),  # Positive Predictive Value
-            'npv': tn / (tn + fn) if (tn + fn) > 0 else 0,  # Negative Predictive Value
-            'confusion_matrix': {'tn': int(tn), 'fp': int(fp), 'fn': int(fn), 'tp': int(tp)}
+            "accuracy": accuracy_score(y_true, y_pred),
+            "sensitivity": recall_score(y_true, y_pred),  # TPR
+            "specificity": tn / (tn + fp),  # TNR
+            "ppv": precision_score(y_true, y_pred),  # Positive Predictive Value
+            "npv": tn / (tn + fn) if (tn + fn) > 0 else 0,  # Negative Predictive Value
+            "confusion_matrix": {"tn": int(tn), "fp": int(fp), "fn": int(fn), "tp": int(tp)},
         }
-        
+
         if y_proba is not None:
-            self.performance_metrics['auc_roc'] = roc_auc_score(y_true, y_proba)
-            
-    def generate_regulatory_report(self, 
-                                  output_path: str,
-                                  format: str = 'html') -> str:
+            self.performance_metrics["auc_roc"] = roc_auc_score(y_true, y_proba)
+
+    def generate_regulatory_report(self, output_path: str, format: str = "html") -> str:
         """
         Generate the regulatory compliance report.
-        
+
         Parameters
         ----------
         output_path : str
             Path to save the report
         format : str
             Output format ('html', 'pdf', 'json')
-            
+
         Returns
         -------
         str
             Path to the generated report
         """
         report_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        
+
         # Create report structure
         report = {
-            'metadata': {
-                'report_id': f"VAL-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
-                'generation_date': report_date,
-                'compliance_standard': self.compliance_standard,
-                'report_version': '1.0'
+            "metadata": {
+                "report_id": f"VAL-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                "generation_date": report_date,
+                "compliance_standard": self.compliance_standard,
+                "report_version": "1.0",
             },
-            'device_info': {
-                'name': self.model_name,
-                'version': self.model_version,
-                'manufacturer': self.manufacturer,
-                'intended_use': self.intended_use
+            "device_info": {
+                "name": self.model_name,
+                "version": self.model_version,
+                "manufacturer": self.manufacturer,
+                "intended_use": self.intended_use,
             },
-            'dataset': self.dataset_info,
-            'validation': {
-                'method': self.validation_method,
-                'cv_results': self.cv_results,
-                'performance': self.performance_metrics
-            }
+            "dataset": self.dataset_info,
+            "validation": {
+                "method": self.validation_method,
+                "cv_results": self.cv_results,
+                "performance": self.performance_metrics,
+            },
         }
         if self.project_name:
-            report['metadata']['project_name'] = self.project_name
-        
-        if format == 'json':
+            report["metadata"]["project_name"] = self.project_name
+
+        if format == "json":
             return self._save_json_report(report, output_path)
-        elif format == 'html':
+        elif format == "html":
             return self._save_html_report(report, output_path)
-        elif format == 'pdf':
+        elif format == "pdf":
             return self._save_pdf_report(report, output_path)
         else:
             raise ValueError(f"Unsupported format: {format}")
-            
+
     def _save_json_report(self, report: Dict, output_path: str) -> str:
         """Save report as JSON."""
         path = Path(output_path)
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(report, f, indent=2, default=str)
         return str(path)
-        
+
     def _save_html_report(self, report: Dict, output_path: str) -> str:
         """Generate and save HTML report."""
         html_template = self._generate_html_template(report)
         path = Path(output_path)
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write(html_template)
         return str(path)
-        
+
     def _generate_html_template(self, report: Dict) -> str:
         """Generate HTML report template."""
-        metrics = report['validation'].get('performance', {}) if isinstance(report.get('validation'), dict) else {}
-        cm = metrics.get('confusion_matrix', {}) if isinstance(metrics, dict) else {}
-        tp = cm.get('tp', cm.get('true_positives', 0))
-        tn = cm.get('tn', cm.get('true_negatives', 0))
-        fp = cm.get('fp', cm.get('false_positives', 0))
-        fn = cm.get('fn', cm.get('false_negatives', 0))
+        metrics = (
+            report["validation"].get("performance", {})
+            if isinstance(report.get("validation"), dict)
+            else {}
+        )
+        cm = metrics.get("confusion_matrix", {}) if isinstance(metrics, dict) else {}
+        tp = cm.get("tp", cm.get("true_positives", 0))
+        tn = cm.get("tn", cm.get("true_negatives", 0))
+        fp = cm.get("fp", cm.get("false_positives", 0))
+        fn = cm.get("fn", cm.get("false_negatives", 0))
 
         def format_ci(ci_value, *, percent=False, decimals=3) -> str:
             """Format confidence intervals consistently."""
@@ -257,18 +275,20 @@ class RegulatoryReport:
                 return f"[{lower:.{decimals}%}, {upper:.{decimals}%}]"
             return f"[{lower:.{decimals}f}, {upper:.{decimals}f}]"
 
-        sensitivity_ci = format_ci(metrics.get('sensitivity_ci'), percent=True, decimals=1)
-        specificity_ci = format_ci(metrics.get('specificity_ci'), percent=True, decimals=1)
-        auc_ci = format_ci(metrics.get('auc_roc_ci'), percent=False, decimals=3)
-        
+        sensitivity_ci = format_ci(metrics.get("sensitivity_ci"), percent=True, decimals=1)
+        specificity_ci = format_ci(metrics.get("specificity_ci"), percent=True, decimals=1)
+        auc_ci = format_ci(metrics.get("auc_roc_ci"), percent=False, decimals=3)
+
         project_info = ""
-        project_name = report['metadata'].get('project_name')
+        project_name = report["metadata"].get("project_name")
         if project_name:
             project_info = f"<p><strong>Project:</strong> {project_name}</p>"
 
-        class_dist_html = self._render_class_distribution(report['dataset'].get('class_distribution', {}))
-        demographics_html = self._render_demographics(report['dataset'].get('demographics', {}))
-        data_sources_html = self._render_data_sources(report['dataset'].get('data_sources', []))
+        class_dist_html = self._render_class_distribution(
+            report["dataset"].get("class_distribution", {})
+        )
+        demographics_html = self._render_demographics(report["dataset"].get("demographics", {}))
+        data_sources_html = self._render_data_sources(report["dataset"].get("data_sources", []))
 
         html = f"""
         <!DOCTYPE html>
@@ -400,15 +420,15 @@ class RegulatoryReport:
         </html>
         """
         return html
-    
+
     @staticmethod
     def _render_class_distribution(class_dist: Dict[str, Dict[str, float]]) -> str:
         if not class_dist:
             return ""
         rows = []
         for label, stats in class_dist.items():
-            count = stats.get('count', 'N/A')
-            pct = stats.get('percentage', None)
+            count = stats.get("count", "N/A")
+            pct = stats.get("percentage", None)
             if isinstance(pct, (int, float)):
                 pct_str = f"{pct:.1f}%"
             else:
@@ -452,13 +472,13 @@ class RegulatoryReport:
             return ""
         items = "".join(f"<li>{src}</li>" for src in data_sources)
         return f"<h3>Data Sources</h3><ul>{items}</ul>"
-        
+
     def _save_pdf_report(self, report: Dict, output_path: str) -> str:
         """Save report directly as PDF, falling back to HTML if converter missing."""
         try:
             from weasyprint import HTML  # type: ignore
         except ImportError:
-            html_path = output_path.replace('.pdf', '.html')
+            html_path = output_path.replace(".pdf", ".html")
             self._save_html_report(report, html_path)
             print(
                 "weasyprint is not installed; saved HTML instead at "
@@ -471,7 +491,7 @@ class RegulatoryReport:
         path.parent.mkdir(parents=True, exist_ok=True)
         HTML(string=html_string).write_pdf(str(path))
         return str(path)
-        
+
     def plot_validation_curves(self):
         """Plot validation curves (placeholder for visualization)."""
         print("Validation curves would be plotted here using matplotlib/plotly")
@@ -480,17 +500,15 @@ class RegulatoryReport:
 
     # --- clinical performance generation ---
     def clinicalperformancereport(
-        self,
-        *,
-        metrics: Dict[str, Union[float, Dict]],
-        output_path: str,
-        format: str = 'html'
+        self, *, metrics: Dict[str, Union[float, Dict]], output_path: str, format: str = "html"
     ) -> str:
         """
         Generate the styled clinical performance report from ClinicalMetrics output.
         """
         if not isinstance(metrics, dict):
-            raise ValueError("metrics must be a dictionary produced by ClinicalMetrics.calculate_all()")
+            raise ValueError(
+                "metrics must be a dictionary produced by ClinicalMetrics.calculate_all()"
+            )
 
         report_id = f"VAL-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
         report_date = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -500,17 +518,18 @@ class RegulatoryReport:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         lower_fmt = (format or "html").lower()
-        base_font = "10px" if lower_fmt == 'pdf' else "14px"
-        if lower_fmt == 'pdf':
+        base_font = "10px" if lower_fmt == "pdf" else "14px"
+        if lower_fmt == "pdf":
             try:
                 from weasyprint import HTML  # type: ignore
+
                 html_for_pdf = html_string.replace("__BASE_FONT_SIZE__", base_font)
                 HTML(string=html_for_pdf).write_pdf(str(path))
                 return str(path)
             except ImportError:
-                fallback = path.with_suffix('.html')
+                fallback = path.with_suffix(".html")
                 fallback_html = html_string.replace("__BASE_FONT_SIZE__", "14px")
-                fallback.write_text(fallback_html, encoding='utf-8')
+                fallback.write_text(fallback_html, encoding="utf-8")
                 print(
                     "weasyprint is not installed; saved HTML instead at "
                     f"{fallback}. Install `weasyprint` to enable PDF export."
@@ -518,7 +537,7 @@ class RegulatoryReport:
                 return str(fallback)
 
         html_final = html_string.replace("__BASE_FONT_SIZE__", base_font)
-        path.write_text(html_final, encoding='utf-8')
+        path.write_text(html_final, encoding="utf-8")
         return str(path)
 
     def _generate_clinical_performance_html(
@@ -578,12 +597,12 @@ class RegulatoryReport:
                 return '<tr><td colspan="3">Not provided</td></tr>'
             rows = []
             for label, stats in class_dist.items():
-                count = stats.get('count', 'N/A')
-                pct_val = stats.get('percentage')
-                pct_str = f"{pct_val:.1f}%" if isinstance(pct_val, (int, float)) else (pct_val or "N/A")
-                rows.append(
-                    f"<tr><td>{label}</td><td>{count}</td><td>{pct_str}</td></tr>"
+                count = stats.get("count", "N/A")
+                pct_val = stats.get("percentage")
+                pct_str = (
+                    f"{pct_val:.1f}%" if isinstance(pct_val, (int, float)) else (pct_val or "N/A")
                 )
+                rows.append(f"<tr><td>{label}</td><td>{count}</td><td>{pct_str}</td></tr>")
             return "".join(rows)
 
         def render_recommendations(recs: List[str]) -> str:
@@ -591,45 +610,43 @@ class RegulatoryReport:
                 return "<li>No recommendations provided.</li>"
             return "".join(f"<li>{rec}</li>" for rec in recs)
 
-        class_rows = render_class_rows(dataset.get('class_distribution', {}))
-        recs = metrics.get('clinical_significance', {}).get('recommendations', [])
+        class_rows = render_class_rows(dataset.get("class_distribution", {}))
+        recs = metrics.get("clinical_significance", {}).get("recommendations", [])
         recommendations_html = render_recommendations(recs)
 
-        cv_mean = cv_info.get('mean_score')
-        cv_std = cv_info.get('std_score')
+        cv_mean = cv_info.get("mean_score")
+        cv_std = cv_info.get("std_score")
         if isinstance(cv_mean, (int, float)) and isinstance(cv_std, (int, float)):
             mean_accuracy_text = f"{cv_mean:.3f} ± {cv_std:.3f}"
         else:
             mean_accuracy_text = "N/A"
 
-        confusion = metrics.get('confusion_matrix', {})
-        tp = confusion.get('true_positives', confusion.get('tp', 0))
-        tn = confusion.get('true_negatives', confusion.get('tn', 0))
-        fp = confusion.get('false_positives', confusion.get('fp', 0))
-        fn = confusion.get('false_negatives', confusion.get('fn', 0))
+        confusion = metrics.get("confusion_matrix", {})
+        tp = confusion.get("true_positives", confusion.get("tp", 0))
+        tn = confusion.get("true_negatives", confusion.get("tn", 0))
+        fp = confusion.get("false_positives", confusion.get("fp", 0))
+        fn = confusion.get("false_negatives", confusion.get("fn", 0))
 
-        auc_val = metrics.get('auc_roc')
+        auc_val = metrics.get("auc_roc")
         if isinstance(auc_val, (int, float)):
             auc_value = f"{auc_val:.3f}"
-            auc_ci = ci_float(metrics.get('auc_roc_ci'), precision=3)
+            auc_ci = ci_float(metrics.get("auc_roc_ci"), precision=3)
         else:
             auc_value = "N/A"
             auc_ci = "n/a"
 
-        lr_pos = metrics.get('lr_positive')
-        lr_neg = metrics.get('lr_negative')
+        lr_pos = metrics.get("lr_positive")
+        lr_neg = metrics.get("lr_negative")
 
-        youden_threshold = metrics.get('optimal_threshold')
+        youden_threshold = metrics.get("optimal_threshold")
         if isinstance(youden_threshold, (int, float)):
             youden_detail = f"Max perf @ {youden_threshold:.3f}"
         else:
             youden_detail = "Threshold unavailable"
 
-        dor_val = metrics.get('diagnostic_odds_ratio')
-        dor_ci = ci_float(metrics.get('diagnostic_odds_ratio_ci'), precision=1)
-        dor_value = (
-            f"{dor_val:.2f}" if isinstance(dor_val, (int, float)) else str(dor_val or "n/a")
-        )
+        dor_val = metrics.get("diagnostic_odds_ratio")
+        dor_ci = ci_float(metrics.get("diagnostic_odds_ratio_ci"), precision=1)
+        dor_value = f"{dor_val:.2f}" if isinstance(dor_val, (int, float)) else str(dor_val or "n/a")
 
         template = Template(
             """<!DOCTYPE html>
@@ -795,29 +812,37 @@ class RegulatoryReport:
             "report_id": report_id,
             "report_date": report_date,
             "compliance_standard": self.compliance_standard,
-            "sensitivity_value": pct(metrics.get('sensitivity'), "0.0%"),
-            "sensitivity_ci": ci_pct(metrics.get('sensitivity_ci')),
-            "specificity_value": pct(metrics.get('specificity'), "0.0%"),
-            "specificity_ci": ci_pct(metrics.get('specificity_ci')),
-            "ppv_value": pct(metrics.get('ppv'), "0.0%"),
-            "ppv_ci": ci_pct(metrics.get('ppv_ci')),
-            "npv_value": pct(metrics.get('npv'), "0.0%"),
-            "npv_ci": ci_pct(metrics.get('npv_ci')),
-            "n_patients": dataset.get('n_patients', dataset.get('n_samples', 'N/A')),
-            "n_samples": dataset.get('n_samples', 'N/A'),
-            "n_features": dataset.get('n_features', 'N/A'),
+            "sensitivity_value": pct(metrics.get("sensitivity"), "0.0%"),
+            "sensitivity_ci": ci_pct(metrics.get("sensitivity_ci")),
+            "specificity_value": pct(metrics.get("specificity"), "0.0%"),
+            "specificity_ci": ci_pct(metrics.get("specificity_ci")),
+            "ppv_value": pct(metrics.get("ppv"), "0.0%"),
+            "ppv_ci": ci_pct(metrics.get("ppv_ci")),
+            "npv_value": pct(metrics.get("npv"), "0.0%"),
+            "npv_ci": ci_pct(metrics.get("npv_ci")),
+            "n_patients": dataset.get("n_patients", dataset.get("n_samples", "N/A")),
+            "n_samples": dataset.get("n_samples", "N/A"),
+            "n_features": dataset.get("n_features", "N/A"),
             "class_rows": class_rows,
-            "validation_method": self.validation_method or cv_info.get('method', 'Unknown'),
-            "n_folds": cv_info.get('n_splits', 'N/A'),
+            "validation_method": self.validation_method or cv_info.get("method", "Unknown"),
+            "n_folds": cv_info.get("n_splits", "N/A"),
             "mean_accuracy_text": mean_accuracy_text,
-            "validation_notes": "Validated using configured cross-validation strategy with leakage safeguards." if self.validation_method else "Validation method not specified.",
+            "validation_notes": (
+                "Validated using configured cross-validation strategy with leakage safeguards."
+                if self.validation_method
+                else "Validation method not specified."
+            ),
             "auc_value": auc_value,
             "auc_ci": auc_ci,
             "lr_positive": format_lr(lr_pos),
             "lr_negative": format_lr(lr_neg),
             "lr_plus_interp": interpret_lr(lr_pos, positive=True),
             "lr_minus_interp": interpret_lr(lr_neg, positive=False),
-            "youden_index": f"{metrics.get('youdens_index', 0):.3f}" if metrics.get('youdens_index') is not None else "N/A",
+            "youden_index": (
+                f"{metrics.get('youdens_index', 0):.3f}"
+                if metrics.get("youdens_index") is not None
+                else "N/A"
+            ),
             "youden_detail": youden_detail,
             "diagnostic_or": dor_value,
             "diagnostic_or_ci": dor_ci,
@@ -833,52 +858,52 @@ class RegulatoryReport:
 
 
 # Example usage function that matches the README
-def validate_medical_model(model, data, patient_ids=None, compliance='FDA'):
+def validate_medical_model(model, data, patient_ids=None, compliance="FDA"):
     """
     Validate a ML model with proper cross-validation and generate reports.
-    
+
     This is a high-level wrapper that performs validation and generates
     regulatory-compliant reports in one call.
     """
-    from sklearn.model_selection import cross_val_score, cross_val_predict
+    from sklearn.model_selection import cross_val_predict, cross_val_score
+
     from ..splitters.grouped import GroupKFoldMedical
-    
+
     X, y = data
-    
+
     # Create appropriate cross-validator
     if patient_ids is not None:
         cv = GroupKFoldMedical(n_splits=5)
         cv_generator = cv.split(X, y, groups=patient_ids)
     else:
         from sklearn.model_selection import StratifiedKFold
+
         cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
         cv_generator = cv.split(X, y)
-    
+
     # Perform cross-validation
-    scores = cross_val_score(model, X, y, cv=list(cv_generator), scoring='roc_auc')
-    
+    scores = cross_val_score(model, X, y, cv=list(cv_generator), scoring="roc_auc")
+
     # Create report
     report = RegulatoryReport(
         model_name=model.__class__.__name__,
         model_version="1.0",
         manufacturer="Medical AI Lab",
         intended_use="Diagnostic assistance for medical professionals",
-        compliance_standard=compliance
+        compliance_standard=compliance,
     )
-    
+
     # Add validation results
     report.add_cv_results(
         method="Stratified Group K-Fold" if patient_ids is not None else "Stratified K-Fold",
         n_splits=5,
-        scores=scores.tolist()
+        scores=scores.tolist(),
     )
-    
+
     # Add dataset info
     n_patients = len(np.unique(patient_ids)) if patient_ids is not None else len(X)
     report.add_dataset_info(
-        n_patients=n_patients,
-        n_samples=len(X),
-        n_features=X.shape[1] if len(X.shape) > 1 else 1
+        n_patients=n_patients, n_samples=len(X), n_features=X.shape[1] if len(X.shape) > 1 else 1
     )
-    
+
     return report

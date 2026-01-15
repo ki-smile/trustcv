@@ -1,10 +1,10 @@
-.. medicalCV documentation master file
+.. trustcv documentation master file
 
-medicalCV - Medical Cross-Validation Toolkit
-=============================================
+TrustCV - Trustworthy Cross-Validation Toolkit
+==============================================
 
-.. image:: https://img.shields.io/pypi/v/medicalCV.svg
-   :target: https://pypi.org/project/medicalCV/
+.. image:: https://img.shields.io/pypi/v/trustcv.svg
+   :target: https://pypi.org/project/trustcv/
    
 .. image:: https://img.shields.io/badge/python-3.8%2B-blue
    :target: https://www.python.org/downloads/
@@ -25,23 +25,23 @@ Quick Start
 
 Installation::
 
-    pip install medicalCV
+    pip install trustcv
 
 Basic usage::
 
-    from medicalCV import MedicalValidator
-    
-    validator = MedicalValidator(
+    from trustcv import TrustCVValidator
+
+    validator = TrustCVValidator(
         method='patient_grouped_kfold',
         n_splits=5,
         check_leakage=True
     )
-    
-    results = validator.fit_validate(
+
+    results = validator.validate(
         model=your_model,
         X=features,
         y=labels,
-        patient_ids=patient_ids
+        groups=patient_ids
     )
 
 .. toctree::

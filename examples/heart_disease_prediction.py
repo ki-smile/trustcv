@@ -261,8 +261,8 @@ def nested_cv_model_selection(X, y):
     
     # Perform nested CV for each model
     from sklearn.model_selection import GridSearchCV
-    from trustcv import StratifiedKFoldMedical
-    
+    from trustcv.splitters.iid import StratifiedKFoldMedical
+
     outer_cv = StratifiedKFoldMedical(n_splits=5, shuffle=True, random_state=42)
     inner_cv = StratifiedKFoldMedical(n_splits=3, shuffle=True, random_state=42)
     

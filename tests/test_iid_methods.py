@@ -136,10 +136,10 @@ class TestIIDMethods:
     
     def test_bootstrap_validation(self):
         """Test Bootstrap Validation"""
-        cv = BootstrapValidation(n_splits=10, method='632', random_state=42)
+        cv = BootstrapValidation(n_iterations=10, estimator='.632', random_state=42)
         splits = list(cv.split(self.X_small, self.y_small))
-        
-        assert len(splits) == 10, "Should produce n_splits bootstrap samples"
+
+        assert len(splits) == 10, "Should produce n_iterations bootstrap samples"
         
         # Check bootstrap properties
         for train_idx, test_idx in splits:
@@ -152,7 +152,7 @@ class TestIIDMethods:
     
     def test_bootstrap_632_estimator(self):
         """Test Bootstrap .632 estimator calculation"""
-        cv = BootstrapValidation(n_splits=100, method='632', random_state=42)
+        cv = BootstrapValidation(n_iterations=100, estimator='.632', random_state=42)
         model = RandomForestClassifier(n_estimators=10, random_state=42)
         
         # Calculate score using the bootstrap CV
@@ -168,10 +168,10 @@ class TestIIDMethods:
     
     def test_monte_carlo_cv(self):
         """Test Monte Carlo Cross-Validation"""
-        cv = MonteCarloCV(n_splits=5, test_size=0.2, random_state=42)
+        cv = MonteCarloCV(n_iterations=5, test_size=0.2, random_state=42)
         splits = list(cv.split(self.X, self.y))
-        
-        assert len(splits) == 5, "Should produce n_splits random splits"
+
+        assert len(splits) == 5, "Should produce n_iterations random splits"
         
         for train_idx, test_idx in splits:
             assert len(train_idx) == 80, "Training set should have 80% of samples"
@@ -184,24 +184,22 @@ class TestIIDMethods:
     
     def test_nested_cv_structure(self):
         """Test Nested CV structure"""
-        cv = NestedCV(
-            outer_cv=KFoldMedical(n_splits=3),
-            inner_cv=KFoldMedical(n_splits=2),
-            random_state=42
-        )
-        
-        # Get outer splits
-        outer_splits = list(cv.split(self.X_small, self.y_small))
+        outer_cv = KFoldMedical(n_splits=3, random_state=42)
+        inner_cv = KFoldMedical(n_splits=2, random_state=42)
+        cv = NestedCV(outer_cv=outer_cv, inner_cv=inner_cv)
+
+        # Get outer splits from outer_cv
+        outer_splits = list(cv.outer_cv.split(self.X_small, self.y_small))
         assert len(outer_splits) == 3, "Should have 3 outer splits"
-        
+
         # Check inner CV can be applied to outer training data
         for train_idx, test_idx in outer_splits:
             X_train = self.X_small[train_idx]
             y_train = self.y_small[train_idx]
-            
+
             inner_splits = list(cv.inner_cv.split(X_train, y_train))
             assert len(inner_splits) == 2, "Should have 2 inner splits"
-            
+
             # Verify no leakage between outer test and inner data
             assert len(set(test_idx) & set(train_idx)) == 0, "No outer test in inner CV"
     
@@ -242,7 +240,7 @@ class TestIIDMethods:
             # Test methods that should work with any size
             cv_methods = [
                 HoldOut(test_size=0.3),
-                MonteCarloCV(n_splits=3, test_size=0.2),
+                MonteCarloCV(n_iterations=3, test_size=0.2),
             ]
             
             if size >= 50:
@@ -258,8 +256,8 @@ class TestIIDMethods:
         cv_methods = [
             HoldOut(test_size=0.3, random_state=42),
             KFoldMedical(n_splits=5, shuffle=True, random_state=42),
-            MonteCarloCV(n_splits=5, test_size=0.2, random_state=42),
-            BootstrapValidation(n_splits=10, random_state=42),
+            MonteCarloCV(n_iterations=5, test_size=0.2, random_state=42),
+            BootstrapValidation(n_iterations=10, random_state=42),
         ]
         
         for cv in cv_methods:

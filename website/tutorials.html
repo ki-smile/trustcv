@@ -410,6 +410,9 @@
             </div>
 
             <div class="code-block">
+from trustcv.splitters import KFold, GroupKFold
+from sklearn.model_selection import cross_val_score
+
 # WRONG: Standard K-Fold (patient leakage)
 cv_wrong = KFold(n_splits=5)
 score_wrong = cross_val_score(model, X, y, cv=cv_wrong)
@@ -538,22 +541,26 @@ data = {
             <p>Learn how to perform unbiased hyperparameter tuning with nested CV.</p>
 
             <div class="code-block">
-# Outer loop: Model evaluation
-outer_cv = GroupKFold(n_splits=5)
+from trustcv.splitters import GroupKFold, NestedGroupedCV
+from sklearn.model_selection import GridSearchCV
 
-# Inner loop: Hyperparameter tuning
+# Option 1: Manual nested CV with group awareness
+outer_cv = GroupKFold(n_splits=5)
 inner_cv = GroupKFold(n_splits=3)
 
 for train_idx, test_idx in outer_cv.split(X, y, groups):
     X_train, X_test = X[train_idx], X[test_idx]
     y_train, y_test = y[train_idx], y[test_idx]
-    
+
     # Tune hyperparameters on training set only
     grid_search = GridSearchCV(model, param_grid, cv=inner_cv)
     grid_search.fit(X_train, y_train, groups=groups[train_idx])
-    
+
     # Evaluate on held-out test set
     score = grid_search.score(X_test, y_test)
+
+# Option 2: Use trustcv's NestedGroupedCV
+nested_cv = NestedGroupedCV(outer_cv=GroupKFold(5), inner_cv=GroupKFold(3))
             </div>
 
             <div class="tip-box">
@@ -695,27 +702,27 @@ for train_idx, test_idx in outer_cv.split(X, y, groups):
         function cvDecision(dataType) {
             const output = document.getElementById('cvOutput');
             const resultDiv = document.getElementById('cvRecommendation');
-            
+
             const recommendations = {
                 'iid': {
                     method: 'Stratified K-Fold',
                     reason: 'Good for independent samples with class imbalance',
-                    code: 'cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)'
+                    code: 'from trustcv.splitters import StratifiedKFold\ncv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)'
                 },
                 'temporal': {
                     method: 'Time Series Split or Purged K-Fold',
                     reason: 'Prevents future data leakage in time series',
-                    code: 'cv = TimeSeriesSplit(n_splits=5) # or PurgedKFold(n_splits=5, purge_size=10)'
+                    code: 'from trustcv.splitters import TimeSeriesSplit, PurgedKFoldCV\ncv = TimeSeriesSplit(n_splits=5)  # or PurgedKFoldCV(n_splits=5, purge_gap=5)'
                 },
                 'grouped': {
                     method: 'Group K-Fold or Leave-One-Group-Out',
                     reason: 'Keeps related samples together (e.g., same patient)',
-                    code: 'cv = GroupKFold(n_splits=5) # use with groups parameter'
+                    code: 'from trustcv.splitters import GroupKFold, LeaveOneGroupOut\ncv = GroupKFold(n_splits=5)  # use with groups parameter'
                 },
                 'spatial': {
                     method: 'Spatial Block CV or Buffered Spatial CV',
                     reason: 'Handles spatial autocorrelation in geographic data',
-                    code: 'cv = SpatialBlockCV(n_splits=5, buffer_size=10)'
+                    code: 'from trustcv.splitters import SpatialBlockCV, BufferedSpatialCV\ncv = SpatialBlockCV(n_splits=5)'
                 }
             };
             

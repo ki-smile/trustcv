@@ -1,5 +1,8 @@
 """
 Integration tests for all example scripts
+
+These tests run full example scripts which can be slow.
+Set RUN_HEAVY_TESTS=1 to enable them.
 """
 
 import pytest
@@ -12,6 +15,12 @@ from pathlib import Path
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Skip all tests in this module unless RUN_HEAVY_TESTS is set
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("RUN_HEAVY_TESTS"),
+    reason="Heavy test - set RUN_HEAVY_TESTS=1 to enable"
+)
 
 
 class TestExampleScripts:

@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterable, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .regulatory_report import RegulatoryReport
 from ..metrics import ClinicalMetrics
+from .regulatory_report import RegulatoryReport
 
 
 class UniversalRegulatoryReport:

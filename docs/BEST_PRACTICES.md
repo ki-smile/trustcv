@@ -189,9 +189,9 @@ df = pd.DataFrame({
 })
 
 # Must respect both patient grouping AND temporal order
-from trustcv import MedicalValidator
+from trustcv import TrustCVValidator
 
-validator = MedicalValidator(
+validator = TrustCVValidator(
     method='grouped_temporal',
     patient_grouping=True,
     temporal_ordering=True
@@ -232,9 +232,9 @@ for train_idx, test_idx in skf.split(X, y):
 ### FDA Requirements
 
 ```python
-from trustcv import MedicalValidator
+from trustcv import TrustCVValidator
 
-validator = MedicalValidator(compliance='FDA')
+validator = TrustCVValidator(compliance='FDA')
 
 # Automatically ensures:
 # 1. Separate holdout test set (FDA requirement)
@@ -267,7 +267,7 @@ results.generate_fda_report('validation_report.pdf')
 ### Complete Best Practice Pipeline
 
 ```python
-from trustcv import MedicalValidator
+from trustcv import TrustCVValidator
 from trustcv.checkers import DataLeakageChecker
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
@@ -290,7 +290,7 @@ pipeline = Pipeline([
 ])
 
 # 3. Set up medical-aware validation
-validator = MedicalValidator(
+validator = TrustCVValidator(
     method='stratified_group_kfold',  # Auto-selected based on data
     n_splits=5,
     check_leakage=True,
@@ -359,10 +359,10 @@ Before training any model, verify:
 
 - [FDA Guidance on ML/AI](https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-and-machine-learning-software-medical-device)
 - [TRIPOD Statement](https://www.tripod-statement.org/) - Reporting guidelines
-- [trustcv Documentation](https://medicalcv.readthedocs.io)
+- [trustcv Documentation](https://github.com/ki-smile/trustcv)
 - [Clinical ML Best Practices](https://www.nature.com/articles/s41591-018-0316-z)
 
 ---
 
-*Last updated: 2024*  
-*Part of the trustcv toolkit*
+*Last updated: 2025*
+*Part of the TrustCV toolkit v1.0.0*
