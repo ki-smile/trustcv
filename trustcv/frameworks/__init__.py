@@ -30,26 +30,28 @@ except ImportError:
     pass
 
 try:
-    from .jax import JAXAdapter
+    from .monai import MONAIAdapter, MONAICVRunner
+
+    adapters["monai"] = MONAIAdapter
+    __all__ = (
+        __all__ + ["MONAIAdapter", "MONAICVRunner"]
+        if "__all__" in locals()
+        else ["MONAIAdapter", "MONAICVRunner"]
+    )
+except ImportError:
+    pass
+
+# XGBoost, LightGBM, CatBoost work via sklearn-compatible API (no adapter needed)
+
+try:
+    from .jax import JAXAdapter, JAXCVRunner
 
     adapters["jax"] = JAXAdapter
-    __all__ = __all__ + ["JAXAdapter"] if "__all__" in locals() else ["JAXAdapter"]
-except ImportError:
-    pass
-
-try:
-    from .xgboost import XGBoostAdapter
-
-    adapters["xgboost"] = XGBoostAdapter
-    __all__ = __all__ + ["XGBoostAdapter"] if "__all__" in locals() else ["XGBoostAdapter"]
-except ImportError:
-    pass
-
-try:
-    from .lightgbm import LightGBMAdapter
-
-    adapters["lightgbm"] = LightGBMAdapter
-    __all__ = __all__ + ["LightGBMAdapter"] if "__all__" in locals() else ["LightGBMAdapter"]
+    __all__ = (
+        __all__ + ["JAXAdapter", "JAXCVRunner"]
+        if "__all__" in locals()
+        else ["JAXAdapter", "JAXCVRunner"]
+    )
 except ImportError:
     pass
 

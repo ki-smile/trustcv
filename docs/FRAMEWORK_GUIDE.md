@@ -7,7 +7,8 @@
 4. [MONAI Medical Imaging](#monai-medical-imaging)
 5. [PyTorch Deep Learning](#pytorch-deep-learning)
 6. [TensorFlow/Keras](#tensorflow-keras)
-7. [Best Practices](#best-practices)
+7. [JAX/Flax](#jaxflax)
+8. [Best Practices](#best-practices)
 
 ---
 
@@ -462,6 +463,123 @@ results = runner.run(
 
 print(f"Mean AUC: {results.mean_score['val_auc']:.4f}")
 ```
+
+---
+
+## JAX/Flax
+
+JAX is a high-performance numerical computing library with automatic differentiation and XLA compilation. Flax provides a high-level neural network API built on top of JAX.
+
+### Installation
+
+```bash
+# CPU only
+pip install jax jaxlib flax optax
+
+# GPU support (CUDA 12)
+pip install jax[cuda12] flax optax
+
+# TPU support (Google Cloud)
+pip install jax[tpu] flax optax -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+
+# See https://github.com/google/jax#installation for platform-specific options
+```
+
+### Key Concepts
+- **Functional paradigm**: Models are stateless pure functions
+- **TrainState**: Bundles parameters, apply function, and optimizer state
+- **JIT compilation**: Use `use_jit=True` for significant speedups
+- **PRNG keys**: Explicit random keys for reproducibility
+
+### Example: MLP with Patient-Grouped CV
+
+```python
+import jax
+import jax.numpy as jnp
+import flax.linen as nn
+import optax
+import numpy as np
+
+from trustcv.frameworks.jax import JAXAdapter, JAXCVRunner
+from trustcv.splitters import StratifiedGroupKFold
+
+# Define Flax model
+class MedicalMLP(nn.Module):
+    hidden_dim: int = 64
+    n_classes: int = 2
+
+    @nn.compact
+    def __call__(self, x, training: bool = True):
+        x = nn.Dense(self.hidden_dim)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=0.1, deterministic=not training)(x)
+        x = nn.Dense(self.hidden_dim // 2)(x)
+        x = nn.relu(x)
+        x = nn.Dense(self.n_classes)(x)
+        return x
+
+# Prepare data
+X = np.random.randn(1000, 20).astype(np.float32)
+y = np.random.randint(0, 2, 1000)
+patient_ids = np.repeat(np.arange(200), 5)  # 200 patients, 5 samples each
+
+# High-level API: JAXCVRunner
+runner = JAXCVRunner(
+    model_fn=lambda: MedicalMLP(hidden_dim=64, n_classes=2),
+    cv_splitter=StratifiedGroupKFold(n_splits=5),
+    adapter=JAXAdapter(batch_size=32, seed=42, use_jit=True)
+)
+
+results = runner.run(
+    X, y,
+    epochs=20,
+    groups=patient_ids,  # Ensures no patient in both train/test
+    optimizer=optax.adam(1e-3)
+)
+
+print(results.summary())
+```
+
+### Low-Level Control with JAXAdapter
+
+```python
+from trustcv.frameworks.jax import JAXAdapter
+from trustcv.splitters import StratifiedKFold
+
+adapter = JAXAdapter(batch_size=32, seed=42, use_jit=True)
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+all_scores = []
+for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+    # Create data splits
+    train_data, val_data = adapter.create_data_splits((X, y), train_idx, val_idx)
+
+    # Training
+    model = MedicalMLP(hidden_dim=64, n_classes=2)
+    state = None
+
+    for epoch in range(20):
+        result = adapter.train_epoch(
+            model, train_data,
+            optimizer=optax.adam(1e-3),
+            state=state
+        )
+        state = result['state']
+
+    # Evaluation
+    metrics = adapter.evaluate(model, val_data, state=state)
+    all_scores.append(metrics['val_acc'])
+    print(f"Fold {fold + 1}: accuracy = {metrics['val_acc']:.4f}")
+
+print(f"Mean: {np.mean(all_scores):.4f} (+/- {np.std(all_scores):.4f})")
+```
+
+### When to Use JAX/Flax
+
+- Large-scale neural networks requiring GPU/TPU acceleration
+- Research requiring custom gradients or transformations
+- When maximum performance with JIT compilation is needed
+- Functional programming preference
 
 ---
 

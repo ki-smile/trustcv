@@ -5,13 +5,17 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="trustcv",
-    version="1.0.0",
-    author="SMAILE Team, Karolinska Institutet",
-    author_email="contact@smile.ki.se",
+    version="1.0.5",
+    author="SMAILE (Stockholm Medical AI and Learning Environments), Karolinska Institutet",
     description="Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/ki-smile/trustcv",
+    project_urls={
+        "SMAILE Lab": "https://smile.ki.se",
+        "Documentation": "https://ki-smile.github.io/trustcv",
+        "Bug Tracker": "https://github.com/ki-smile/trustcv/issues",
+    },
     packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",

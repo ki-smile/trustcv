@@ -108,4 +108,4 @@ The generated HTML will be in `docs/_build/html/`.
 
 ---
 
-*Part of the TrustCV toolkit by SMAILE @ Karolinska Institutet*
+*Part of the TrustCV toolkit by [SMAILE (Stockholm Medical AI and Learning Environments)](https://smile.ki.se) @ Karolinska Institutet*

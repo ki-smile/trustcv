@@ -274,6 +274,194 @@ for train_idx, test_idx in cv.split(X, coordinates=coordinates):
 print(f"Spatial CV Score: {np.mean(cv_scores):.3f} ± {np.std(cv_scores):.3f}")
 ```
 
+### 6. Gradient Boosting with TrustCVValidator (Simplified)
+
+XGBoost, LightGBM, and CatBoost all provide **sklearn-compatible APIs**, making them easy to use with `TrustCVValidator`:
+
+```python
+from trustcv import TrustCVValidator
+from sklearn.datasets import make_classification
+import numpy as np
+
+# Create sample data with patient groups
+X, y = make_classification(n_samples=1000, n_features=20, random_state=42)
+patient_ids = np.repeat(np.arange(200), 5)  # 200 patients, 5 samples each
+
+# Initialize validator with patient grouping
+validator = TrustCVValidator(
+    method='stratified_group_kfold',
+    n_splits=5,
+    check_leakage=True,
+    check_balance=True,
+    random_state=42
+)
+
+# --- XGBoost (sklearn API) ---
+from xgboost import XGBClassifier
+
+xgb_model = XGBClassifier(
+    n_estimators=100,
+    max_depth=5,
+    learning_rate=0.1,
+    random_state=42,
+    use_label_encoder=False,
+    eval_metric='logloss'
+)
+
+results_xgb = validator.validate(model=xgb_model, X=X, y=y, groups=patient_ids)
+print("XGBoost Results:")
+print(results_xgb.summary())
+
+# --- LightGBM (sklearn API) ---
+from lightgbm import LGBMClassifier
+
+lgbm_model = LGBMClassifier(
+    n_estimators=100,
+    num_leaves=31,
+    learning_rate=0.1,
+    random_state=42,
+    verbose=-1
+)
+
+results_lgbm = validator.validate(model=lgbm_model, X=X, y=y, groups=patient_ids)
+print("\nLightGBM Results:")
+print(results_lgbm.summary())
+
+# --- CatBoost (sklearn API) ---
+from catboost import CatBoostClassifier
+
+catboost_model = CatBoostClassifier(
+    iterations=100,
+    depth=5,
+    learning_rate=0.1,
+    random_state=42,
+    verbose=False
+)
+
+results_catboost = validator.validate(model=catboost_model, X=X, y=y, groups=patient_ids)
+print("\nCatBoost Results:")
+print(results_catboost.summary())
+```
+
+**Why use sklearn-compatible API?**
+- Simpler code - no manual training loops
+- Automatic leakage and balance checks
+- Consistent results format with confidence intervals
+- Works with all TrustCV CV methods
+
+### 7. With JAX/Flax (Neural Networks)
+
+JAX is a high-performance ML framework with automatic differentiation and JIT compilation. Flax provides a high-level neural network API on top of JAX.
+
+**Installation:**
+```bash
+# CPU only
+pip install jax jaxlib flax optax
+
+# GPU support (CUDA 12)
+pip install jax[cuda12] flax optax
+
+# See https://github.com/google/jax#installation for more options
+```
+
+```python
+import jax
+import jax.numpy as jnp
+import flax.linen as nn
+import optax
+import numpy as np
+
+from trustcv.frameworks.jax import JAXAdapter, JAXCVRunner
+from trustcv.splitters import StratifiedKFold, StratifiedGroupKFold
+
+# Define a Flax MLP model
+class MLP(nn.Module):
+    hidden_dim: int = 64
+    n_classes: int = 2
+
+    @nn.compact
+    def __call__(self, x, training: bool = True):
+        x = nn.Dense(self.hidden_dim)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=0.1, deterministic=not training)(x)
+        x = nn.Dense(self.hidden_dim // 2)(x)
+        x = nn.relu(x)
+        x = nn.Dense(self.n_classes)(x)
+        return x
+
+# Your data
+X = your_features  # Shape: (n_samples, n_features)
+y = your_labels    # Shape: (n_samples,)
+
+# Method 1: Using JAXCVRunner (high-level API)
+runner = JAXCVRunner(
+    model_fn=lambda: MLP(hidden_dim=64, n_classes=2),
+    cv_splitter=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
+    adapter=JAXAdapter(batch_size=32, seed=42)
+)
+
+results = runner.run(
+    X, y,
+    epochs=20,
+    optimizer=optax.adam(1e-3)
+)
+
+print(results.summary())
+
+# Method 2: With patient grouping (prevents leakage)
+patient_ids = your_patient_ids  # Shape: (n_samples,)
+
+runner = JAXCVRunner(
+    model_fn=lambda: MLP(hidden_dim=64, n_classes=2),
+    cv_splitter=StratifiedGroupKFold(n_splits=5),
+    adapter=JAXAdapter(batch_size=32, seed=42)
+)
+
+results = runner.run(
+    X, y,
+    epochs=20,
+    groups=patient_ids,  # No patient in both train/test
+    optimizer=optax.adam(1e-3)
+)
+
+# Method 3: Low-level control with JAXAdapter
+adapter = JAXAdapter(batch_size=32, seed=42, use_jit=True)
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+scores = []
+for fold, (train_idx, val_idx) in enumerate(cv.split(X, y)):
+    # Create data splits
+    train_data, val_data = adapter.create_data_splits((X, y), train_idx, val_idx)
+
+    # Initialize model
+    model = MLP(hidden_dim=64, n_classes=2)
+    optimizer = optax.adam(1e-3)
+
+    # Training loop
+    state = None
+    for epoch in range(20):
+        result = adapter.train_epoch(model, train_data, optimizer=optimizer, state=state)
+        state = result['state']
+
+    # Evaluate
+    metrics = adapter.evaluate(model, val_data, state=state)
+    scores.append(metrics['val_acc'])
+    print(f"Fold {fold + 1}: accuracy = {metrics['val_acc']:.4f}")
+
+print(f"Mean accuracy: {np.mean(scores):.4f} (+/- {np.std(scores):.4f})")
+```
+
+**JAX/Flax Key Concepts:**
+- **Functional paradigm**: Models are stateless, parameters passed explicitly
+- **TrainState**: Flax object that bundles params, apply_fn, and optimizer state
+- **JIT compilation**: Use `use_jit=True` for significant speedups
+- **PRNG keys**: JAX uses explicit random keys for reproducibility
+
+**When to use JAX:**
+- Large-scale neural networks requiring GPU/TPU acceleration
+- Research requiring custom gradients or transformations
+- When you need maximum performance with JIT compilation
+
 ## 🔧 Advanced Integration Patterns
 
 ### Hyperparameter Tuning with CV

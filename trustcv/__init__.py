@@ -1,39 +1,34 @@
 """
 trustcv - Trustworthy Cross-Validation Toolkit
 
+Quick Start:
+    from trustcv import TrustCV  # or TrustCVValidator
+    from sklearn.ensemble import RandomForestClassifier
+
+    validator = TrustCV(method='stratified_kfold', n_splits=5)
+    results = validator.validate(model=RandomForestClassifier(), X=X, y=y)
+    print(results.summary())
+
+Main Classes:
+    - TrustCV / TrustCVValidator: Main cross-validation validator
+    - DataLeakageChecker: Detect data leakage issues
+    - ClinicalMetrics: Medical/clinical performance metrics
+
 Developed at SMAILE (Stockholm Medical Artificial Intelligence and Learning Environments)
 Karolinska Institutet Core Facility - https://smile.ki.se
-Contributors: Farhad Abtahi, Abdelamir Karbalaie, SMAILE Team
-=============================================
-
-A framework-agnostic Python library for trustworthy cross-validation that provides a unified 
-interface across scikit-learn, PyTorch, TensorFlow/Keras, MONAI, JAX, and other 
-ML frameworks. It promotes best practices in model evaluation, providing both 
-familiar interfaces and customizable validators tailored for reliable validation.
-
-Developed at SMAILE (Stockholm Medical Artificial Intelligence and Learning Environments)
-Karolinska Institutet Core Facility
-Website: https://smile.ki.se
 
 Main Features:
-- Framework-agnostic: Works with any ML/DL framework
-- Advanced cross-validation strategies (hierarchical, temporal, spatial)
+- Framework-agnostic: Works with scikit-learn, PyTorch, TensorFlow, MONAI, JAX
+- 29 cross-validation methods (IID, Grouped, Temporal, Spatial)
 - Automatic data leakage detection
-- Patient/group-level and temporal splitting
-- Regulatory compliance reporting (FDA, CE MDR)
-- Interactive visualizations
-- Support for PyTorch, TensorFlow, MONAI, and more
+- Patient/group-level splitting to prevent data leakage
+- Clinical metrics with confidence intervals
+- Reporting utilities that support regulatory documentation
 
-Contributors:
-- Farhad Abtahi
-- Abdelamir Karbalaie
-- SMAILE Team
-
-For more information about AI research and collaboration opportunities,
-visit SMAILE at https://smile.ki.se
+For more information: https://github.com/ki-smile/trustcv
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.5"
 __author__ = "SMAILE Team, Karolinska Institutet"
 __institution__ = "SMAILE - Stockholm Medical AI and Learning Environments, Karolinska Institutet"
 __website__ = "https://smile.ki.se"
@@ -67,6 +62,7 @@ from .splitters import (  # I.I.D. methods; Grouped methods; Temporal methods; S
     HoldOut,
     KFoldMedical,
     LeaveOneGroupOut,
+    LeavePGroupsOut,
     MonteCarloCV,
     NestedCV,
     NestedGroupedCV,
@@ -82,7 +78,19 @@ from .splitters import (  # I.I.D. methods; Grouped methods; Temporal methods; S
     StratifiedKFoldMedical,
     TimeSeriesSplit,
 )
+
+# Import dataset loaders for convenience
+from .datasets import (
+    load_heart_disease,
+    load_diabetic_readmission,
+    load_cancer_imaging,
+    generate_synthetic_ehr,
+    generate_temporal_patient_data,
+)
 from .validators import MedicalValidator, NestedTemporalCV, TrustCVValidator
+
+# Convenience alias - TrustCV is the same as TrustCVValidator
+TrustCV = TrustCVValidator
 
 # Conditionally import framework-specific runners if available
 try:
@@ -108,6 +116,7 @@ except ImportError:
 
 __all__ = [
     # Core validators and checkers
+    "TrustCV",  # Convenience alias (same as TrustCVValidator)
     "TrustCVValidator",
     "MedicalValidator",
     "DataLeakageChecker",
@@ -137,6 +146,7 @@ __all__ = [
     "GroupKFoldMedical",
     "StratifiedGroupKFold",
     "LeaveOneGroupOut",
+    "LeavePGroupsOut",
     "RepeatedGroupKFold",
     "NestedGroupedCV",
     "HierarchicalGroupKFold",
@@ -154,6 +164,12 @@ __all__ = [
     "BufferedSpatialCV",
     "SpatiotemporalBlockCV",
     "EnvironmentalHealthCV",
+    # Dataset loaders
+    "load_heart_disease",
+    "load_diabetic_readmission",
+    "load_cancer_imaging",
+    "generate_synthetic_ehr",
+    "generate_temporal_patient_data",
 ]
 
 # Add framework-specific runners if available

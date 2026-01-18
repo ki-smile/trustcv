@@ -85,11 +85,25 @@ pip install trustcv
 
 ## Quickstart – IID CV with TrustCV
 
-Here is a minimal example using `StratifiedKFold` and `UniversalCVRunner`:
-
+Here is a minimal example:
 
 ```python
-from trustcv import TrustCVValidator
+from trustcv import TrustCV  # or TrustCVValidator
+from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
+
+X, y = load_breast_cancer(return_X_y=True)
+
+# Simple usage
+validator = TrustCV(method="stratified_kfold", n_splits=5)
+results = validator.validate(model=RandomForestClassifier(), X=X, y=y)
+print(results.summary())
+```
+
+### Full Example with All Options
+
+```python
+from trustcv import TrustCV
 from sklearn.datasets import load_breast_cancer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import make_pipeline
@@ -99,8 +113,8 @@ X, y = load_breast_cancer(return_X_y=True)
 model = make_pipeline(StandardScaler(), RandomForestClassifier(random_state=42))
 
 # Validates with leakage checks and computes clinical CIs
-validator = TrustCVValidator(
-    method="StratifiedKfold",  # IID, stratified
+validator = TrustCV(
+    method="stratified_kfold",
     n_splits=5,
     random_state=42,
     check_leakage=True,
@@ -163,16 +177,15 @@ Prefer to learn by running code? From the repo root, open the notebooks in `note
 
 ------
 
-## Roadmap
+## Framework Support
 
-TrustCV v1.0.0 includes all 29 CV methods. Future versions will focus on:
-
-- **v1.1 – Enhanced reporting**
-   Extended regulatory report templates and audit trail features.
-- **v1.2 – Additional frameworks**
-   Expanded support for JAX/Flax, XGBoost, LightGBM, and CatBoost.
-- **v1.3 – AutoML integration**
-   Integration with Optuna for hyperparameter tuning within nested CV.
+**Supported frameworks:**
+- scikit-learn (native)
+- PyTorch (via adapter)
+- TensorFlow/Keras (via adapter)
+- MONAI (via adapter, for medical imaging)
+- JAX/Flax (via adapter)
+- XGBoost, LightGBM, CatBoost (via sklearn-compatible API)
 
 ------
 

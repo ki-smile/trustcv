@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustcv"
-version = "1.0.0"
+version = "1.0.5"
 description = "Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection"
 readme = "README.md"
 authors = [
-    {name = "SMAILE Team, Karolinska Institutet", email = "contact@smile.ki.se"}
+    {name = "SMAILE (Stockholm Medical AI and Learning Environments), Karolinska Institutet"}
 ]
 license = "MIT"
 classifiers = [
@@ -43,6 +43,7 @@ Homepage = "https://github.com/ki-smile/trustcv"
 Documentation = "https://ki-smile.github.io/trustcv"
 Repository = "https://github.com/ki-smile/trustcv"
 "Bug Tracker" = "https://github.com/ki-smile/trustcv/issues"
+"SMAILE Lab" = "https://smile.ki.se"
 
 [project.optional-dependencies]
 dev = [
@@ -77,6 +78,12 @@ monai = [
     "monai>=1.0.0",
     "nibabel>=3.2.0",
 ]
+jax = [
+    "jax>=0.4.0",
+    "jaxlib>=0.4.0",
+    "flax>=0.8.0",
+    "optax>=0.1.0",
+]
 
 # Convenience extra for installing everything above
 all = [
@@ -85,6 +92,10 @@ all = [
     "tensorflow>=2.16",
     "monai>=1.0.0",
     "nibabel>=3.2.0",
+    "jax>=0.4.0",
+    "jaxlib>=0.4.0",
+    "flax>=0.8.0",
+    "optax>=0.1.0",
     "pytest>=7.0.0",
     "flake8>=4.0.0",
     "mypy>=0.950",

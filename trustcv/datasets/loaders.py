@@ -10,32 +10,74 @@ for demonstration and testing purposes.
 """
 
 import warnings
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification, make_multilabel_classification
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils import Bunch
 
 
-def load_heart_disease() -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
+class MedicalDataBunch(Bunch):
+    """
+    Extended Bunch that supports both attribute access and tuple unpacking.
+
+    This allows backward compatibility with code that does:
+        X, y, patient_ids = load_heart_disease()
+
+    While also supporting sklearn-style access:
+        dataset = load_heart_disease()
+        X, y = dataset.data, dataset.target
+    """
+
+    def __init__(self, _iter_fields=None, **kwargs):
+        super().__init__(**kwargs)
+        self._iter_fields = _iter_fields or []
+
+    def __iter__(self):
+        """Support tuple unpacking by iterating over specified fields."""
+        for field in self._iter_fields:
+            yield self[field]
+
+    def __len__(self):
+        """Return number of fields for tuple unpacking."""
+        return len(self._iter_fields)
+
+
+def load_heart_disease(return_X_y: bool = False, as_frame: bool = True) -> Union[Bunch, Tuple]:
     """
     Load heart disease dataset (synthetic version for demo)
 
+    Parameters
+    ----------
+    return_X_y : bool, default=False
+        If True, returns (X, y) tuple only.
+    as_frame : bool, default=True
+        If True, returns pandas DataFrame/Series. If False, returns numpy arrays.
+
     Returns
     -------
-    X : pd.DataFrame
-        Features (age, blood pressure, cholesterol, etc.)
-    y : pd.Series
-        Binary target (0: no disease, 1: disease)
-    patient_ids : pd.Series
-        Patient identifiers
+    Bunch or tuple
+        By default, returns sklearn-style Bunch with attributes:
+        - data: Features (age, blood pressure, cholesterol, etc.)
+        - target: Binary target (0: no disease, 1: disease)
+        - feature_names: List of feature names
+        - target_names: List of target class names
+        - patient_ids: Patient identifiers
+        - DESCR: Dataset description
+
+        If return_X_y=True, returns (X, y) tuple instead.
 
     Examples
     --------
-    >>> X, y, patient_ids = load_heart_disease()
+    >>> # sklearn-style API (recommended)
+    >>> dataset = load_heart_disease()
+    >>> X, y = dataset.data, dataset.target
     >>> print(f"Dataset shape: {X.shape}")
-    >>> print(f"Disease prevalence: {y.mean():.1%}")
+
+    >>> # Direct tuple unpacking
+    >>> X, y = load_heart_disease(return_X_y=True)
     """
     np.random.seed(42)
     n_samples = 1000
@@ -45,24 +87,33 @@ def load_heart_disease() -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
     patient_ids = np.random.choice(range(n_patients), size=n_samples, replace=True)
     patient_ids = pd.Series([f"P{pid:04d}" for pid in patient_ids], name="patient_id")
 
-    # Generate features
+    # Generate features with realistic medical ranges
     age = np.random.normal(55, 15, n_samples)
     age = np.clip(age, 18, 90)
 
-    # Correlated features
+    # Correlated features (clip to realistic medical ranges)
     bmi = np.random.normal(27 + age / 100, 5, n_samples)
+    bmi = np.clip(bmi, 15, 50)  # Realistic BMI range
     systolic_bp = np.random.normal(120 + age / 2, 20, n_samples)
+    systolic_bp = np.clip(systolic_bp, 80, 200)  # Realistic BP range
     diastolic_bp = systolic_bp * 0.6 + np.random.normal(0, 5, n_samples)
+    diastolic_bp = np.clip(diastolic_bp, 40, 130)
     cholesterol = np.random.normal(200 + age / 3, 40, n_samples)
+    cholesterol = np.clip(cholesterol, 100, 400)  # Realistic range
     hdl = np.random.normal(50 - bmi / 2, 10, n_samples)
+    hdl = np.clip(hdl, 20, 100)  # HDL must be positive
     ldl = cholesterol - hdl - 20
+    ldl = np.clip(ldl, 30, 250)  # LDL realistic range
     glucose = np.random.normal(90 + bmi / 3, 20, n_samples)
+    glucose = np.clip(glucose, 50, 300)  # Fasting glucose range
 
-    # Binary features
+    # Binary features (clip probabilities to valid range [0, 1])
     smoking = np.random.binomial(1, 0.25, n_samples)
-    diabetes = np.random.binomial(1, 0.15 + glucose / 1000, n_samples)
+    diabetes_prob = np.clip(0.15 + glucose / 1000, 0, 1)
+    diabetes = np.random.binomial(1, diabetes_prob, n_samples)
     family_history = np.random.binomial(1, 0.3, n_samples)
-    exercise = np.random.binomial(1, 0.4 - bmi / 100, n_samples)
+    exercise_prob = np.clip(0.4 - bmi / 100, 0.05, 0.95)
+    exercise = np.random.binomial(1, exercise_prob, n_samples)
 
     # Create DataFrame
     X = pd.DataFrame(
@@ -99,28 +150,65 @@ def load_heart_disease() -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
     y = np.random.binomial(1, risk_prob)
     y = pd.Series(y, name="heart_disease")
 
-    return X, y, patient_ids
+    # Convert to numpy if not as_frame
+    if not as_frame:
+        X_out = X.values
+        y_out = y.values
+    else:
+        X_out = X
+        y_out = y
+
+    if return_X_y:
+        return X_out, y_out
+
+    # Return sklearn-style Bunch object (supports both attribute access and tuple unpacking)
+    return MedicalDataBunch(
+        _iter_fields=["data", "target", "patient_ids"],  # For tuple unpacking: X, y, patient_ids = ...
+        data=X_out,
+        target=y_out,
+        feature_names=list(X.columns),
+        target_names=["no_disease", "disease"],
+        patient_ids=patient_ids,
+        DESCR="Synthetic heart disease dataset for demonstration.\n"
+              "Features include age, BMI, blood pressure, cholesterol, etc.\n"
+              "Target: 0 = no disease, 1 = disease.",
+    )
 
 
-def load_diabetic_readmission() -> Tuple[pd.DataFrame, pd.Series, pd.Series, pd.Series]:
+def load_diabetic_readmission(return_X_y: bool = False, as_frame: bool = True) -> Union[Bunch, Tuple]:
     """
     Load diabetic patient readmission dataset (synthetic)
 
+    Parameters
+    ----------
+    return_X_y : bool, default=False
+        If True, returns (X, y) tuple only.
+    as_frame : bool, default=True
+        If True, returns pandas DataFrame/Series. If False, returns numpy arrays.
+
     Returns
     -------
-    X : pd.DataFrame
-        Features
-    y : pd.Series
-        Readmission within 30 days (0: no, 1: yes)
-    patient_ids : pd.Series
-        Patient identifiers
-    admission_dates : pd.Series
-        Hospital admission dates
+    Bunch or tuple
+        By default, returns sklearn-style Bunch with attributes:
+        - data: Features
+        - target: Readmission within 30 days (0: no, 1: yes)
+        - feature_names: List of feature names
+        - target_names: List of target class names
+        - patient_ids: Patient identifiers
+        - admission_dates: Hospital admission dates
+        - DESCR: Dataset description
+
+        If return_X_y=True, returns (X, y) tuple instead.
 
     Examples
     --------
-    >>> X, y, patient_ids, dates = load_diabetic_readmission()
+    >>> # sklearn-style API (recommended)
+    >>> dataset = load_diabetic_readmission()
+    >>> X, y = dataset.data, dataset.target
     >>> print(f"Readmission rate: {y.mean():.1%}")
+
+    >>> # Direct tuple unpacking
+    >>> X, y = load_diabetic_readmission(return_X_y=True)
     """
     np.random.seed(42)
     n_samples = 1500
@@ -128,7 +216,7 @@ def load_diabetic_readmission() -> Tuple[pd.DataFrame, pd.Series, pd.Series, pd.
 
     # Generate temporal data
     base_date = pd.Timestamp("2020-01-01")
-    admission_dates = pd.date_range(base_date, periods=n_samples, freq="6H")
+    admission_dates = pd.date_range(base_date, periods=n_samples, freq="6h")
     admission_dates = pd.Series(admission_dates, name="admission_date")
 
     # Patient IDs with temporal clustering
@@ -140,13 +228,17 @@ def load_diabetic_readmission() -> Tuple[pd.DataFrame, pd.Series, pd.Series, pd.
             patient_ids.append(f"P{np.random.randint(0, n_patients):04d}")
     patient_ids = pd.Series(patient_ids, name="patient_id")
 
-    # Generate features
+    # Generate features with realistic medical ranges
     age = np.random.normal(65, 15, n_samples)
+    age = np.clip(age, 18, 100)  # Realistic age range
     hba1c = np.random.normal(7.5, 2, n_samples)  # Glycated hemoglobin
+    hba1c = np.clip(hba1c, 4.0, 14.0)  # Realistic HbA1c range (diabetic)
     glucose = np.random.normal(140, 40, n_samples)
+    glucose = np.clip(glucose, 50, 400)  # Realistic glucose range
     num_medications = np.random.poisson(5, n_samples)
     num_procedures = np.random.poisson(2, n_samples)
     time_in_hospital = np.random.exponential(5, n_samples)
+    time_in_hospital = np.clip(time_in_hospital, 0.5, 60)  # 0.5 to 60 days
     num_lab_procedures = np.random.poisson(20, n_samples)
     num_emergency = np.random.poisson(0.5, n_samples)
 
@@ -180,27 +272,63 @@ def load_diabetic_readmission() -> Tuple[pd.DataFrame, pd.Series, pd.Series, pd.
     y = np.random.binomial(1, readmission_prob)
     y = pd.Series(y, name="readmitted_30days")
 
-    return X, y, patient_ids, admission_dates
+    # Convert to numpy if not as_frame
+    if not as_frame:
+        X_out = X.values
+        y_out = y.values
+    else:
+        X_out = X
+        y_out = y
+
+    if return_X_y:
+        return X_out, y_out
+
+    # Return sklearn-style Bunch object (supports both attribute access and tuple unpacking)
+    return MedicalDataBunch(
+        _iter_fields=["data", "target", "patient_ids", "admission_dates"],  # For tuple unpacking
+        data=X_out,
+        target=y_out,
+        feature_names=list(X.columns),
+        target_names=["not_readmitted", "readmitted"],
+        patient_ids=patient_ids,
+        admission_dates=admission_dates,
+        DESCR="Synthetic diabetic readmission dataset for demonstration.\n"
+              "Features include age, HbA1c, glucose, medications, etc.\n"
+              "Target: 0 = not readmitted, 1 = readmitted within 30 days.",
+    )
 
 
-def load_cancer_imaging() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def load_cancer_imaging(return_X_y: bool = False) -> Union[Bunch, Tuple]:
     """
     Load simulated cancer imaging features dataset
 
+    Parameters
+    ----------
+    return_X_y : bool, default=False
+        If True, returns (X, y) tuple only.
+
     Returns
     -------
-    X : np.ndarray
-        Imaging features (texture, intensity, shape metrics)
-    y : np.ndarray
-        Cancer presence (0: benign, 1: malignant)
-    patient_ids : np.ndarray
-        Patient identifiers
+    Bunch or tuple
+        By default, returns sklearn-style Bunch with attributes:
+        - data: Imaging features (texture, intensity, shape metrics)
+        - target: Cancer presence (0: benign, 1: malignant)
+        - feature_names: List of feature names
+        - target_names: List of target class names
+        - patient_ids: Patient identifiers
+        - DESCR: Dataset description
+
+        If return_X_y=True, returns (X, y) tuple instead.
 
     Examples
     --------
-    >>> X, y, patient_ids = load_cancer_imaging()
+    >>> # sklearn-style API (recommended)
+    >>> dataset = load_cancer_imaging()
+    >>> X, y = dataset.data, dataset.target
     >>> print(f"Feature dimensions: {X.shape[1]}")
-    >>> print(f"Cancer prevalence: {y.mean():.1%}")
+
+    >>> # Direct tuple unpacking
+    >>> X, y = load_cancer_imaging(return_X_y=True)
     """
     np.random.seed(42)
 
@@ -238,7 +366,21 @@ def load_cancer_imaging() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Generate patient IDs
     patient_ids = np.array([f"IMG_{i:04d}" for i in range(len(X))])
 
-    return X, y, patient_ids
+    if return_X_y:
+        return X, y
+
+    # Return sklearn-style Bunch object (supports both attribute access and tuple unpacking)
+    return MedicalDataBunch(
+        _iter_fields=["data", "target", "patient_ids"],  # For tuple unpacking: X, y, patient_ids = ...
+        data=X,
+        target=y,
+        feature_names=feature_names,
+        target_names=["benign", "malignant"],
+        patient_ids=patient_ids,
+        DESCR="Synthetic cancer imaging features dataset for demonstration.\n"
+              "Features include texture metrics, intensity statistics, etc.\n"
+              "Target: 0 = benign, 1 = malignant.",
+    )
 
 
 def generate_synthetic_ehr(
@@ -248,6 +390,7 @@ def generate_synthetic_ehr(
     temporal: bool = False,
     prevalence: float = 0.3,
     random_state: int = 42,
+    return_X_y: bool = False,
 ) -> Dict:
     """
     Generate synthetic Electronic Health Record data
@@ -266,17 +409,24 @@ def generate_synthetic_ehr(
         Disease prevalence
     random_state : int
         Random seed
+    return_X_y : bool, default=False
+        If True, returns (X, y) tuple instead of dict.
+        This provides sklearn-compatible API.
 
     Returns
     -------
-    dict
-        Dictionary containing X, y, patient_ids, and optionally timestamps
+    dict or tuple
+        Dictionary containing X, y, patient_ids, and optionally timestamps.
+        If return_X_y=True, returns (X, y) tuple instead.
 
     Examples
     --------
     >>> data = generate_synthetic_ehr(n_samples=1000, temporal=True)
     >>> X, y = data['X'], data['y']
     >>> print(f"Generated {len(X)} records with {X.shape[1]} features")
+
+    >>> # sklearn-compatible API
+    >>> X, y = generate_synthetic_ehr(return_X_y=True)
     """
     np.random.seed(random_state)
 
@@ -324,6 +474,8 @@ def generate_synthetic_ehr(
         )
         result["timestamps"] = timestamps
 
+    if return_X_y:
+        return X, y
     return result
 
 
@@ -334,6 +486,7 @@ def generate_temporal_patient_data(
     outcome_type: str = "binary",
     missing_rate: float = 0.1,
     random_state: int = 42,
+    return_X_y: bool = False,
 ) -> Dict:
     """
     Generate temporal patient data with realistic patterns
@@ -352,17 +505,24 @@ def generate_temporal_patient_data(
         Proportion of missing values
     random_state : int
         Random seed
+    return_X_y : bool, default=False
+        If True, returns (X, y) tuple instead of dict.
+        This provides sklearn-compatible API.
 
     Returns
     -------
-    dict
-        Dictionary with temporal patient data
+    dict or tuple
+        Dictionary with temporal patient data.
+        If return_X_y=True, returns (X, y) tuple instead.
 
     Examples
     --------
     >>> data = generate_temporal_patient_data(n_patients=50, n_timepoints=24)
     >>> print(f"Shape: {data['X'].shape}")
     >>> print(f"Unique patients: {data['patient_ids'].nunique()}")
+
+    >>> # sklearn-compatible API
+    >>> X, y = generate_temporal_patient_data(return_X_y=True)
     """
     np.random.seed(random_state)
 
@@ -411,4 +571,9 @@ def generate_temporal_patient_data(
     else:
         raise ValueError(f"Unknown outcome_type: {outcome_type}")
 
+    if return_X_y:
+        # Extract feature columns only (exclude patient_id, timepoint, days_from_baseline)
+        feature_cols = [c for c in df.columns if c.startswith("feature_")]
+        X = df[feature_cols].values
+        return X, y.values if hasattr(y, 'values') else y
     return {"X": df, "y": y, "patient_ids": df["patient_id"], "timepoints": df["timepoint"]}
