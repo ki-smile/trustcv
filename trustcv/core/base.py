@@ -467,13 +467,15 @@ class SklearnAdapter(FrameworkAdapter):
             if y_pred is not None:
                 # Some regressors return floats; only compute cls metrics for discrete labels
                 # Treat binary or integer classes as classification
+                y_val_arr = _np.asarray(y_val)
+                n_classes = len(_np.unique(y_val_arr))
                 if (
-                    _np.issubdtype(_np.asarray(y_val).dtype, _np.integer)
-                    or _np.array_equal(_np.unique(y_val), [0, 1])
-                    or len(_np.unique(y_val)) <= 10
+                    _np.issubdtype(y_val_arr.dtype, _np.integer)
+                    or _np.array_equal(_np.unique(y_val_arr), [0, 1])
+                    or n_classes <= 50
                 ):
                     eval_metrics["accuracy"] = float(accuracy_score(y_val, y_pred))
-                    # F1 (binary only by default)
+                    # binary/default scorers
                     try:
                         eval_metrics["f1"] = float(f1_score(y_val, y_pred))
                     except Exception:
@@ -493,13 +495,41 @@ class SklearnAdapter(FrameworkAdapter):
                     except Exception:
                         pass
 
-            # AUC if probabilities available for binary classification
+                    # multiclass-friendly macro averages
+                    if n_classes > 2:
+                        try:
+                            eval_metrics["f1_macro"] = float(
+                                f1_score(y_val, y_pred, average="macro")
+                            )
+                        except Exception:
+                            pass
+                        try:
+                            eval_metrics["precision_macro"] = float(
+                                precision_score(y_val, y_pred, average="macro")
+                            )
+                        except Exception:
+                            pass
+                        try:
+                            eval_metrics["recall_macro"] = float(
+                                recall_score(y_val, y_pred, average="macro")
+                            )
+                        except Exception:
+                            pass
+
+            # AUC: binary default; multiclass one-vs-rest when probs available
             if y_proba is not None:
                 ys = _np.asarray(y_proba)
                 try:
                     if ys.ndim == 2 and ys.shape[1] > 1:
-                        ys = ys[:, 1]
-                    eval_metrics["roc_auc"] = float(roc_auc_score(y_val, ys))
+                        # multiclass or binary-prob matrix
+                        if ys.shape[1] == 2:
+                            eval_metrics["roc_auc"] = float(roc_auc_score(y_val, ys[:, 1]))
+                        else:
+                            eval_metrics["roc_auc_ovr_macro"] = float(
+                                roc_auc_score(y_val, ys, multi_class="ovr", average="macro")
+                            )
+                    else:
+                        eval_metrics["roc_auc"] = float(roc_auc_score(y_val, ys))
                 except Exception:
                     pass
         except Exception:

@@ -269,6 +269,8 @@ class TrustCVValidator:
 
         self._cv_splitter = None
         self._setup_splitter()
+        # Optional verbose debugging flag (kept off by default)
+        self.debug: bool = False
 
     # --- public API ---
     def validate(
@@ -282,6 +284,7 @@ class TrustCVValidator:
         cv: Optional[BaseCrossValidator] = None,
         leakage_checker: Optional[Any] = None,
         sample_weight: Optional[np.ndarray] = None,
+        scoring: Optional[Dict[str, Any]] = None,
     ) -> "ValidationResult":
         """
         Run cross-validation with the requested metrics and return a ValidationResult.
@@ -300,9 +303,14 @@ class TrustCVValidator:
             If provided, runs leakage checks on the dataset
         sample_weight : array-like, optional
             Per-sample weights passed to estimator.fit when supported
+        scoring : dict, optional
+            sklearn-style scorers mapping name -> scorer (string for get_scorer,
+            callable scorer, or make_scorer output). When provided, overrides
+            the built-in metrics list for this validation call.
         """
         import numpy as _np
         from sklearn.base import clone as _sk_clone
+        from sklearn.metrics import get_scorer as _get_scorer
 
         X_arr = _np.asarray(X) if not hasattr(X, "iloc") else X
         y_arr = _np.asarray(y) if not hasattr(y, "iloc") else y
@@ -337,6 +345,15 @@ class TrustCVValidator:
 
         # storage
         metric_list = list(self.metrics)
+        scorer_dict: Optional[Dict[str, Callable]] = None
+        if scoring is not None:
+            scorer_dict = {}
+            for name, scorer in scoring.items():
+                if isinstance(scorer, str):
+                    scorer_dict[name] = _get_scorer(scorer)
+                else:
+                    scorer_dict[name] = scorer
+            metric_list = list(scorer_dict.keys())
         per_metric_scores: Dict[str, List[float]] = {m: [] for m in metric_list}
         fold_details: List[Dict[str, Any]] = []
 
@@ -368,95 +385,102 @@ class TrustCVValidator:
                 est.fit(X_tr, y_tr)
 
             # predictions/scores
-            y_pred = None
-            y_score = None
+            y_pred_raw = None
+            y_score_raw = None
             if hasattr(est, "predict"):
                 try:
-                    y_pred = est.predict(X_te)
+                    y_pred_raw = est.predict(X_te)
                 except Exception:
-                    y_pred = None
+                    y_pred_raw = None
             if hasattr(est, "predict_proba"):
                 try:
                     proba = est.predict_proba(X_te)
-                    y_score = (
-                        proba[:, 1]
-                        if _np.asarray(proba).ndim == 2 and _np.asarray(proba).shape[1] > 1
-                        else _np.asarray(proba).ravel()
-                    )
+                    y_score_raw = proba
                 except Exception:
-                    y_score = None
-            if y_score is None and hasattr(est, "decision_function"):
+                    y_score_raw = None
+            if y_score_raw is None and hasattr(est, "decision_function"):
                 try:
-                    y_score = est.decision_function(X_te)
+                    y_score_raw = est.decision_function(X_te)
                 except Exception:
-                    y_score = None
+                    y_score_raw = None
+
+            y_pred, y_score = self._coerce_predictions(y_te, y_pred_raw, y_score_raw)
 
             # compute metrics
             fold_metric_values: Dict[str, float] = {}
             for m in metric_list:
                 try:
-                    if m in ("accuracy",):
-                        from sklearn.metrics import accuracy_score as _acc
-
-                        if y_pred is not None:
-                            val = float(_acc(y_te, y_pred))
-                        else:
-                            continue
-                    elif m in ("f1", "f1_score"):
-                        from sklearn.metrics import f1_score as _f1
-
-                        if y_pred is not None:
-                            val = float(_f1(y_te, y_pred))
-                        else:
-                            continue
-                    elif m in ("precision",):
-                        from sklearn.metrics import precision_score as _prec
-
-                        if y_pred is not None:
-                            val = float(_prec(y_te, y_pred))
-                        else:
-                            continue
-                    elif m in ("recall",):
-                        from sklearn.metrics import recall_score as _rec
-
-                        if y_pred is not None:
-                            val = float(_rec(y_te, y_pred))
-                        else:
-                            continue
-                    elif m in ("sensitivity", "tpr", "recall_pos"):
-                        from sklearn.metrics import recall_score as _rec
-
-                        if y_pred is not None and binary_labels is not None:
-                            pos_label = binary_labels[1]
-                            val = float(_rec(y_te, y_pred, pos_label=pos_label, zero_division=0.0))
-                        else:
-                            continue
-                    elif m in ("specificity", "tnr"):
-                        from sklearn.metrics import recall_score as _rec
-
-                        if y_pred is not None and binary_labels is not None:
-                            neg_label = binary_labels[0]
-                            val = float(_rec(y_te, y_pred, pos_label=neg_label, zero_division=0.0))
-                        else:
-                            continue
-                    elif m in ("roc_auc", "auc"):
-                        from sklearn.metrics import roc_auc_score as _auc
-
-                        if y_score is not None:
-                            val = float(_auc(y_te, y_score))
-                        else:
-                            continue
+                    if scorer_dict is not None:
+                        scorer = scorer_dict[m]
+                        val = float(scorer(est, X_te, y_te))
                     else:
-                        # fallback to estimator.score as 'score'
-                        if hasattr(est, "score") and m in ("score",):
-                            val = float(est.score(X_te, y_te))
+                        if m in ("accuracy",):
+                            from sklearn.metrics import accuracy_score as _acc
+
+                            if y_pred is not None:
+                                val = float(_acc(y_te, y_pred))
+                            else:
+                                continue
+                        elif m in ("f1", "f1_score"):
+                            from sklearn.metrics import f1_score as _f1
+
+                            if y_pred is not None:
+                                val = float(_f1(y_te, y_pred))
+                            else:
+                                continue
+                        elif m in ("precision",):
+                            from sklearn.metrics import precision_score as _prec
+
+                            if y_pred is not None:
+                                val = float(_prec(y_te, y_pred))
+                            else:
+                                continue
+                        elif m in ("recall",):
+                            from sklearn.metrics import recall_score as _rec
+
+                            if y_pred is not None:
+                                val = float(_rec(y_te, y_pred))
+                            else:
+                                continue
+                        elif m in ("sensitivity", "tpr", "recall_pos"):
+                            from sklearn.metrics import recall_score as _rec
+
+                            if y_pred is not None and binary_labels is not None:
+                                pos_label = binary_labels[1]
+                                val = float(
+                                    _rec(y_te, y_pred, pos_label=pos_label, zero_division=0.0)
+                                )
+                            else:
+                                continue
+                        elif m in ("specificity", "tnr"):
+                            from sklearn.metrics import recall_score as _rec
+
+                            if y_pred is not None and binary_labels is not None:
+                                neg_label = binary_labels[0]
+                                val = float(
+                                    _rec(y_te, y_pred, pos_label=neg_label, zero_division=0.0)
+                                )
+                            else:
+                                continue
+                        elif m in ("roc_auc", "auc"):
+                            from sklearn.metrics import roc_auc_score as _auc
+
+                            if y_score is not None:
+                                val = float(_auc(y_te, y_score))
+                            else:
+                                continue
                         else:
-                            continue
+                            # fallback to estimator.score as 'score'
+                            if hasattr(est, "score") and m in ("score",):
+                                val = float(est.score(X_te, y_te))
+                            else:
+                                continue
                     per_metric_scores[m].append(val)
                     fold_metric_values[m] = val
-                except Exception:
+                except Exception as exc:
+                    if getattr(self, "debug", False):
+                        print(f"[TrustCV] scorer '{m}' failed on fold {k}: {exc}")
                     # skip non-computable metric for this fold
-                    pass
 
             fold_details.append(
                 {
@@ -525,6 +549,79 @@ class TrustCVValidator:
         except Exception:
             pass
         return result
+
+    @staticmethod
+    def _coerce_predictions(
+        y_true, y_pred_raw: Optional[Any], y_score_raw: Optional[Any] = None
+    ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+        """
+        Normalize predictions/scores to 1D arrays for metric computation.
+
+        Handles common SciKeras/Keras shapes:
+        - y_pred_raw (n, 1) -> ravel
+        - y_pred_raw (n, C) -> argmax for labels
+        - probability vectors in [0, 1] -> threshold at 0.5 for labels
+        - y_score_raw (n, 2) -> column 1; (n, 1) -> ravel
+        - if no explicit y_score_raw but y_pred_raw looks like probabilities, reuse as scores
+        """
+
+        def _to_array(arr: Any) -> Optional[np.ndarray]:
+            if arr is None:
+                return None
+            return arr.to_numpy() if hasattr(arr, "to_numpy") else np.asarray(arr)
+
+        def _is_prob_vector(vec: np.ndarray) -> bool:
+            if vec.ndim != 1:
+                return False
+            if not np.issubdtype(vec.dtype, np.floating):
+                return False
+            finite = vec[np.isfinite(vec)]
+            return finite.size > 0 and finite.min(initial=0.0) >= 0.0 and finite.max(initial=1.0) <= 1.0
+
+        y_true_arr = _to_array(y_true)
+        if y_true_arr is not None:
+            y_true_arr = np.ravel(y_true_arr)
+
+        y_pred = None
+        y_score = None
+        prob_source = None
+
+        pred_arr = _to_array(y_pred_raw)
+        if pred_arr is not None:
+            if pred_arr.ndim == 2:
+                if pred_arr.shape[1] == 1:
+                    vec = np.ravel(pred_arr)
+                    if _is_prob_vector(vec):
+                        prob_source = vec
+                        y_pred = (vec >= 0.5).astype(int)
+                    else:
+                        y_pred = vec
+                else:
+                    # (n, C) logits/probabilities
+                    if pred_arr.shape[1] == 2 and np.issubdtype(pred_arr.dtype, np.floating):
+                        prob_source = pred_arr[:, 1]
+                    y_pred = np.argmax(pred_arr, axis=1)
+            else:
+                vec = np.ravel(pred_arr)
+                if _is_prob_vector(vec):
+                    prob_source = vec
+                    y_pred = (vec >= 0.5).astype(int)
+                else:
+                    y_pred = vec
+
+        score_arr = _to_array(y_score_raw)
+        if score_arr is not None:
+            if score_arr.ndim == 2 and score_arr.shape[1] == 2:
+                y_score = score_arr[:, 1]
+            elif score_arr.ndim == 2 and score_arr.shape[1] == 1:
+                y_score = score_arr.ravel()
+            else:
+                y_score = np.ravel(score_arr)
+
+        if y_score is None and prob_source is not None:
+            y_score = prob_source
+
+        return y_pred, y_score
 
     def _setup_splitter(self):
         """Configure the appropriate CV splitter"""
