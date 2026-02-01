@@ -30,6 +30,25 @@ except ImportError:
     pass
 
 try:
+    # optional sklearn-style Keras wrappers (depend on TensorFlow)
+    from .tensorflow_sklearn import (
+        KerasClassifierWrap,
+        KerasSkWrap,
+        KerasBaseWrap,
+        KerasRegressorWrap,
+    )
+
+    __all__ = __all__ + ["KerasClassifierWrap", "KerasSkWrap"] if "__all__" in locals() else [
+        "KerasClassifierWrap",
+        "KerasSkWrap",
+        "KerasBaseWrap",
+        "KerasRegressorWrap",
+    ]
+except Exception:
+    # don't fail import of the frameworks package if TF is not present
+    pass
+
+try:
     from .monai import MONAIAdapter, MONAICVRunner
 
     adapters["monai"] = MONAIAdapter

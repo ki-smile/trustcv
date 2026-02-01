@@ -150,6 +150,8 @@ __all__ = [
     "RepeatedGroupKFold",
     "NestedGroupedCV",
     "HierarchicalGroupKFold",
+    "MultilabelStratifiedKFold",
+    "MultilabelStratifiedGroupKFold",
     # Temporal methods
     "TimeSeriesSplit",
     "BlockedTimeSeries",
@@ -177,6 +179,19 @@ if _pytorch_available:
     __all__.append("TorchCVRunner")
 if _tensorflow_available:
     __all__.append("KerasCVRunner")
+
+# Optional Keras sklearn-style wrapper (only if TF is installed)
+try:
+    from .frameworks.tensorflow_sklearn import (  # type: ignore
+        KerasSkWrap,
+        KerasClassifierWrap,
+        KerasBaseWrap,
+        KerasRegressorWrap,
+    )
+
+    __all__.extend(["KerasSkWrap", "KerasClassifierWrap", "KerasBaseWrap", "KerasRegressorWrap"])
+except Exception:
+    pass
 if _monai_available:
     __all__.append("MONAICVRunner")
 

@@ -357,6 +357,8 @@ class ClassDistributionLogger(CVCallback):
         label_names: Optional[Dict[Any, str]] = None,
         verbose: int = 1,
         decimals: int = 1,
+        output_key: Optional[str] = None,
+        output_index: Optional[int] = None,
     ):
         """
         Parameters:
@@ -364,24 +366,53 @@ class ClassDistributionLogger(CVCallback):
             label_names: Optional mapping {raw_label: display_name}
             verbose: 0=silent, 1=summary per fold
             decimals: Number of decimal places for percentages
+            output_key/index: For multi-output labels (dict/list), choose which head to log
         """
         self.labels = labels
         self.label_names = label_names or {}
         self.verbose = verbose
         self.decimals = max(0, decimals)
+        self.output_key = output_key
+        self.output_index = output_index
         self._cache = {}
 
     def _slice_labels(self, indices: np.ndarray) -> np.ndarray:
         """Return labels for the given indices, handling pandas objects."""
         if indices is None or len(indices) == 0:
             return np.array([])
-        if hasattr(self.labels, "iloc"):
-            subset = self.labels.iloc[indices]
+        labels = self.labels
+
+        def _select_target(y_obj):
+            if isinstance(y_obj, dict):
+                if self.output_key is not None:
+                    if self.output_key not in y_obj:
+                        raise KeyError(f"output_key '{self.output_key}' not found in labels.")
+                    return y_obj[self.output_key]
+                if self.output_index is not None:
+                    keys = list(y_obj.keys())
+                    if self.output_index >= len(keys):
+                        raise IndexError("output_index is out of range for labels dict.")
+                    return y_obj[keys[self.output_index]]
+                # default: first key
+                first_key = next(iter(y_obj.keys()))
+                return y_obj[first_key]
+            if isinstance(y_obj, (list, tuple)) and not hasattr(y_obj, "shape"):
+                if self.output_index is not None:
+                    if self.output_index >= len(y_obj):
+                        raise IndexError("output_index is out of range for labels list/tuple.")
+                    return y_obj[self.output_index]
+                return y_obj[0]
+            return y_obj
+
+        labels = _select_target(labels)
+
+        if hasattr(labels, "iloc"):
+            subset = labels.iloc[indices]
         else:
             try:
-                subset = self.labels[indices]
+                subset = labels[indices]
             except Exception:
-                subset = np.asarray(self.labels)[indices]
+                subset = np.asarray(labels)[indices]
         return np.asarray(subset)
 
     def _format_distribution(self, indices: np.ndarray) -> str:
@@ -393,6 +424,18 @@ class ClassDistributionLogger(CVCallback):
         values = self._slice_labels(indices)
         if values.size == 0:
             summary = "n/a"
+        elif values.ndim == 2:
+            # Multilabel: report per-label positive prevalence
+            total = values.shape[0]
+            pos_counts = values.sum(axis=0)
+            pieces = []
+            n_labels = values.shape[1]
+            for i in range(n_labels):
+                label = self.label_names.get(i, f"{i}")
+                cnt = int(pos_counts[i])
+                perc = (cnt / total) * 100 if total > 0 else 0.0
+                pieces.append(f"{label}: {cnt} ({perc:.{self.decimals}f}%)")
+            summary = ", ".join(pieces)
         else:
             unique, counts = np.unique(values, return_counts=True)
             total = counts.sum()

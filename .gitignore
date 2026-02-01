@@ -13,3 +13,4 @@ venv/
 *.egg-info/
 *.py[cod]
 TrustCV_v1/
+notebooks/Test.ipynb/

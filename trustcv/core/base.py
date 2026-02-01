@@ -384,6 +384,10 @@ class SklearnAdapter(FrameworkAdapter):
         # for numpy arrays fall back to standard indexing.
         def _slice_rows(arr, idx):
             try:
+                if isinstance(arr, dict):
+                    return {k: _slice_rows(v, idx) for k, v in arr.items()}
+                if isinstance(arr, (list, tuple)) and not hasattr(arr, "shape"):
+                    return [ _slice_rows(v, idx) for v in arr ]
                 if hasattr(arr, "iloc"):
                     return arr.iloc[idx]
                 return arr[idx]
@@ -411,8 +415,43 @@ class SklearnAdapter(FrameworkAdapter):
 
         # Return training score if model supports it
         train_metrics = {}
+        def _select_target(y_obj):
+            if isinstance(y_obj, dict):
+                if hasattr(model, "output_key") and getattr(model, "output_key") is not None:
+                    key = getattr(model, "output_key")
+                    if key not in y_obj:
+                        raise KeyError(f"output_key '{key}' not found in y.")
+                    return y_obj[key]
+                if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                    keys = list(y_obj.keys())
+                    idx = int(getattr(model, "output_index"))
+                    if idx >= len(keys):
+                        raise IndexError("output_index is out of range for y dict.")
+                    return y_obj[keys[idx]]
+                return next(iter(y_obj.values()))
+            if isinstance(y_obj, (list, tuple)) and not hasattr(y_obj, "shape"):
+                if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                    idx = int(getattr(model, "output_index"))
+                    if idx >= len(y_obj):
+                        raise IndexError("output_index is out of range for y list/tuple.")
+                    return y_obj[idx]
+                return y_obj[0]
+            return y_obj
+
+        y_train_sel = _select_target(y_train)
+
         if hasattr(model, "score"):
-            train_metrics["train_score"] = model.score(X_train, y_train)
+            try:
+                train_metrics["train_score"] = model.score(X_train, y_train_sel)
+            except Exception:
+                # fallback to accuracy if possible
+                try:
+                    from sklearn.metrics import accuracy_score
+
+                    preds = model.predict(X_train)
+                    train_metrics["train_score"] = float(accuracy_score(y_train_sel, preds))
+                except Exception:
+                    pass
 
         return train_metrics
 
@@ -425,12 +464,37 @@ class SklearnAdapter(FrameworkAdapter):
         """Evaluate sklearn model"""
         X_val, y_val = val_data
 
+        def _select_target(y_obj):
+            if isinstance(y_obj, dict):
+                if hasattr(model, "output_key") and getattr(model, "output_key") is not None:
+                    key = getattr(model, "output_key")
+                    if key not in y_obj:
+                        raise KeyError(f"output_key '{key}' not found in y.")
+                    return y_obj[key]
+                if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                    keys = list(y_obj.keys())
+                    idx = int(getattr(model, "output_index"))
+                    if idx >= len(keys):
+                        raise IndexError("output_index is out of range for y dict.")
+                    return y_obj[keys[idx]]
+                raise ValueError("y is a dict; set model.output_key or model.output_index.")
+            if isinstance(y_obj, (list, tuple)) and not hasattr(y_obj, "shape"):
+                if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                    idx = int(getattr(model, "output_index"))
+                    if idx >= len(y_obj):
+                        raise IndexError("output_index is out of range for y list/tuple.")
+                    return y_obj[idx]
+                raise ValueError("y is a list/tuple; set model.output_index.")
+            return y_obj
+
+        y_eval = _select_target(y_val)
+
         eval_metrics: Dict[str, float] = {}
 
         # Default score (sklearn's estimator.score)
         if hasattr(model, "score"):
             try:
-                eval_metrics["score"] = float(model.score(X_val, y_val))
+                eval_metrics["score"] = float(model.score(X_val, y_eval))
             except Exception:
                 pass
 
@@ -467,30 +531,30 @@ class SklearnAdapter(FrameworkAdapter):
             if y_pred is not None:
                 # Some regressors return floats; only compute cls metrics for discrete labels
                 # Treat binary or integer classes as classification
-                y_val_arr = _np.asarray(y_val)
+                y_val_arr = _np.asarray(y_eval)
                 n_classes = len(_np.unique(y_val_arr))
                 if (
                     _np.issubdtype(y_val_arr.dtype, _np.integer)
                     or _np.array_equal(_np.unique(y_val_arr), [0, 1])
                     or n_classes <= 50
                 ):
-                    eval_metrics["accuracy"] = float(accuracy_score(y_val, y_pred))
+                    eval_metrics["accuracy"] = float(accuracy_score(y_eval, y_pred))
                     # binary/default scorers
                     try:
-                        eval_metrics["f1"] = float(f1_score(y_val, y_pred))
+                        eval_metrics["f1"] = float(f1_score(y_eval, y_pred))
                     except Exception:
                         pass
                     try:
-                        eval_metrics["precision"] = float(precision_score(y_val, y_pred))
+                        eval_metrics["precision"] = float(precision_score(y_eval, y_pred))
                     except Exception:
                         pass
                     try:
-                        eval_metrics["recall"] = float(recall_score(y_val, y_pred))
+                        eval_metrics["recall"] = float(recall_score(y_eval, y_pred))
                     except Exception:
                         pass
                     try:
                         eval_metrics["balanced_accuracy"] = float(
-                            balanced_accuracy_score(y_val, y_pred)
+                            balanced_accuracy_score(y_eval, y_pred)
                         )
                     except Exception:
                         pass
@@ -499,19 +563,19 @@ class SklearnAdapter(FrameworkAdapter):
                     if n_classes > 2:
                         try:
                             eval_metrics["f1_macro"] = float(
-                                f1_score(y_val, y_pred, average="macro")
+                                f1_score(y_eval, y_pred, average="macro")
                             )
                         except Exception:
                             pass
                         try:
                             eval_metrics["precision_macro"] = float(
-                                precision_score(y_val, y_pred, average="macro")
+                                precision_score(y_eval, y_pred, average="macro")
                             )
                         except Exception:
                             pass
                         try:
                             eval_metrics["recall_macro"] = float(
-                                recall_score(y_val, y_pred, average="macro")
+                                recall_score(y_eval, y_pred, average="macro")
                             )
                         except Exception:
                             pass
@@ -523,13 +587,13 @@ class SklearnAdapter(FrameworkAdapter):
                     if ys.ndim == 2 and ys.shape[1] > 1:
                         # multiclass or binary-prob matrix
                         if ys.shape[1] == 2:
-                            eval_metrics["roc_auc"] = float(roc_auc_score(y_val, ys[:, 1]))
+                            eval_metrics["roc_auc"] = float(roc_auc_score(y_eval, ys[:, 1]))
                         else:
                             eval_metrics["roc_auc_ovr_macro"] = float(
-                                roc_auc_score(y_val, ys, multi_class="ovr", average="macro")
+                                roc_auc_score(y_eval, ys, multi_class="ovr", average="macro")
                             )
                     else:
-                        eval_metrics["roc_auc"] = float(roc_auc_score(y_val, ys))
+                        eval_metrics["roc_auc"] = float(roc_auc_score(y_eval, ys))
                 except Exception:
                     pass
         except Exception:

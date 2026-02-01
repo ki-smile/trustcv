@@ -11,6 +11,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
+from sklearn.metrics import f1_score, mean_squared_error, mean_absolute_error, r2_score, explained_variance_score
+
 from .base import CVResults, FrameworkAdapter, SklearnAdapter
 from .callbacks import CVCallback, ProgressLogger
 
@@ -174,6 +176,16 @@ class UniversalCVRunner:
         Returns:
             CVResults object with scores and models
         """
+        def _is_regression_target(y_true):
+            arr = y_true.to_numpy() if hasattr(y_true, "to_numpy") else np.asarray(y_true)
+            if arr.ndim > 1 and arr.shape[1] == 1:
+                arr = arr.ravel()
+            if arr.ndim != 1:
+                return False
+            if np.issubdtype(arr.dtype, np.floating):
+                return True
+            return np.unique(arr).size > 20
+
         # Combine default and user callbacks
         all_callbacks = self.default_callbacks + (callbacks or [])
 
@@ -212,7 +224,14 @@ class UniversalCVRunner:
                 X, y, groups_from_data = data
             else:
                 raise ValueError("data tuple must be (X, y) or (X, y, groups)")
-            n_samples = len(X)
+            # robust sample count for dict/list inputs
+            if isinstance(X, dict):
+                first_val = next(iter(X.values()))
+                n_samples = len(first_val)
+            elif isinstance(X, (list, tuple)) and len(X) > 0 and not hasattr(X, "shape"):
+                n_samples = len(np.asarray(X[0]))
+            else:
+                n_samples = len(X)
             X_data = X
             y_data = y
             # If caller did not pass groups kwarg, use groups from data tuple
@@ -235,10 +254,35 @@ class UniversalCVRunner:
         # Cross-validation loop
         fold_idx = 0
         split_source = range(n_samples) if n_samples is not None else data
+        y_for_split = y_data
+        # If y is multi-output mapping/sequence, pick primary head for splitter
+        if isinstance(y_data, dict):
+            if hasattr(model, "output_key") and getattr(model, "output_key") is not None:
+                key = getattr(model, "output_key")
+                if key not in y_data:
+                    raise KeyError(f"output_key '{key}' not found in y.")
+                y_for_split = y_data[key]
+            elif hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                keys = list(y_data.keys())
+                idx = int(getattr(model, "output_index"))
+                if idx >= len(keys):
+                    raise IndexError("output_index is out of range for y dict.")
+                y_for_split = y_data[keys[idx]]
+            else:
+                raise ValueError("y is a dict; set model.output_key or model.output_index for CV splitting.")
+        elif isinstance(y_data, (list, tuple)) and not hasattr(y_data, "shape"):
+            if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                idx = int(getattr(model, "output_index"))
+                if idx >= len(y_data):
+                    raise IndexError("output_index is out of range for y list/tuple.")
+                y_for_split = y_data[idx]
+            else:
+                raise ValueError("y is a list/tuple; set model.output_index for CV splitting.")
+
         if y_data is not None:
             split_iter = self.cv_splitter.split(
                 split_source,
-                y=y_data,
+                y=y_for_split,
                 groups=groups,
                 **kwargs,
             )
@@ -272,6 +316,29 @@ class UniversalCVRunner:
             train_data, val_data = self.adapter.create_data_splits(
                 data_for_adapter, train_idx, val_idx
             )
+
+            def _select_target(y_obj):
+                if isinstance(y_obj, dict):
+                    if hasattr(fold_model, "output_key") and getattr(fold_model, "output_key") is not None:
+                        key = getattr(fold_model, "output_key")
+                        if key not in y_obj:
+                            raise KeyError(f"output_key '{key}' not found in y.")
+                        return y_obj[key]
+                    if hasattr(fold_model, "output_index") and getattr(fold_model, "output_index") is not None:
+                        keys = list(y_obj.keys())
+                        idx = int(getattr(fold_model, "output_index"))
+                        if idx >= len(keys):
+                            raise IndexError("output_index is out of range for y dict.")
+                        return y_obj[keys[idx]]
+                    raise ValueError("y is a dict; set model.output_key or model.output_index.")
+                if isinstance(y_obj, (list, tuple)) and not hasattr(y_obj, "shape"):
+                    if hasattr(fold_model, "output_index") and getattr(fold_model, "output_index") is not None:
+                        idx = int(getattr(fold_model, "output_index"))
+                        if idx >= len(y_obj):
+                            raise IndexError("output_index is out of range for y list/tuple.")
+                        return y_obj[idx]
+                    raise ValueError("y is a list/tuple; set model.output_index.")
+                return y_obj
 
             # Framework-specific training
             if self.framework in ["pytorch", "tensorflow", "monai", "jax"]:
@@ -334,6 +401,71 @@ class UniversalCVRunner:
             probabilities = final_metrics.get("probabilities")
             if probabilities is not None:
                 all_probabilities.append(probabilities)
+
+            # Multilabel convenience metrics (auto-compute)
+            try:
+                if isinstance(val_data, tuple) and len(val_data) >= 2:
+                    y_true_full = val_data[1]
+                    y_true = _select_target(y_true_full)
+                    y_true_arr = y_true.to_numpy() if hasattr(y_true, "to_numpy") else np.asarray(y_true)
+                    is_multilabel = y_true_arr.ndim == 2 and set(np.unique(y_true_arr)).issubset({0, 1})
+                    if is_multilabel:
+                        y_pred_arr = None
+                        if "predictions" in final_metrics:
+                            y_pred_arr = np.asarray(final_metrics["predictions"])
+                        elif probabilities is not None:
+                            y_pred_arr = (np.asarray(probabilities) >= 0.5).astype(int)
+                        if y_pred_arr is None and hasattr(fold_model, "predict"):
+                            try:
+                                y_pred_arr = np.asarray(fold_model.predict(val_data[0]))
+                            except Exception:
+                                y_pred_arr = None
+                        if y_pred_arr is not None:
+                            final_metrics["f1_samples"] = float(
+                                f1_score(y_true_arr, y_pred_arr, average="samples")
+                            )
+                            final_metrics["f1_macro"] = float(
+                                f1_score(y_true_arr, y_pred_arr, average="macro")
+                            )
+                        try:
+                            final_metrics["label_prevalence"] = y_true_arr.mean(axis=0).tolist()
+                        except Exception:
+                            pass
+            except Exception:
+                if self.verbose >= 1:
+                    print("Warning: multilabel metric computation failed.")
+
+            # Regression convenience metrics (auto-compute)
+            try:
+                if isinstance(val_data, tuple) and len(val_data) >= 2:
+                    y_true_full = val_data[1]
+                    y_true = _select_target(y_true_full)
+                    if _is_regression_target(y_true):
+                        y_pred_arr = None
+                        if predictions is not None:
+                            y_pred_arr = np.asarray(predictions)
+                        elif hasattr(fold_model, "predict"):
+                            try:
+                                y_pred_arr = np.asarray(fold_model.predict(val_data[0]))
+                            except Exception:
+                                y_pred_arr = None
+                        if y_pred_arr is not None:
+                            if y_pred_arr.ndim > 1 and y_pred_arr.shape[1] == 1:
+                                y_pred_arr = y_pred_arr.ravel()
+                            y_true_arr = y_true.to_numpy() if hasattr(y_true, "to_numpy") else np.asarray(y_true)
+                            if y_true_arr.ndim > 1 and y_true_arr.shape[1] == 1:
+                                y_true_arr = y_true_arr.ravel()
+                            final_metrics.setdefault("mse", float(mean_squared_error(y_true_arr, y_pred_arr)))
+                            final_metrics.setdefault("rmse", float(np.sqrt(mean_squared_error(y_true_arr, y_pred_arr))))
+                            final_metrics.setdefault("mae", float(mean_absolute_error(y_true_arr, y_pred_arr)))
+                            final_metrics.setdefault("r2", float(r2_score(y_true_arr, y_pred_arr)))
+                            final_metrics.setdefault(
+                                "explained_variance",
+                                float(explained_variance_score(y_true_arr, y_pred_arr)),
+                            )
+            except Exception:
+                if self.verbose >= 1:
+                    print("Warning: regression metric computation failed.")
 
             # Store results
             all_scores.append(final_metrics)

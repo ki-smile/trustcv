@@ -45,6 +45,8 @@ from .temporal import (
     RollingWindowCV,
     TimeSeriesSplit,
 )
+from .multilabel import MultilabelStratifiedKFold
+from .multilabel_group import MultilabelStratifiedGroupKFold
 
 __all__ = [
     # I.I.D.
@@ -80,6 +82,8 @@ __all__ = [
     "BufferedSpatialCV",
     "SpatiotemporalBlockCV",
     "EnvironmentalHealthCV",
+    "MultilabelStratifiedKFold",
+    "MultilabelStratifiedGroupKFold",
 ]
 
 # Canonical alias names (sklearn-style) for convenience
@@ -105,6 +109,8 @@ SpatialBlockSplit = SpatialBlockCV
 BufferedSpatialSplit = BufferedSpatialCV
 SpatiotemporalBlockSplit = SpatiotemporalBlockCV
 EnvironmentalHealthSplit = EnvironmentalHealthCV
+MultilabelStratifiedKFoldSplit = MultilabelStratifiedKFold
+MultilabelStratifiedGroupKFoldSplit = MultilabelStratifiedGroupKFold
 
 # Export aliases as well
 __all__ += [
@@ -128,4 +134,7 @@ __all__ += [
     "BufferedSpatialSplit",
     "SpatiotemporalBlockSplit",
     "EnvironmentalHealthSplit",
+    "MultilabelStratifiedKFoldSplit",
+    "MultilabelStratifiedGroupKFold",
+    "MultilabelStratifiedGroupKFoldSplit",
 ]

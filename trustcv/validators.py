@@ -21,9 +21,15 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+    mean_squared_error,
+    mean_absolute_error,
+    r2_score,
+    explained_variance_score,
 )
-from sklearn.model_selection import BaseCrossValidator, cross_validate
+from sklearn.model_selection import BaseCrossValidator, cross_validate, StratifiedKFold, KFold
 from sklearn.utils.validation import check_array
+
+from .splitters import KFoldMedical
 
 
 @dataclass
@@ -312,9 +318,55 @@ class TrustCVValidator:
         from sklearn.base import clone as _sk_clone
         from sklearn.metrics import get_scorer as _get_scorer
 
-        X_arr = _np.asarray(X) if not hasattr(X, "iloc") else X
-        y_arr = _np.asarray(y) if not hasattr(y, "iloc") else y
-        n = len(X_arr)
+        from collections.abc import Mapping, Sequence
+
+        X_arr = X if hasattr(X, "iloc") else X
+
+        # When y is a mapping/list (multi-output), pick a primary head for splitting/metrics.
+        y_raw = y
+        y_target = y_raw
+        selected_key = None
+        if isinstance(y_raw, Mapping):
+            if hasattr(model, "output_key") and getattr(model, "output_key") is not None:
+                selected_key = getattr(model, "output_key")
+                if selected_key not in y_raw:
+                    raise KeyError(f"output_key '{selected_key}' not found in y.")
+                y_target = y_raw[selected_key]
+            elif hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                keys = list(y_raw.keys())
+                idx = int(getattr(model, "output_index"))
+                if idx >= len(keys):
+                    raise IndexError("output_index is out of range for y dict.")
+                selected_key = keys[idx]
+                y_target = y_raw[selected_key]
+            else:
+                raise ValueError(
+                    "y is a dict; please set model.output_key or model.output_index to choose target for CV splitting."
+                )
+        elif isinstance(y_raw, (list, tuple)) and not hasattr(y_raw, "shape"):
+            if hasattr(model, "output_index") and getattr(model, "output_index") is not None:
+                idx = int(getattr(model, "output_index"))
+                if idx >= len(y_raw):
+                    raise IndexError("output_index is out of range for y list/tuple.")
+                y_target = y_raw[idx]
+            else:
+                raise ValueError(
+                    "y is a list/tuple; please set model.output_index to choose target for CV splitting."
+                )
+
+        y_arr = _np.asarray(y_target) if not hasattr(y_target, "iloc") else y_target
+        is_multilabel = self._is_multilabel(y_arr)
+        is_regression = not is_multilabel and self._is_regression(y_arr)
+
+        # Determine sample count robustly for multi-input dict/sequence
+        if isinstance(X_arr, Mapping):
+            first_val = next(iter(X_arr.values()))
+            n = len(first_val)
+        elif isinstance(X_arr, (list, tuple)) and len(X_arr) > 0 and not hasattr(X_arr, "shape"):
+            n = len(_np.asarray(X_arr[0]))
+        else:
+            X_arr = _np.asarray(X_arr) if not hasattr(X_arr, "iloc") else X_arr
+            n = len(X_arr)
         group_labels = groups
         if group_labels is None and patient_ids is not None:
             group_labels = patient_ids
@@ -324,6 +376,16 @@ class TrustCVValidator:
                 raise ValueError(
                     f"groups/patient_ids length mismatch: expected {n}, got {group_len}"
                 )
+        if is_multilabel and group_labels is not None and self.method in (
+            "stratified_kfold",
+            "patient_grouped_kfold",
+        ):
+            warnings.warn(
+                "Detected multilabel indicator targets with grouped data; "
+                "consider method='multilabel_stratified_group_kfold' to keep groups intact while "
+                "preserving label prevalence.",
+                UserWarning,
+            )
 
         # Track binary class labels so we can compute sensitivity/specificity when requested
         y_for_class = y_arr.to_numpy() if hasattr(y_arr, "to_numpy") else _np.asarray(y_arr)
@@ -335,10 +397,20 @@ class TrustCVValidator:
                 binary_labels = (unique_labels[0], unique_labels[1])
 
         splitter = cv if cv is not None else self._cv_splitter
-        if splitter is None:
-            # default safe fallback
-            from sklearn.model_selection import StratifiedKFold
+        # For sklearn splitters, provide an index placeholder when X is non-array (dict/list of inputs)
+        X_for_split = _np.arange(n) if isinstance(X_arr, Mapping) or isinstance(X_arr, (list, tuple)) else X_arr
 
+        # Multilabel-aware override
+        if self.method in ("multilabel_stratified_kfold",):
+            splitter = self._choose_multilabel_splitter(
+                fallback_splitter=splitter, is_multilabel=True, force_multilabel=True
+            )
+        elif self.method in ("stratified_kfold", "StratifiedKFold") and is_multilabel:
+            splitter = self._choose_multilabel_splitter(
+                fallback_splitter=splitter, is_multilabel=True, force_multilabel=False
+            )
+
+        if splitter is None:
             splitter = StratifiedKFold(
                 n_splits=self.n_splits, shuffle=True, random_state=self.random_state
             )
@@ -354,20 +426,43 @@ class TrustCVValidator:
                 else:
                     scorer_dict[name] = scorer
             metric_list = list(scorer_dict.keys())
+        else:
+            if is_regression:
+                metric_list = ["mse", "rmse", "mae", "r2", "explained_variance"]
+            else:
+                metric_list = list(self.metrics)
         per_metric_scores: Dict[str, List[float]] = {m: [] for m in metric_list}
         fold_details: List[Dict[str, Any]] = []
+        per_label_prevalence: List[np.ndarray] = []
 
         # iterate folds
         # Most trustcv/sklearn splitters accept (X, y, groups)
         split_groups = group_labels
-        for k, (tr, te) in enumerate(splitter.split(X_arr, y_arr, split_groups), 1):
+        for k, (tr, te) in enumerate(splitter.split(X_for_split, y_arr, split_groups), 1):
             # train/val slices
-            if hasattr(X_arr, "iloc"):
+            if isinstance(X_arr, Mapping):
+                X_tr = {k2: v[tr] for k2, v in X_arr.items()}
+                X_te = {k2: v[te] for k2, v in X_arr.items()}
+            elif isinstance(X_arr, (list, tuple)) and not hasattr(X_arr, "shape"):
+                X_tr = [v[tr] for v in X_arr]
+                X_te = [v[te] for v in X_arr]
+            elif hasattr(X_arr, "iloc"):
                 X_tr, X_te = X_arr.iloc[tr], X_arr.iloc[te]
             else:
                 X_tr, X_te = X_arr[tr], X_arr[te]
-            y_tr = y_arr.iloc[tr] if hasattr(y_arr, "iloc") else y_arr[tr]
-            y_te = y_arr.iloc[te] if hasattr(y_arr, "iloc") else y_arr[te]
+            if isinstance(y_raw, Mapping):
+                y_tr = {k2: v[tr] for k2, v in y_raw.items()}
+                y_te = y_raw  # keep full mapping for potential use later
+                y_te_eval = y_raw[selected_key][te]
+            elif isinstance(y_raw, (list, tuple)) and not hasattr(y_raw, "shape"):
+                y_tr = [v[tr] for v in y_raw]
+                y_te_eval = y_target[te]
+            elif hasattr(y_arr, "iloc"):
+                y_tr = y_arr.iloc[tr]
+                y_te_eval = y_arr.iloc[te]
+            else:
+                y_tr = y_arr[tr]
+                y_te_eval = y_arr[te]
 
             # clone model if possible
             try:
@@ -376,9 +471,19 @@ class TrustCVValidator:
                 est = model
 
             fit_kwargs = {}
+            # Prefer explicit sample_weight passed to validate; otherwise, if the model
+            # carries default fit_kwargs with a full-length sample_weight, slice it per fold.
             if sample_weight is not None:
                 sw_tr = sample_weight[tr]
                 fit_kwargs["sample_weight"] = sw_tr
+            elif hasattr(est, "fit_kwargs") and isinstance(getattr(est, "fit_kwargs"), Mapping):
+                sw_full = est.fit_kwargs.get("sample_weight", None)
+                try:
+                    if sw_full is not None and len(sw_full) == len(y_arr):
+                        fit_kwargs["sample_weight"] = sw_full[tr]
+                except Exception:
+                    # fall back silently if slicing fails
+                    pass
             try:
                 est.fit(X_tr, y_tr, **fit_kwargs)
             except TypeError:
@@ -404,7 +509,7 @@ class TrustCVValidator:
                 except Exception:
                     y_score_raw = None
 
-            y_pred, y_score = self._coerce_predictions(y_te, y_pred_raw, y_score_raw)
+            y_pred, y_score = self._coerce_predictions(y_te_eval, y_pred_raw, y_score_raw)
 
             # compute metrics
             fold_metric_values: Dict[str, float] = {}
@@ -412,34 +517,37 @@ class TrustCVValidator:
                 try:
                     if scorer_dict is not None:
                         scorer = scorer_dict[m]
-                        val = float(scorer(est, X_te, y_te))
+                        val = float(scorer(est, X_te, y_te_eval))
                     else:
                         if m in ("accuracy",):
                             from sklearn.metrics import accuracy_score as _acc
 
                             if y_pred is not None:
-                                val = float(_acc(y_te, y_pred))
+                                val = float(_acc(y_te_eval, y_pred))
                             else:
                                 continue
                         elif m in ("f1", "f1_score"):
                             from sklearn.metrics import f1_score as _f1
 
                             if y_pred is not None:
-                                val = float(_f1(y_te, y_pred))
+                                avg = "micro" if y_te_eval.ndim == 2 else "binary"
+                                val = float(_f1(y_te_eval, y_pred, average=avg))
                             else:
                                 continue
                         elif m in ("precision",):
                             from sklearn.metrics import precision_score as _prec
 
                             if y_pred is not None:
-                                val = float(_prec(y_te, y_pred))
+                                avg = "micro" if y_te_eval.ndim == 2 else "binary"
+                                val = float(_prec(y_te_eval, y_pred, average=avg, zero_division=0))
                             else:
                                 continue
                         elif m in ("recall",):
                             from sklearn.metrics import recall_score as _rec
 
                             if y_pred is not None:
-                                val = float(_rec(y_te, y_pred))
+                                avg = "micro" if y_te_eval.ndim == 2 else "binary"
+                                val = float(_rec(y_te_eval, y_pred, average=avg, zero_division=0))
                             else:
                                 continue
                         elif m in ("sensitivity", "tpr", "recall_pos"):
@@ -448,7 +556,7 @@ class TrustCVValidator:
                             if y_pred is not None and binary_labels is not None:
                                 pos_label = binary_labels[1]
                                 val = float(
-                                    _rec(y_te, y_pred, pos_label=pos_label, zero_division=0.0)
+                                    _rec(y_te_eval, y_pred, pos_label=pos_label, zero_division=0.0)
                                 )
                             else:
                                 continue
@@ -458,7 +566,7 @@ class TrustCVValidator:
                             if y_pred is not None and binary_labels is not None:
                                 neg_label = binary_labels[0]
                                 val = float(
-                                    _rec(y_te, y_pred, pos_label=neg_label, zero_division=0.0)
+                                    _rec(y_te_eval, y_pred, pos_label=neg_label, zero_division=0.0)
                                 )
                             else:
                                 continue
@@ -466,13 +574,38 @@ class TrustCVValidator:
                             from sklearn.metrics import roc_auc_score as _auc
 
                             if y_score is not None:
-                                val = float(_auc(y_te, y_score))
+                                val = float(_auc(y_te_eval, y_score))
+                            else:
+                                continue
+                        elif m in ("mse", "mean_squared_error"):
+                            if y_pred is not None:
+                                val = float(mean_squared_error(y_te_eval, y_pred))
+                            else:
+                                continue
+                        elif m in ("rmse",):
+                            if y_pred is not None:
+                                val = float(np.sqrt(mean_squared_error(y_te_eval, y_pred)))
+                            else:
+                                continue
+                        elif m in ("mae", "mean_absolute_error"):
+                            if y_pred is not None:
+                                val = float(mean_absolute_error(y_te_eval, y_pred))
+                            else:
+                                continue
+                        elif m in ("r2", "r2_score"):
+                            if y_pred is not None:
+                                val = float(r2_score(y_te_eval, y_pred))
+                            else:
+                                continue
+                        elif m in ("explained_variance", "evs"):
+                            if y_pred is not None:
+                                val = float(explained_variance_score(y_te_eval, y_pred))
                             else:
                                 continue
                         else:
                             # fallback to estimator.score as 'score'
                             if hasattr(est, "score") and m in ("score",):
-                                val = float(est.score(X_te, y_te))
+                                val = float(est.score(X_te, y_te_eval))
                             else:
                                 continue
                     per_metric_scores[m].append(val)
@@ -490,6 +623,12 @@ class TrustCVValidator:
                     "metrics": fold_metric_values,
                 }
             )
+            if is_multilabel:
+                try:
+                    te_arr = y_te_eval.to_numpy() if hasattr(y_te_eval, "to_numpy") else _np.asarray(y_te_eval)
+                    per_label_prevalence.append(te_arr.mean(axis=0))
+                except Exception:
+                    pass
 
         # aggregate
         mean_scores: Dict[str, float] = {}
@@ -514,6 +653,14 @@ class TrustCVValidator:
         leakage_check_map: Dict[str, bool] = self._basic_integrity_checks(
             X_arr, y_arr, groups=split_groups, splitter=splitter
         )
+        if is_multilabel and per_label_prevalence:
+            try:
+                prev_arr = _np.vstack(per_label_prevalence)
+                overall = _np.asarray(y_arr).mean(axis=0)
+                max_dev = float(_np.max(_np.abs(prev_arr - overall)))
+                leakage_check_map["balanced_multilabel"] = max_dev <= 0.1
+            except Exception:
+                pass
         recommendations: List[str] = []
         if leakage_checker is not None:
             try:
@@ -579,7 +726,8 @@ class TrustCVValidator:
             return finite.size > 0 and finite.min(initial=0.0) >= 0.0 and finite.max(initial=1.0) <= 1.0
 
         y_true_arr = _to_array(y_true)
-        if y_true_arr is not None:
+        is_multilabel = y_true_arr is not None and y_true_arr.ndim == 2
+        if y_true_arr is not None and not is_multilabel:
             y_true_arr = np.ravel(y_true_arr)
 
         y_pred = None
@@ -588,7 +736,15 @@ class TrustCVValidator:
 
         pred_arr = _to_array(y_pred_raw)
         if pred_arr is not None:
-            if pred_arr.ndim == 2:
+            if is_multilabel:
+                # Expect shape (n, C); threshold to binary labels
+                if pred_arr.ndim == 1:
+                    pred_arr = pred_arr.reshape(-1, 1)
+                if pred_arr.ndim != 2:
+                    raise ValueError("Multilabel predictions must be 2D (n, C).")
+                prob_source = pred_arr
+                y_pred = (pred_arr >= 0.5).astype(int)
+            elif pred_arr.ndim == 2:
                 if pred_arr.shape[1] == 1:
                     vec = np.ravel(pred_arr)
                     if _is_prob_vector(vec):
@@ -611,7 +767,11 @@ class TrustCVValidator:
 
         score_arr = _to_array(y_score_raw)
         if score_arr is not None:
-            if score_arr.ndim == 2 and score_arr.shape[1] == 2:
+            if is_multilabel:
+                if score_arr.ndim == 1:
+                    score_arr = score_arr.reshape(-1, 1)
+                y_score = score_arr
+            elif score_arr.ndim == 2 and score_arr.shape[1] == 2:
                 y_score = score_arr[:, 1]
             elif score_arr.ndim == 2 and score_arr.shape[1] == 1:
                 y_score = score_arr.ravel()
@@ -628,10 +788,16 @@ class TrustCVValidator:
         from sklearn.model_selection import GroupKFold, KFold, StratifiedKFold, TimeSeriesSplit
 
         # Optional trustcv splitters for advanced strategies
+        _TCVMLStratifiedGroupKFold = None
+        _TCVStratifiedGroupKFold = None
+        try:
+            from .splitters import MultilabelStratifiedGroupKFold as _TCVMLStratifiedGroupKFold
+        except Exception:
+            pass
         try:
             from .splitters import StratifiedGroupKFold as _TCVStratifiedGroupKFold
         except Exception:
-            _TCVStratifiedGroupKFold = None
+            pass
         _TCVHoldOut = _TCVRepeatedKFold = _TCVLOOCV = _TCVLPOCV = _TCVMonteCarloCV = (
             _TCVBootstrapValidation
         ) = None
@@ -658,6 +824,31 @@ class TrustCVValidator:
         elif method_key == "stratified_kfold":
             self._cv_splitter = StratifiedKFold(
                 n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+            )
+        elif method_key == "multilabel_stratified_kfold":
+            try:
+                from .splitters.multilabel import MultilabelStratifiedKFold as _MLSKF
+
+                self._cv_splitter = _MLSKF(
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+                )
+            except Exception:
+                warnings.warn(
+                    "iterative-stratification not installed; falling back to KFold for multilabel data.",
+                    RuntimeWarning,
+                )
+                self._cv_splitter = KFold(
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+                )
+        elif method_key == "multilabel_stratified_group_kfold":
+            if _TCVMLStratifiedGroupKFold is None:
+                raise ValueError(
+                    "MultilabelStratifiedGroupKFold is unavailable. Ensure trustcv.splitters is accessible."
+                )
+            self._cv_splitter = _TCVMLStratifiedGroupKFold(
+                n_splits=self.n_splits,
+                shuffle=self.shuffle,
+                random_state=self.random_state,
             )
         elif method_key == "patient_grouped_kfold":
             self._cv_splitter = GroupKFold(n_splits=self.n_splits)
@@ -778,6 +969,34 @@ class TrustCVValidator:
                 f"(also accepts 'KFold', 'StratifiedKFold', 'GroupKFold', 'StratifiedGroupKFold', 'TimeSeriesSplit')."
             )
 
+    def _choose_multilabel_splitter(
+        self, fallback_splitter: Optional[Any], is_multilabel: bool, force_multilabel: bool = False
+    ):
+        if not (force_multilabel or is_multilabel):
+            return fallback_splitter
+        try:
+            from .splitters.multilabel import MultilabelStratifiedKFold as _MLSKF
+
+            return _MLSKF(
+                n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+            )
+        except Exception:
+            warnings.warn(
+                "iterative-stratification not installed; using KFold instead for multilabel data.",
+                RuntimeWarning,
+            )
+            # If fallback is a StratifiedKFold, it won't work for multilabel; override to KFold.
+            if fallback_splitter is not None and not isinstance(fallback_splitter, StratifiedKFold):
+                return fallback_splitter
+            try:
+                return KFoldMedical(
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+                )
+            except Exception:
+                return KFold(
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+                )
+
     @staticmethod
     def _validate_split_size(value: Union[float, int], name: str) -> Union[float, int]:
         """Validate hold-out style split size parameters."""
@@ -840,6 +1059,8 @@ class TrustCVValidator:
             "bootstrapvalidation": "bootstrap",
             "bootstrap_cv": "bootstrap",
             "bootstrap": "bootstrap",
+            "multilabelstratifiedkfold": "multilabel_stratified_kfold",
+            "multilabelstratifiedgroupkfold": "multilabel_stratified_group_kfold",
             # temporal
             "temporal": "temporal",
             "timeseriessplit": "temporal",
@@ -889,6 +1110,30 @@ class TrustCVValidator:
                 seen.add(canonical)
                 normalized.append(canonical)
         return normalized or default.copy()
+
+    @staticmethod
+    def _is_multilabel(y: Any) -> bool:
+        try:
+            y_arr = y.to_numpy() if hasattr(y, "to_numpy") else np.asarray(y)
+            return y_arr.ndim == 2 and set(np.unique(y_arr)).issubset({0, 1})
+        except Exception:
+            return False
+
+    @staticmethod
+    def _is_regression(y: Any) -> bool:
+        try:
+            y_arr = y.to_numpy() if hasattr(y, "to_numpy") else np.asarray(y)
+            # 1D float or many unique values suggests regression
+            if y_arr.ndim > 1 and y_arr.shape[1] == 1:
+                y_arr = y_arr.ravel()
+            if y_arr.ndim != 1:
+                return False
+            if np.issubdtype(y_arr.dtype, np.floating):
+                return True
+            uniq = np.unique(y_arr)
+            return len(uniq) > 20
+        except Exception:
+            return False
 
     def fit_validate(
         self,
