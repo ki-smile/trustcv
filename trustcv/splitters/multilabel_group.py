@@ -1,8 +1,11 @@
 """
-Multilabel stratified GroupKFold splitter.
+Multilabel, group-aware splitters.
 
-Keeps all samples from the same group (e.g., patient) together while
-greedily balancing multilabel prevalence and fold sizes.
+This module already included ``MultilabelStratifiedGroupKFold`` (greedy
+heuristic). We add ``MultiLabelGroupSplitter``, a lightweight wrapper that
+first aggregates labels per group and then runs iterative stratification at
+the *group* level, guaranteeing zero leakage between groups while preserving
+per-label prevalence as well as iterative-stratification can.
 """
 
 from typing import Any, Dict, Iterator, List, Sequence, Tuple
@@ -10,6 +13,9 @@ from typing import Any, Dict, Iterator, List, Sequence, Tuple
 import numpy as np
 from sklearn.model_selection._split import _BaseKFold
 from sklearn.utils import check_random_state
+
+# Optional dep is required for the new splitter as well
+from iterstrat.ml_stratifiers import MultilabelStratifiedKFold as _ISKF
 
 
 class MultilabelStratifiedGroupKFold(_BaseKFold):
@@ -178,3 +184,83 @@ class MultilabelStratifiedGroupKFold(_BaseKFold):
             train_mask[test_idx] = False
             train_idx = all_indices[train_mask]
             yield train_idx, test_idx
+
+
+class MultiLabelGroupSplitter:
+    """
+    Iterative-stratified multilabel splitter that *first* aggregates labels per
+    group, then applies iterative stratification across groups, and finally
+    maps groups back to sample indices.
+
+    This gives you the two key properties needed for patient-level CV on
+    multilabel data:
+
+    - No patient appears in both train and validation (group hold-out).
+    - Per-label prevalence is balanced across folds as well as possible via
+      iterative stratification.
+
+    Parameters
+    ----------
+    n_splits : int, default=5
+        Number of folds.
+    shuffle : bool, default=True
+        Whether to shuffle groups before splitting (passed to iterstrat).
+    random_state : int or None, default=None
+        Random seed for reproducibility.
+    agg : {"max", "any"}, default="max"
+        How to aggregate multiple samples from the same group into a single
+        multilabel row. ``"max"``/``"any"`` mark a label present if it appears
+        in *any* sample of the group.
+    """
+
+    def __init__(self, n_splits: int = 5, shuffle: bool = True, random_state: Any = None, agg: str = "max"):
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        self.random_state = random_state
+        self.agg = agg
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        return self.n_splits
+
+    def _aggregate_group_labels(self, y: np.ndarray, groups: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        if y.ndim != 2:
+            raise ValueError("y must be a 2D multilabel indicator matrix.")
+        if not set(np.unique(y)).issubset({0, 1}):
+            raise ValueError("y must contain only binary indicators {0,1}.")
+        unique_groups, inverse = np.unique(groups, return_inverse=True)
+        label_mat = np.zeros((len(unique_groups), y.shape[1]), dtype=int)
+        # aggregate per group
+        for g_idx in range(len(unique_groups)):
+            rows = y[inverse == g_idx]
+            if rows.size == 0:
+                continue
+            if self.agg in ("max", "any"):
+                label_mat[g_idx] = rows.max(axis=0)
+            else:
+                raise ValueError(f"Unknown agg method: {self.agg}")
+        return unique_groups, label_mat
+
+    def split(self, X, y, groups=None) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+        if groups is None:
+            raise ValueError("groups must be provided for MultiLabelGroupSplitter.")
+        y_arr = np.asarray(y)
+        groups_arr = np.asarray(groups)
+        if len(groups_arr) != len(y_arr):
+            raise ValueError(
+                f"groups length mismatch: expected {len(y_arr)}, got {len(groups_arr)}"
+            )
+
+        group_ids, group_labels = self._aggregate_group_labels(y_arr, groups_arr)
+
+        if len(group_ids) < self.n_splits:
+            raise ValueError(
+                f"Cannot have number of splits={self.n_splits} greater than number of groups={len(group_ids)}"
+            )
+
+        mskf = _ISKF(n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state)
+        for g_tr_idx, g_te_idx in mskf.split(group_ids, group_labels):
+            tr_groups = set(group_ids[g_tr_idx])
+            te_groups = set(group_ids[g_te_idx])
+            tr_idx = np.where(np.isin(groups_arr, list(tr_groups)))[0]
+            te_idx = np.where(np.isin(groups_arr, list(te_groups)))[0]
+            yield tr_idx, te_idx

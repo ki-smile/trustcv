@@ -251,7 +251,11 @@ class ProgressLogger(CVCallback):
     """
 
     def __init__(
-        self, log_file: Optional[str] = None, metrics: Optional[List[str]] = None, verbose: int = 1
+        self,
+        log_file: Optional[str] = None,
+        metrics: Optional[List[str]] = None,
+        verbose: int = 1,
+        groups: Optional[np.ndarray] = None,
     ):
         """
         Initialize progress logger
@@ -265,6 +269,11 @@ class ProgressLogger(CVCallback):
         self.metrics = metrics
         self.verbose = verbose
         self.logs = []
+        self.groups = groups
+
+    def set_groups(self, groups: Optional[np.ndarray]) -> None:
+        """Attach group labels so we can report group counts per fold."""
+        self.groups = groups
 
     def on_cv_start(self, n_splits: int) -> None:
         """Log CV start"""
@@ -280,6 +289,14 @@ class ProgressLogger(CVCallback):
             print(f"\nFold {fold_idx + 1}:")
             print(f"  Training samples: {len(train_idx)}")
             print(f"  Validation samples: {len(val_idx)}")
+            if self.groups is not None:
+                try:
+                    n_train_groups = len(np.unique(self.groups[train_idx]))
+                    n_val_groups = len(np.unique(self.groups[val_idx]))
+                    print(f"  Training groups: {n_train_groups}")
+                    print(f"  Validation groups: {n_val_groups}")
+                except Exception:
+                    pass
 
         self.logs.append(
             {

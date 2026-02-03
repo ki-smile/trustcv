@@ -277,6 +277,7 @@ class TrustCVValidator:
         self._setup_splitter()
         # Optional verbose debugging flag (kept off by default)
         self.debug: bool = False
+        self._user_metrics_provided: bool = metrics is not None
 
     # --- public API ---
     def validate(
@@ -417,6 +418,9 @@ class TrustCVValidator:
 
         # storage
         metric_list = list(self.metrics)
+        # If user didn't override metrics and target is multilabel, use multilabel defaults
+        if scoring is None and is_multilabel and getattr(self, "_user_metrics_provided", False) is False:
+            metric_list = ["roc_auc_ovr_macro", "f1_samples", "f1_macro", "f1_micro", "accuracy"]
         scorer_dict: Optional[Dict[str, Callable]] = None
         if scoring is not None:
             scorer_dict = {}
@@ -429,8 +433,7 @@ class TrustCVValidator:
         else:
             if is_regression:
                 metric_list = ["mse", "rmse", "mae", "r2", "explained_variance"]
-            else:
-                metric_list = list(self.metrics)
+            # otherwise, keep whatever metric_list is (possibly overridden for multilabel)
         per_metric_scores: Dict[str, List[float]] = {m: [] for m in metric_list}
         fold_details: List[Dict[str, Any]] = []
         per_label_prevalence: List[np.ndarray] = []
@@ -534,6 +537,27 @@ class TrustCVValidator:
                                 val = float(_f1(y_te_eval, y_pred, average=avg))
                             else:
                                 continue
+                        elif m in ("f1_macro",):
+                            from sklearn.metrics import f1_score as _f1
+
+                            if y_pred is not None:
+                                val = float(_f1(y_te_eval, y_pred, average="macro", zero_division=0))
+                            else:
+                                continue
+                        elif m in ("f1_micro",):
+                            from sklearn.metrics import f1_score as _f1
+
+                            if y_pred is not None:
+                                val = float(_f1(y_te_eval, y_pred, average="micro", zero_division=0))
+                            else:
+                                continue
+                        elif m in ("f1_samples",):
+                            from sklearn.metrics import f1_score as _f1
+
+                            if y_pred is not None:
+                                val = float(_f1(y_te_eval, y_pred, average="samples", zero_division=0))
+                            else:
+                                continue
                         elif m in ("precision",):
                             from sklearn.metrics import precision_score as _prec
 
@@ -575,6 +599,13 @@ class TrustCVValidator:
 
                             if y_score is not None:
                                 val = float(_auc(y_te_eval, y_score))
+                            else:
+                                continue
+                        elif m in ("roc_auc_ovr_macro",):
+                            from sklearn.metrics import roc_auc_score as _auc
+
+                            if y_score is not None:
+                                val = float(_auc(y_te_eval, y_score, average="macro"))
                             else:
                                 continue
                         elif m in ("mse", "mean_squared_error"):
@@ -789,9 +820,14 @@ class TrustCVValidator:
 
         # Optional trustcv splitters for advanced strategies
         _TCVMLStratifiedGroupKFold = None
+        _TCVMultiLabelGroupSplitter = None
         _TCVStratifiedGroupKFold = None
         try:
             from .splitters import MultilabelStratifiedGroupKFold as _TCVMLStratifiedGroupKFold
+        except Exception:
+            pass
+        try:
+            from .splitters import MultiLabelGroupSplitter as _TCVMultiLabelGroupSplitter
         except Exception:
             pass
         try:
@@ -852,6 +888,14 @@ class TrustCVValidator:
             )
         elif method_key == "patient_grouped_kfold":
             self._cv_splitter = GroupKFold(n_splits=self.n_splits)
+        elif method_key == "multilabel_group_kfold":
+            if _TCVMultiLabelGroupSplitter is None:
+                raise ValueError(
+                    "MultiLabelGroupKFold is unavailable. Ensure trustcv.splitters is accessible."
+                )
+            self._cv_splitter = _TCVMultiLabelGroupSplitter(
+                n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+            )
         elif method_key == "stratified_grouped_kfold":
             if _TCVStratifiedGroupKFold is None:
                 raise ValueError(
@@ -939,6 +983,17 @@ class TrustCVValidator:
             if namelow in ("groupkfold", "patientgroupedkfold", "groupedkfold", "group_kfold"):
                 self._cv_splitter = GroupKFold(n_splits=self.n_splits)
                 self.method = "patient_grouped_kfold"
+                return
+
+            if namelow in ("multilabelgroupkfold", "multilabelgroupsplitter", "multilabelgroupcv"):
+                if _TCVMultiLabelGroupSplitter is None:
+                    raise ValueError(
+                        "MultiLabelGroupKFold is unavailable. Ensure trustcv.splitters is accessible."
+                    )
+                self._cv_splitter = _TCVMultiLabelGroupSplitter(
+                    n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+                )
+                self.method = "multilabel_group_kfold"
                 return
 
             if namelow in (
@@ -1061,6 +1116,8 @@ class TrustCVValidator:
             "bootstrap": "bootstrap",
             "multilabelstratifiedkfold": "multilabel_stratified_kfold",
             "multilabelstratifiedgroupkfold": "multilabel_stratified_group_kfold",
+            "multilabelgroupkfold": "multilabel_group_kfold",
+            "multilabelgroupsplitter": "multilabel_group_kfold",
             # temporal
             "temporal": "temporal",
             "timeseriessplit": "temporal",
@@ -1166,14 +1223,22 @@ class TrustCVValidator:
         --------
         ValidationResult object with comprehensive metrics
         """
+        is_multilabel = self._is_multilabel(y)
+
         # Default medical scoring metrics
         if scoring is None:
-            scoring = self._get_medical_scoring()
+            scoring = self._get_medical_scoring(is_multilabel=is_multilabel)
 
         # Prepare groups for patient-level splitting
         groups = patient_ids if patient_ids is not None else None
 
         # Perform cross-validation
+        # Neural-network wrappers (e.g., Keras*) are not process-safe; run folds serially.
+        model_name = str(type(model)).lower()
+        n_jobs = -1
+        if any(tag in model_name for tag in ("keras", "tensorflow", "pytorch", "torch")):
+            n_jobs = 1
+
         cv_results = cross_validate(
             model,
             X,
@@ -1183,7 +1248,7 @@ class TrustCVValidator:
             scoring=scoring,
             return_train_score=True,
             return_estimator=True,
-            n_jobs=-1,
+            n_jobs=n_jobs,
         )
 
         # Calculate statistics (canonical keys without 'test_' prefix)
@@ -1256,9 +1321,12 @@ class TrustCVValidator:
 
         return result
 
-    def _get_medical_scoring(self) -> Dict[str, Any]:
-        """Get medical-relevant scoring metrics"""
-        from sklearn.metrics import make_scorer
+    def _get_medical_scoring(self, is_multilabel: bool = False) -> Dict[str, Any]:
+        """Get medical-relevant scoring metrics.
+
+        For multilabel targets we expose multilabel-aware metrics by default.
+        """
+        from sklearn.metrics import make_scorer, f1_score, roc_auc_score
 
         def sensitivity_score(y_true, y_pred):
             tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
@@ -1268,15 +1336,38 @@ class TrustCVValidator:
             tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
             return tn / (tn + fp) if (tn + fp) > 0 else 0
 
-        available = {
-            "accuracy": "accuracy",
-            "roc_auc": "roc_auc",
-            "sensitivity": make_scorer(sensitivity_score),
-            "specificity": make_scorer(specificity_score),
-            "precision": "precision",
-            "recall": "recall",
-            "f1": "f1",
-        }
+        def f1_macro_ml(y_true, y_pred):
+            return f1_score(y_true, y_pred, average="macro", zero_division=0)
+
+        def f1_micro_ml(y_true, y_pred):
+            return f1_score(y_true, y_pred, average="micro", zero_division=0)
+
+        def f1_samples_ml(y_true, y_pred):
+            return f1_score(y_true, y_pred, average="samples", zero_division=0)
+
+        def roc_auc_ovr_macro(y_true, y_proba):
+            # For multilabel: average over labels (macro) using probability estimates
+            return roc_auc_score(y_true, y_proba, average="macro")
+
+        if is_multilabel:
+            available = {
+                "accuracy": "accuracy",
+                "roc_auc_ovr_macro": make_scorer(roc_auc_ovr_macro, needs_proba=True),
+                "f1_macro": make_scorer(f1_macro_ml),
+                "f1_micro": make_scorer(f1_micro_ml),
+                "f1_samples": make_scorer(f1_samples_ml),
+            }
+        else:
+            available = {
+                "accuracy": "accuracy",
+                "roc_auc": "roc_auc",
+                "sensitivity": make_scorer(sensitivity_score),
+                "specificity": make_scorer(specificity_score),
+                "precision": "precision",
+                "recall": "recall",
+                "f1": "f1",
+            }
+
         requested = self.metrics or list(available.keys())
         scoring: Dict[str, Any] = {}
         for metric in requested:

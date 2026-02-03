@@ -189,6 +189,15 @@ class UniversalCVRunner:
         # Combine default and user callbacks
         all_callbacks = self.default_callbacks + (callbacks or [])
 
+        # Attach groups to callbacks that support it so they can log group counts
+        if groups is not None:
+            for cb in all_callbacks:
+                if hasattr(cb, "set_groups"):
+                    try:
+                        cb.set_groups(groups)
+                    except Exception:
+                        pass
+
         # Detect or set framework
         if self.adapter is None:
             if self.framework == "auto":
@@ -422,10 +431,13 @@ class UniversalCVRunner:
                                 y_pred_arr = None
                         if y_pred_arr is not None:
                             final_metrics["f1_samples"] = float(
-                                f1_score(y_true_arr, y_pred_arr, average="samples")
+                                f1_score(y_true_arr, y_pred_arr, average="samples", zero_division=0)
                             )
                             final_metrics["f1_macro"] = float(
-                                f1_score(y_true_arr, y_pred_arr, average="macro")
+                                f1_score(y_true_arr, y_pred_arr, average="macro", zero_division=0)
+                            )
+                            final_metrics["f1_micro"] = float(
+                                f1_score(y_true_arr, y_pred_arr, average="micro", zero_division=0)
                             )
                         try:
                             final_metrics["label_prevalence"] = y_true_arr.mean(axis=0).tolist()

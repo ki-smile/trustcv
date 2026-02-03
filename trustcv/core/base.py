@@ -402,6 +402,22 @@ class SklearnAdapter(FrameworkAdapter):
         X_te, y_te = _slice_rows(X, val_idx), _slice_rows(y, val_idx)
         return (X_tr, y_tr), (X_te, y_te)
 
+    def clone_model(self, model: Any) -> Any:
+        """
+        Return a fresh, unfitted copy of a sklearn-style estimator.
+
+        sklearn.base.clone can deep-copy callables like build_fn; that may fail for
+        lambdas. Using get_params(deep=False) avoids deep copying while preserving
+        init args (e.g., KerasSkWrap build_fn).
+        """
+        try:
+            params = model.get_params(deep=False)
+        except Exception:
+            # fall back to shallow copy; better than reusing the same object
+            import copy
+            return copy.copy(model)
+        return model.__class__(**params)
+
     def train_epoch(
         self,
         model: Any,
