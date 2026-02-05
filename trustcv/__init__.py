@@ -28,7 +28,7 @@ Main Features:
 For more information: https://github.com/ki-smile/trustcv
 """
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __author__ = "SMAILE Team, Karolinska Institutet"
 __institution__ = "SMAILE - Stockholm Medical AI and Learning Environments, Karolinska Institutet"
 __website__ = "https://smile.ki.se"
