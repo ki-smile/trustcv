@@ -211,6 +211,11 @@ def create_disease_spread_data(n_locations=200, n_time_points=30):
     return df
 
 
+# Backward-compat names expected by tests
+def create_spatial_data(n_locations=200, n_time_points=30):
+    return create_disease_spread_data(n_locations=n_locations, n_time_points=n_time_points)
+
+
 def analyze_spatial_autocorrelation(df):
     """
     Analyze and visualize spatial autocorrelation in disease data
@@ -485,6 +490,11 @@ def evaluate_spatial_cv_strategies(X, y, coordinates, timestamps, location_ids):
         print("✅ Accounts for both spatial and temporal patterns")
     
     return results
+
+
+# Backward-compat name expected by tests
+def spatial_cv_analysis(X, y, coordinates, timestamps, location_ids):
+    return evaluate_spatial_cv_strategies(X, y, coordinates, timestamps, location_ids)
 
 
 def visualize_disease_modeling_results(results, df):

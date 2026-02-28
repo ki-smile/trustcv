@@ -10,6 +10,7 @@ Task: Predict treatment response accounting for site effects
 Challenge: Site-specific variations, patient clustering, hierarchical structure
 """
 
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -33,6 +34,19 @@ from trustcv.splitters.grouped import (
 
 # Set random seed for reproducibility
 np.random.seed(42)
+
+# Fast mode by default for CI/test environments
+FAST_MODE = os.environ.get("TRUSTCV_FULL_EXAMPLE", "").lower() not in ("1", "true", "yes")
+SHOW_PLOTS = os.environ.get("TRUSTCV_PLOT", "").lower() in ("1", "true", "yes")
+
+
+def _safe_auc(y_true, y_score, y_pred=None):
+    """Return ROC-AUC when possible, otherwise fallback to accuracy."""
+    if len(np.unique(y_true)) < 2:
+        if y_pred is not None:
+            return float(accuracy_score(y_true, y_pred)), True
+        return np.nan, True
+    return float(roc_auc_score(y_true, y_score)), False
 
 def create_multisite_trial_data(n_sites=10, patients_per_site=50):
     """
@@ -143,6 +157,11 @@ def create_multisite_trial_data(n_sites=10, patients_per_site=50):
     return df
 
 
+# Backward-compat names expected by tests
+def create_trial_data(n_sites=10, patients_per_site=50):
+    return create_multisite_trial_data(n_sites=n_sites, patients_per_site=patients_per_site)
+
+
 def analyze_site_heterogeneity(df):
     """
     Analyze and visualize site-specific effects
@@ -182,7 +201,7 @@ def analyze_site_heterogeneity(df):
     return site_stats
 
 
-def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
+def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
     """
     Compare different grouped CV strategies for multi-site trials
     """
@@ -191,21 +210,27 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     print("\n" + "="*60)
     print("GROUPED CROSS-VALIDATION FOR MULTI-SITE TRIAL")
     print("="*60)
+
+    n_splits = 3 if fast_mode else 5
+    n_estimators = 50 if fast_mode else 100
     
     # 1. Standard K-Fold (WRONG - ignores groups)
     print("\n1. Standard K-Fold (IGNORING SITES - WRONG!)")
     print("-"*40)
     from trustcv.splitters.iid import KFoldMedical
     
-    kf = KFoldMedical(n_splits=5, shuffle=True, random_state=42)
+    kf = KFoldMedical(n_splits=n_splits, shuffle=True, random_state=42)
     scores = []
     
     for fold, (train_idx, test_idx) in enumerate(kf.split(X), 1):
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
         
         # Check for data leakage
@@ -213,7 +238,8 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
         test_sites = set(site_ids[test_idx])
         overlap = train_sites & test_sites
         
-        print(f"Fold {fold}: ROC-AUC = {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
         if overlap:
             print(f"  ⚠️ LEAKAGE: {len(overlap)} sites in both train and test!")
     
@@ -229,21 +255,25 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     print("\n2. Group K-Fold (SITE-AWARE - CORRECT)")
     print("-"*40)
     
-    group_kfold = GroupKFoldMedical(n_splits=5)
+    group_kfold = GroupKFoldMedical(n_splits=n_splits)
     scores = []
     
     for fold, (train_idx, test_idx) in enumerate(group_kfold.split(X, y, groups), 1):
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
         
         train_sites = set(site_ids[train_idx])
         test_sites = set(site_ids[test_idx])
         
-        print(f"Fold {fold}: ROC-AUC = {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
         print(f"  Train sites: {len(train_sites)}, Test sites: {len(test_sites)}")
         print(f"  ✅ No site overlap (each site in exactly one fold)")
     
@@ -258,21 +288,25 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     print("\n3. Stratified Group K-Fold (Preserves Response Balance)")
     print("-"*40)
     
-    stratified_group_kfold = StratifiedGroupKFold(n_splits=5)
+    stratified_group_kfold = StratifiedGroupKFold(n_splits=n_splits)
     scores = []
     
     for fold, (train_idx, test_idx) in enumerate(stratified_group_kfold.split(X, y, groups), 1):
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
         
         train_responder_rate = y[train_idx].mean()
         test_responder_rate = y[test_idx].mean()
         
-        print(f"Fold {fold}: ROC-AUC = {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
         print(f"  Train responder rate: {train_responder_rate:.2%}")
         print(f"  Test responder rate: {test_responder_rate:.2%}")
     
@@ -292,18 +326,23 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     site_scores = {}
     
     for fold, (train_idx, test_idx) in enumerate(logo.split(X, y, groups), 1):
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
         
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Test Site {site_ids[test_idx[0]]}: Skipped (single class)")
+            continue
         scores.append(score)
         
         test_site = site_ids[test_idx[0]]
         site_scores[test_site] = score
         
         if fold <= 5:  # Only print first 5 to avoid clutter
-            print(f"Test Site {test_site}: ROC-AUC = {score:.4f}")
+            metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+            print(f"Test Site {test_site}: {metric_name} = {score:.4f}")
     
     results['Leave-One-Site-Out'] = {
         'scores': scores,
@@ -317,32 +356,44 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df):
     # 5. Repeated Group K-Fold
     print("\n5. Repeated Group K-Fold (3 repeats)")
     print("-"*40)
-    
-    repeated_group_kfold = RepeatedGroupKFold(n_splits=5, n_repeats=3)
-    scores = []
-    
-    for repeat in range(3):
-        repeat_scores = []
-        for fold, (train_idx, test_idx) in enumerate(repeated_group_kfold.split(X, y, groups), 1):
-            if fold > 5 * repeat and fold <= 5 * (repeat + 1):
-                model = RandomForestClassifier(n_estimators=100, random_state=42)
-                model.fit(X[train_idx], y[train_idx])
-                
-                y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-                score = roc_auc_score(y[test_idx], y_pred_proba)
-                repeat_scores.append(score)
+    if fast_mode:
+        print("Skipped in fast mode. Set TRUSTCV_FULL_EXAMPLE=1 for full run.")
+    else:
+        repeated_group_kfold = RepeatedGroupKFold(n_splits=n_splits, n_repeats=3)
+        scores = []
         
-        scores.extend(repeat_scores)
-        print(f"Repeat {repeat+1}: {np.mean(repeat_scores):.4f} ± {np.std(repeat_scores):.4f}")
-    
-    results['Repeated Group K-Fold'] = {
-        'scores': scores,
-        'mean': np.mean(scores),
-        'std': np.std(scores)
-    }
-    print(f"\nOverall: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+        for repeat in range(3):
+            repeat_scores = []
+            for fold, (train_idx, test_idx) in enumerate(repeated_group_kfold.split(X, y, groups), 1):
+                if fold > n_splits * repeat and fold <= n_splits * (repeat + 1):
+                    model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
+                    model.fit(X[train_idx], y[train_idx])
+                    
+                    y_pred = model.predict(X[test_idx])
+                    y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+                    score, _ = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+                    if np.isnan(score):
+                        continue
+                    repeat_scores.append(score)
+            
+            if repeat_scores:
+                scores.extend(repeat_scores)
+                print(f"Repeat {repeat+1}: {np.mean(repeat_scores):.4f} ± {np.std(repeat_scores):.4f}")
+        
+        if scores:
+            results['Repeated Group K-Fold'] = {
+                'scores': scores,
+                'mean': np.mean(scores),
+                'std': np.std(scores)
+            }
+            print(f"\nOverall: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     return results
+
+
+# Backward-compat name expected by tests
+def grouped_cv_evaluation(X, y, groups, site_ids, df):
+    return evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=FAST_MODE)
 
 
 def visualize_multisite_results(results, df):
@@ -456,7 +507,7 @@ def visualize_multisite_results(results, df):
     plt.show()
 
 
-def test_site_generalization(X, y, groups, site_ids, df):
+def test_site_generalization(X, y, groups, site_ids, df, fast_mode=True):
     """
     Test model generalization to new sites
     """
@@ -464,6 +515,10 @@ def test_site_generalization(X, y, groups, site_ids, df):
     print("SITE GENERALIZATION TEST")
     print("="*60)
     
+    if fast_mode:
+        print("\nSkipping site generalization in fast mode. Set TRUSTCV_FULL_EXAMPLE=1 for full run.")
+        return
+
     unique_sites = np.unique(site_ids)
     n_sites = len(unique_sites)
     
@@ -483,8 +538,9 @@ def test_site_generalization(X, y, groups, site_ids, df):
     model.fit(X[train_mask], y[train_mask])
     
     # Test on new sites
+    y_pred = model.predict(X[test_mask])
     y_pred_proba = model.predict_proba(X[test_mask])[:, 1]
-    score = roc_auc_score(y[test_mask], y_pred_proba)
+    score, _ = _safe_auc(y[test_mask], y_pred_proba, y_pred)
     
     print(f"\n📊 Generalization Performance:")
     print(f"   ROC-AUC on new sites: {score:.4f}")
@@ -494,9 +550,10 @@ def test_site_generalization(X, y, groups, site_ids, df):
     for site in train_sites[:5]:  # Sample 5 training sites
         site_mask = site_ids == site
         if site_mask.sum() > 10:
-            site_score = roc_auc_score(
-                y[site_mask], 
-                model.predict_proba(X[site_mask])[:, 1]
+            site_score, _ = _safe_auc(
+                y[site_mask],
+                model.predict_proba(X[site_mask])[:, 1],
+                model.predict(X[site_mask]),
             )
             within_site_scores.append(site_score)
     
@@ -520,7 +577,9 @@ def main():
     
     # Create multi-site trial dataset
     print("\n📊 Creating synthetic multi-site trial dataset...")
-    df = create_multisite_trial_data(n_sites=10, patients_per_site=50)
+    n_sites = 6 if FAST_MODE else 10
+    patients_per_site = 20 if FAST_MODE else 50
+    df = create_multisite_trial_data(n_sites=n_sites, patients_per_site=patients_per_site)
     
     print(f"Dataset shape: {df.shape}")
     print(f"Number of sites: {df['site_id'].nunique()}")
@@ -552,13 +611,16 @@ def main():
     print(f"Selected features: {feature_cols}")
     
     # Evaluate grouped CV strategies
-    results = evaluate_grouped_cv_strategies(X, y, groups, site_ids, df)
+    results = evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=FAST_MODE)
     
     # Visualize results
-    visualize_multisite_results(results, df)
+    if SHOW_PLOTS:
+        visualize_multisite_results(results, df)
+    else:
+        print("\n📈 Plotting skipped (set TRUSTCV_PLOT=1 to enable).")
     
     # Test site generalization
-    test_site_generalization(X, y, groups, site_ids, df)
+    test_site_generalization(X, y, groups, site_ids, df, fast_mode=FAST_MODE)
     
     print("\n" + "="*60)
     print("KEY INSIGHTS FOR MULTI-SITE TRIALS")

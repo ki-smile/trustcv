@@ -10,6 +10,7 @@ Task: Predict patient deterioration in next 6 hours
 Challenge: Temporal dependencies, varying patient stays
 """
 
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -18,7 +19,7 @@ import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score, precision_recall_curve, auc
+from sklearn.metrics import roc_auc_score, precision_recall_curve, auc, accuracy_score
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -32,6 +33,19 @@ from trustcv.splitters.temporal import (
 
 # Set random seed for reproducibility
 np.random.seed(42)
+
+# Fast mode by default for CI/test environments
+FAST_MODE = os.environ.get("TRUSTCV_FULL_EXAMPLE", "").lower() not in ("1", "true", "yes")
+SHOW_PLOTS = os.environ.get("TRUSTCV_PLOT", "").lower() in ("1", "true", "yes")
+
+
+def _safe_auc(y_true, y_score, y_pred=None):
+    """Return ROC-AUC when possible, otherwise fallback to accuracy."""
+    if len(np.unique(y_true)) < 2:
+        if y_pred is not None:
+            return float(accuracy_score(y_true, y_pred)), True
+        return np.nan, True
+    return float(roc_auc_score(y_true, y_score)), False
 
 def create_icu_monitoring_data(n_patients=100, avg_hours=72):
     """
@@ -126,6 +140,11 @@ def create_icu_monitoring_data(n_patients=100, avg_hours=72):
     return df
 
 
+# Backward-compat names expected by tests
+def create_icu_data(n_patients=100, avg_hours=72):
+    return create_icu_monitoring_data(n_patients=n_patients, avg_hours=avg_hours)
+
+
 def engineer_features(df):
     """
     Create temporal features for ICU monitoring
@@ -169,7 +188,7 @@ def engineer_features(df):
     return features_df
 
 
-def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
+def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids, fast_mode=True):
     """
     Compare different temporal CV strategies for ICU monitoring
     """
@@ -182,33 +201,42 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     # 1. Standard Time Series Split
     print("\n1. Time Series Split (Train on Past, Test on Future)")
     print("-"*40)
-    tss = TimeSeriesSplit(n_splits=5)
+    n_splits = 3 if fast_mode else 5
+    tss = TimeSeriesSplit(n_splits=n_splits)
     scores = []
     
     for fold, (train_idx, test_idx) in enumerate(tss.split(X), 1):
-        model = RandomForestClassifier(n_estimators=50, random_state=42)
+        model = RandomForestClassifier(n_estimators=30 if fast_mode else 50, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
         
         train_time_range = (pd.Timestamp(timestamps[train_idx].min()), pd.Timestamp(timestamps[train_idx].max()))
         test_time_range = (pd.Timestamp(timestamps[test_idx].min()), pd.Timestamp(timestamps[test_idx].max()))
 
-        print(f"Fold {fold}: ROC-AUC = {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
         print(f"  Train: {train_time_range[0].strftime('%Y-%m-%d')} to {train_time_range[1].strftime('%Y-%m-%d')}")
         print(f"  Test:  {test_time_range[0].strftime('%Y-%m-%d')} to {test_time_range[1].strftime('%Y-%m-%d')}")
     
-    results['Time Series Split'] = {
-        'scores': scores,
-        'mean': np.mean(scores),
-        'std': np.std(scores)
-    }
-    print(f"\nMean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+    if scores:
+        results['Time Series Split'] = {
+            'scores': scores,
+            'mean': np.mean(scores),
+            'std': np.std(scores)
+        }
+        print(f"\nMean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # 2. Rolling Window CV
-    print("\n2. Rolling Window CV (Fixed 48-hour Training Window)")
+    window_size = 24 if fast_mode else 48
+    step_size = 12 if fast_mode else 24
+    forecast_horizon = 12
+    print(f"\n2. Rolling Window CV (Fixed {window_size}-hour Training Window)")
     print("-"*40)
 
     # Convert to hourly indices for rolling window
@@ -217,9 +245,9 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     time_indices = np.array([hour_to_idx[t] for t in timestamps])
     
     rolling_cv = RollingWindowCV(
-        window_size=48,  # 48 hours training
-        forecast_horizon=12,  # 12 hours test
-        step_size=24  # Move 24 hours forward
+        window_size=window_size,
+        forecast_horizon=forecast_horizon,
+        step_size=step_size
     )
     
     scores = []
@@ -230,14 +258,19 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
                 print(f"Window {fold}: Skipped (single class)")
                 continue
 
-            model = RandomForestClassifier(n_estimators=50, random_state=42)
+            model = RandomForestClassifier(n_estimators=30 if fast_mode else 50, random_state=42)
             model.fit(X[train_idx], y[train_idx])
 
+            y_pred = model.predict(X[test_idx])
             y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-            score = roc_auc_score(y[test_idx], y_pred_proba)
+            score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+            if np.isnan(score):
+                print(f"Window {fold}: Skipped (single class)")
+                continue
             scores.append(score)
 
-            print(f"Window {fold}: ROC-AUC = {score:.4f} "
+            metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+            print(f"Window {fold}: {metric_name} = {score:.4f} "
                   f"(train size: {len(train_idx)}, test size: {len(test_idx)})")
     
     if scores:
@@ -246,32 +279,36 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
             'mean': np.mean(scores),
             'std': np.std(scores)
         }
-        print(f"\nMean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+        print(f"\nMean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # 3. Expanding Window CV
     print("\n3. Expanding Window CV (Growing Training Set)")
     print("-"*40)
     
     expanding_cv = ExpandingWindowCV(
-        min_train_size=100,  # Minimum 100 samples
-        forecast_horizon=50,  # Test on next 50 samples
-        step_size=50  # Move forward by 50 samples
+        min_train_size=60 if fast_mode else 100,
+        forecast_horizon=30 if fast_mode else 50,
+        step_size=30 if fast_mode else 50
     )
     
     scores = []
     train_sizes = []
     
     for fold, (train_idx, test_idx) in enumerate(expanding_cv.split(X), 1):
-        if len(train_idx) >= 100 and len(test_idx) > 0:
-            model = RandomForestClassifier(n_estimators=50, random_state=42)
+        if len(train_idx) >= (60 if fast_mode else 100) and len(test_idx) > 0:
+            model = RandomForestClassifier(n_estimators=30 if fast_mode else 50, random_state=42)
             model.fit(X[train_idx], y[train_idx])
-            
+            y_pred = model.predict(X[test_idx])
             y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-            score = roc_auc_score(y[test_idx], y_pred_proba)
+            score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+            if np.isnan(score):
+                print(f"Fold {fold}: Skipped (single class)")
+                continue
             scores.append(score)
             train_sizes.append(len(train_idx))
-            
-            print(f"Fold {fold}: ROC-AUC = {score:.4f} "
+
+            metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+            print(f"Fold {fold}: {metric_name} = {score:.4f} "
                   f"(train size: {len(train_idx)}, test size: {len(test_idx)})")
     
     if scores:
@@ -281,7 +318,7 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
             'std': np.std(scores),
             'train_sizes': train_sizes
         }
-        print(f"\nMean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+        print(f"\nMean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # 4. Blocked Time Series (Daily Blocks)
     print("\n4. Blocked Time Series CV (Daily Blocks)")
@@ -290,56 +327,72 @@ def evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids):
     # Create day blocks
     days = pd.to_datetime(timestamps).normalize()
 
-    blocked_cv = BlockedTimeSeries(n_splits=5, block_size='day')
+    blocked_cv = BlockedTimeSeries(n_splits=n_splits, block_size='day')
     scores = []
 
     for fold, (train_idx, test_idx) in enumerate(blocked_cv.split(X, timestamps=timestamps), 1):
-        model = RandomForestClassifier(n_estimators=50, random_state=42)
+        model = RandomForestClassifier(n_estimators=30 if fast_mode else 50, random_state=42)
         model.fit(X[train_idx], y[train_idx])
 
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
 
         train_days = np.unique(days[train_idx])
         test_days = np.unique(days[test_idx])
 
-        print(f"Fold {fold}: ROC-AUC = {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
         print(f"  Train days: {len(train_days)}, Test days: {len(test_days)}")
     
-    results['Blocked Time Series'] = {
-        'scores': scores,
-        'mean': np.mean(scores),
-        'std': np.std(scores)
-    }
-    print(f"\nMean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+    if scores:
+        results['Blocked Time Series'] = {
+            'scores': scores,
+            'mean': np.mean(scores),
+            'std': np.std(scores)
+        }
+        print(f"\nMean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # 5. Purged K-Fold (with temporal gap)
     print("\n5. Purged K-Fold CV (6-hour Gap Between Train/Test)")
     print("-"*40)
     
-    purged_cv = PurgedKFoldCV(n_splits=5, purge_gap=6)  # 6-hour gap
+    purged_cv = PurgedKFoldCV(n_splits=n_splits, purge_gap=3 if fast_mode else 6)  # 6-hour gap
     scores = []
     
     for fold, (train_idx, test_idx) in enumerate(purged_cv.split(X), 1):
-        model = RandomForestClassifier(n_estimators=50, random_state=42)
+        model = RandomForestClassifier(n_estimators=30 if fast_mode else 50, random_state=42)
         model.fit(X[train_idx], y[train_idx])
-        
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+        if np.isnan(score):
+            print(f"Fold {fold}: Skipped (single class)")
+            continue
         scores.append(score)
         
-        print(f"Fold {fold}: ROC-AUC = {score:.4f} "
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f} "
               f"(train: {len(train_idx)}, test: {len(test_idx)})")
     
-    results['Purged K-Fold'] = {
-        'scores': scores,
-        'mean': np.mean(scores),
-        'std': np.std(scores)
-    }
-    print(f"\nMean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+    if scores:
+        results['Purged K-Fold'] = {
+            'scores': scores,
+            'mean': np.mean(scores),
+            'std': np.std(scores)
+        }
+        print(f"\nMean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     return results
+
+
+# Backward-compat name expected by tests
+def temporal_cv_comparison(X, y, timestamps, patient_ids):
+    return evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids, fast_mode=FAST_MODE)
 
 
 def visualize_temporal_results(results, df):
@@ -430,7 +483,7 @@ def visualize_temporal_results(results, df):
     plt.show()
 
 
-def compare_models_temporal(X, y, timestamps):
+def compare_models_temporal(X, y, timestamps, fast_mode=True):
     """
     Compare different models using temporal CV
     """
@@ -438,6 +491,10 @@ def compare_models_temporal(X, y, timestamps):
     print("MODEL COMPARISON WITH TEMPORAL CV")
     print("="*60)
     
+    if fast_mode:
+        print("\nSkipping model comparison in fast mode. Set TRUSTCV_FULL_EXAMPLE=1 for full run.")
+        return {}
+
     models = {
         'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
@@ -455,8 +512,11 @@ def compare_models_temporal(X, y, timestamps):
         
         for train_idx, test_idx in tss.split(X):
             model.fit(X[train_idx], y[train_idx])
+            y_pred = model.predict(X[test_idx])
             y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-            score = roc_auc_score(y[test_idx], y_pred_proba)
+            score, _ = _safe_auc(y[test_idx], y_pred_proba, y_pred)
+            if np.isnan(score):
+                continue
             scores.append(score)
         
         results[name] = {
@@ -465,7 +525,8 @@ def compare_models_temporal(X, y, timestamps):
             'std': np.std(scores)
         }
         
-        print(f"  ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
+        if scores:
+            print(f"  Mean Score: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # Find best model
     best_model = max(results.keys(), key=lambda x: results[x]['mean'])
@@ -485,7 +546,9 @@ def main():
     
     # Create ICU monitoring dataset
     print("\n📊 Creating synthetic ICU monitoring dataset...")
-    df = create_icu_monitoring_data(n_patients=100, avg_hours=72)
+    n_patients = 40 if FAST_MODE else 100
+    avg_hours = 48 if FAST_MODE else 72
+    df = create_icu_monitoring_data(n_patients=n_patients, avg_hours=avg_hours)
     
     print(f"Dataset shape: {df.shape}")
     print(f"Unique patients: {df['patient_id'].nunique()}")
@@ -513,13 +576,16 @@ def main():
     X = scaler.fit_transform(X)
     
     # Evaluate temporal CV strategies
-    results = evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids)
+    results = evaluate_temporal_cv_strategies(X, y, timestamps, patient_ids, fast_mode=FAST_MODE)
     
     # Visualize results
-    visualize_temporal_results(results, df_features)
+    if SHOW_PLOTS:
+        visualize_temporal_results(results, df_features)
+    else:
+        print("\n📈 Plotting skipped (set TRUSTCV_PLOT=1 to enable).")
     
     # Compare models
-    model_results = compare_models_temporal(X, y, timestamps)
+    model_results = compare_models_temporal(X, y, timestamps, fast_mode=FAST_MODE)
     
     print("\n" + "="*60)
     print("KEY INSIGHTS FOR ICU MONITORING")

@@ -12,6 +12,13 @@ import numpy as np
 
 from ..core.base import CVResults, FrameworkAdapter
 
+try:
+    import torch
+except ImportError as e:
+    raise ImportError(
+        "PyTorch is required for trustcv.frameworks.pytorch. Install it with: pip install torch"
+    ) from e
+
 
 class PyTorchAdapter(FrameworkAdapter):
     """
@@ -48,26 +55,17 @@ class PyTorchAdapter(FrameworkAdapter):
             shuffle_train=shuffle_train,
             drop_last=drop_last,
         )
+        self.torch = torch
 
-        try:
-            import torch
-
-            self.torch = torch
-
-            if device == "auto":
-                if torch.cuda.is_available():
-                    self.device = torch.device("cuda")
-                elif torch.backends.mps.is_available():
-                    self.device = torch.device("mps")
-                else:
-                    self.device = torch.device("cpu")
+        if device == "auto":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            elif torch.backends.mps.is_available():
+                self.device = torch.device("mps")
             else:
-                self.device = torch.device(device)
-
-        except ImportError:
-            raise ImportError(
-                "PyTorch is required for PyTorchAdapter. " "Install it with: pip install torch"
-            )
+                self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(device)
 
     def create_data_splits(
         self, data: Any, train_idx: np.ndarray, val_idx: np.ndarray

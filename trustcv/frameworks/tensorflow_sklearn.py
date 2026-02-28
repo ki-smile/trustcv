@@ -54,6 +54,7 @@ class KerasBaseWrap(BaseEstimator):
         accept_dict_inputs: bool = True,
         squeeze_regression: bool = True,
         fit_kwargs: Optional[Dict[str, Any]] = None,
+        random_state: Optional[int] = 42,
     ):
         self.build_fn = build_fn
         self.epochs = epochs
@@ -74,6 +75,7 @@ class KerasBaseWrap(BaseEstimator):
         # Avoid replacing an explicitly passed (even empty) dict so that sklearn.clone
         # sees the exact same object and does not error out.
         self.fit_kwargs = fit_kwargs if fit_kwargs is not None else {}
+        self.random_state = random_state
 
         # runtime attributes
         self.model_ = None
@@ -404,6 +406,23 @@ class KerasBaseWrap(BaseEstimator):
         merged.update(runtime_kwargs or {})
         return merged
 
+    def _maybe_set_seed(self):
+        """Set deterministic seeds when random_state is provided."""
+        if self.random_state is None:
+            return
+        try:
+            tf = _require_tensorflow()
+            try:
+                tf.keras.utils.set_random_seed(int(self.random_state))
+            except Exception:
+                tf.random.set_seed(int(self.random_state))
+        except Exception:
+            # Fallback to numpy seed if TF seeding fails
+            try:
+                np.random.seed(int(self.random_state))
+            except Exception:
+                pass
+
     # ---- raw predict ----
     def _predict_raw(self, X):
         if self.model_ is None:
@@ -453,6 +472,7 @@ class KerasClassifierWrap(KerasBaseWrap, ClassifierMixin):
 
     def fit(self, X, y=None, **fit_kwargs):
         tf = _require_tensorflow()
+        self._maybe_set_seed()
         X_arr = self._coerce_features(X)
         y_coerced = self._coerce_labels(y)
         fit_kwargs = self._merge_fit_kwargs(fit_kwargs)
@@ -595,6 +615,7 @@ class KerasRegressorWrap(KerasBaseWrap, RegressorMixin):
 
     def fit(self, X, y=None, **fit_kwargs):
         tf = _require_tensorflow()
+        self._maybe_set_seed()
         X_arr = self._coerce_features(X)
         y_arr = self._coerce_labels(y)
         fit_kwargs = self._merge_fit_kwargs(fit_kwargs)

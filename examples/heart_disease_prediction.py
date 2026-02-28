@@ -10,13 +10,14 @@ Task: Binary classification (disease/no disease)
 Challenge: Class imbalance, feature selection
 """
 
+import os
 import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix
+from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -30,6 +31,19 @@ from trustcv.splitters.iid import (
 
 # Set random seed for reproducibility
 np.random.seed(42)
+
+# Fast mode by default for CI/test environments
+FAST_MODE = os.environ.get("TRUSTCV_FULL_EXAMPLE", "").lower() not in ("1", "true", "yes")
+SHOW_PLOTS = os.environ.get("TRUSTCV_PLOT", "").lower() in ("1", "true", "yes")
+
+
+def _safe_auc(y_true, y_score, y_pred=None):
+    """Return ROC-AUC when possible, otherwise fallback to accuracy."""
+    if len(np.unique(y_true)) < 2:
+        if y_pred is not None:
+            return float(accuracy_score(y_true, y_pred)), True
+        return np.nan, True
+    return float(roc_auc_score(y_true, y_score)), False
 
 def create_heart_disease_data(n_samples=1000):
     """
@@ -73,7 +87,12 @@ def create_heart_disease_data(n_samples=1000):
     return df, y
 
 
-def evaluate_cv_strategies(X, y, model):
+# Backward-compat names expected by tests
+def create_synthetic_data(n_samples=1000):
+    return create_heart_disease_data(n_samples=n_samples)
+
+
+def evaluate_cv_strategies(X, y, model, fast_mode=True):
     """
     Compare different CV strategies for heart disease prediction
     """
@@ -92,24 +111,29 @@ def evaluate_cv_strategies(X, y, model):
         y_train, y_test = y[train_idx], y[test_idx]
         
         model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
-        score = roc_auc_score(y_test, y_pred_proba)
+        score, used_fallback = _safe_auc(y_test, y_pred_proba, y_pred)
         
         results['Hold-Out'] = {'scores': [score], 'mean': score, 'std': 0}
-        print(f"ROC-AUC: {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"{metric_name}: {score:.4f}")
         print(f"Train size: {len(train_idx)}, Test size: {len(test_idx)}")
     
     # 2. Standard K-Fold
-    print("\n2. Standard K-Fold (k=5)")
+    n_splits = 3 if fast_mode else 5
+    print(f"\n2. Standard K-Fold (k={n_splits})")
     print("-" * 40)
-    kfold = KFoldMedical(n_splits=5, shuffle=True, random_state=42)
+    kfold = KFoldMedical(n_splits=n_splits, shuffle=True, random_state=42)
     scores = []
     for fold, (train_idx, test_idx) in enumerate(kfold.split(X, y), 1):
         model.fit(X[train_idx], y[train_idx])
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         scores.append(score)
-        print(f"Fold {fold}: {score:.4f}")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f}")
     
     results['K-Fold'] = {
         'scores': scores,
@@ -119,20 +143,22 @@ def evaluate_cv_strategies(X, y, model):
     print(f"Mean ROC-AUC: {np.mean(scores):.4f} ± {np.std(scores):.4f}")
     
     # 3. Stratified K-Fold
-    print("\n3. Stratified K-Fold (k=5)")
+    print(f"\n3. Stratified K-Fold (k={n_splits})")
     print("-" * 40)
-    stratified_kfold = StratifiedKFoldMedical(n_splits=5, shuffle=True, random_state=42)
+    stratified_kfold = StratifiedKFoldMedical(n_splits=n_splits, shuffle=True, random_state=42)
     scores = []
     for fold, (train_idx, test_idx) in enumerate(stratified_kfold.split(X, y), 1):
         model.fit(X[train_idx], y[train_idx])
+        y_pred = model.predict(X[test_idx])
         y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
-        score = roc_auc_score(y[test_idx], y_pred_proba)
+        score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         scores.append(score)
         
         # Check class distribution
         train_pos = y[train_idx].mean()
         test_pos = y[test_idx].mean()
-        print(f"Fold {fold}: {score:.4f} (train pos: {train_pos:.2%}, test pos: {test_pos:.2%})")
+        metric_name = "Accuracy (fallback)" if used_fallback else "ROC-AUC"
+        print(f"Fold {fold}: {metric_name} = {score:.4f} (train pos: {train_pos:.2%}, test pos: {test_pos:.2%})")
     
     results['Stratified K-Fold'] = {
         'scores': scores,
@@ -144,23 +170,24 @@ def evaluate_cv_strategies(X, y, model):
     # 4. Bootstrap Validation
     print("\n4. Bootstrap Validation (.632 estimator)")
     print("-" * 40)
-    bootstrap = BootstrapValidation(n_iterations=50, estimator='.632', random_state=42)
+    boot_iters = 10 if fast_mode else 50
+    bootstrap = BootstrapValidation(n_iterations=boot_iters, estimator='.632', random_state=42)
     train_scores = []
     test_scores = []
     
     for i, (train_idx, test_idx) in enumerate(bootstrap.split(X, y)):
-        if i >= 50:  # Limit iterations for demo
+        if i >= boot_iters:  # Limit iterations for demo
             break
         model.fit(X[train_idx], y[train_idx])
         
         # Training score
         y_train_pred = model.predict_proba(X[train_idx])[:, 1]
-        train_score = roc_auc_score(y[train_idx], y_train_pred)
+        train_score, _ = _safe_auc(y[train_idx], y_train_pred, model.predict(X[train_idx]))
         train_scores.append(train_score)
         
         # Test (OOB) score
         y_test_pred = model.predict_proba(X[test_idx])[:, 1]
-        test_score = roc_auc_score(y[test_idx], y_test_pred)
+        test_score, _ = _safe_auc(y[test_idx], y_test_pred, model.predict(X[test_idx]))
         test_scores.append(test_score)
     
     # Calculate .632 estimate
@@ -177,6 +204,11 @@ def evaluate_cv_strategies(X, y, model):
     print(f"OOB ROC-AUC: {np.mean(test_scores):.4f} ± {np.std(test_scores):.4f}")
     
     return results
+
+
+# Backward-compat name expected by tests
+def evaluate_cv_methods(X, y, model):
+    return evaluate_cv_strategies(X, y, model, fast_mode=FAST_MODE)
 
 
 def visualize_results(results):
@@ -236,7 +268,7 @@ def visualize_results(results):
     plt.show()
 
 
-def nested_cv_model_selection(X, y):
+def nested_cv_model_selection(X, y, fast_mode=True):
     """
     Use nested CV to select best model for heart disease
     """
@@ -244,6 +276,10 @@ def nested_cv_model_selection(X, y):
     print("NESTED CV FOR MODEL SELECTION")
     print("=" * 60)
     
+    if fast_mode:
+        print("\nSkipping nested CV in fast mode. Set TRUSTCV_FULL_EXAMPLE=1 for full run.")
+        return {}
+
     models = {
         'Logistic Regression': {
             'model': LogisticRegression(max_iter=1000, random_state=42),
@@ -263,8 +299,8 @@ def nested_cv_model_selection(X, y):
     from sklearn.model_selection import GridSearchCV
     from trustcv.splitters.iid import StratifiedKFoldMedical
 
-    outer_cv = StratifiedKFoldMedical(n_splits=5, shuffle=True, random_state=42)
-    inner_cv = StratifiedKFoldMedical(n_splits=3, shuffle=True, random_state=42)
+    outer_cv = StratifiedKFoldMedical(n_splits=3, shuffle=True, random_state=42)
+    inner_cv = StratifiedKFoldMedical(n_splits=2, shuffle=True, random_state=42)
     
     results = {}
     
@@ -314,7 +350,8 @@ def main():
     
     # Create dataset
     print("\n📊 Creating synthetic heart disease dataset...")
-    df, y = create_heart_disease_data(n_samples=1000)
+    n_samples = 400 if FAST_MODE else 1000
+    df, y = create_heart_disease_data(n_samples=n_samples)
     X = df.values
     
     print(f"Dataset shape: {X.shape}")
@@ -326,16 +363,19 @@ def main():
     X = scaler.fit_transform(X)
     
     # Initialize model
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model = RandomForestClassifier(n_estimators=50 if FAST_MODE else 100, random_state=42)
     
     # Compare CV strategies
-    results = evaluate_cv_strategies(X, y, model)
+    results = evaluate_cv_strategies(X, y, model, fast_mode=FAST_MODE)
     
     # Visualize results
-    visualize_results(results)
+    if SHOW_PLOTS:
+        visualize_results(results)
+    else:
+        print("\n📈 Plotting skipped (set TRUSTCV_PLOT=1 to enable).")
     
     # Nested CV for model selection
-    nested_results = nested_cv_model_selection(X, y)
+    nested_results = nested_cv_model_selection(X, y, fast_mode=FAST_MODE)
     
     print("\n" + "=" * 60)
     print("KEY TAKEAWAYS")

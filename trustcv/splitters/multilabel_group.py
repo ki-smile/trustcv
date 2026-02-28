@@ -14,9 +14,6 @@ import numpy as np
 from sklearn.model_selection._split import _BaseKFold
 from sklearn.utils import check_random_state
 
-# Optional dep is required for the new splitter as well
-from iterstrat.ml_stratifiers import MultilabelStratifiedKFold as _ISKF
-
 
 class MultilabelStratifiedGroupKFold(_BaseKFold):
     """
@@ -218,6 +215,13 @@ class MultiLabelGroupSplitter:
         self.shuffle = shuffle
         self.random_state = random_state
         self.agg = agg
+        self._iterative_splitter_cls = None
+        try:
+            from iterstrat.ml_stratifiers import MultilabelStratifiedKFold as _ISKF
+
+            self._iterative_splitter_cls = _ISKF
+        except ImportError:
+            pass
 
     def get_n_splits(self, X=None, y=None, groups=None):
         return self.n_splits
@@ -257,7 +261,16 @@ class MultiLabelGroupSplitter:
                 f"Cannot have number of splits={self.n_splits} greater than number of groups={len(group_ids)}"
             )
 
-        mskf = _ISKF(n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state)
+        if self._iterative_splitter_cls is None:
+            raise ImportError(
+                "iterative-stratification is required for MultiLabelGroupSplitter. "
+                "Install with `pip install iterative-stratification` or use the "
+                "`multilabel` extra."
+            )
+
+        mskf = self._iterative_splitter_cls(
+            n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state
+        )
         for g_tr_idx, g_te_idx in mskf.split(group_ids, group_labels):
             tr_groups = set(group_ids[g_tr_idx])
             te_groups = set(group_ids[g_te_idx])

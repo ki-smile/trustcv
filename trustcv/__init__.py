@@ -77,6 +77,8 @@ from .splitters import (  # I.I.D. methods; Grouped methods; Temporal methods; S
     StratifiedGroupKFold,
     StratifiedKFoldMedical,
     TimeSeriesSplit,
+    MultilabelStratifiedKFold,
+    MultilabelStratifiedGroupKFold,
 )
 
 # Import dataset loaders for convenience

@@ -122,6 +122,36 @@ class CVResults:
 
     # ----- public API -----
     @property
+    def fold_details(self) -> List[Dict[str, Any]]:
+        """
+        Backward-compatible per-fold details list.
+
+        Each entry contains at least:
+            - fold: 1-based fold index
+            - metrics: dict of scalar metrics for that fold
+            - n_train / n_val: when indices are available
+        """
+        details: List[Dict[str, Any]] = []
+        scores_list = self.scores or []
+        for idx, fold in enumerate(scores_list):
+            metrics: Dict[str, Any] = {}
+            if isinstance(fold, dict):
+                for k, v in fold.items():
+                    if k.lower() in ("predictions", "probabilities", "y_pred", "y_proba"):
+                        continue
+                    metrics[k] = v
+            entry: Dict[str, Any] = {"fold": idx + 1, "metrics": metrics}
+            if self.indices and idx < len(self.indices):
+                tr_idx, te_idx = self.indices[idx]
+                try:
+                    entry["n_train"] = int(len(tr_idx))
+                    entry["n_val"] = int(len(te_idx))
+                except Exception:
+                    pass
+            details.append(entry)
+        return details
+
+    @property
     def metrics(self) -> Dict[str, Dict[str, float]]:
         """
         Aggregated metrics per name: {name: {"mean": float, "std": float}}.
@@ -141,6 +171,13 @@ class CVResults:
         Backward-compat for callers expecting a mapping.
         """
         return {name: vals["mean"] for name, vals in self.metrics.items()}
+
+    @property
+    def mean_scores(self) -> Dict[str, float]:
+        """
+        Backward-compatible alias for mean_score.
+        """
+        return self.mean_score
 
     @property
     def std_scores(self) -> Dict[str, float]:

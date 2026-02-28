@@ -291,6 +291,7 @@ class TrustCVValidator:
         cv: Optional[BaseCrossValidator] = None,
         leakage_checker: Optional[Any] = None,
         sample_weight: Optional[np.ndarray] = None,
+        metrics: Optional[List[str]] = None,
         scoring: Optional[Dict[str, Any]] = None,
     ) -> "ValidationResult":
         """
@@ -314,6 +315,9 @@ class TrustCVValidator:
             sklearn-style scorers mapping name -> scorer (string for get_scorer,
             callable scorer, or make_scorer output). When provided, overrides
             the built-in metrics list for this validation call.
+        metrics : list of str, optional
+            Per-call metric override (e.g., ["accuracy", "f1"]). Ignored if
+            ``scoring`` is provided.
         """
         import numpy as _np
         from sklearn.base import clone as _sk_clone
@@ -417,9 +421,15 @@ class TrustCVValidator:
             )
 
         # storage
-        metric_list = list(self.metrics)
+        user_metrics_override = metrics is not None
+        metric_list = (
+            self._normalize_metric_list(metrics)
+            if user_metrics_override
+            else list(self.metrics)
+        )
+        user_metrics_provided = user_metrics_override or getattr(self, "_user_metrics_provided", False)
         # If user didn't override metrics and target is multilabel, use multilabel defaults
-        if scoring is None and is_multilabel and getattr(self, "_user_metrics_provided", False) is False:
+        if scoring is None and is_multilabel and user_metrics_provided is False:
             metric_list = ["roc_auc_ovr_macro", "f1_samples", "f1_macro", "f1_micro", "accuracy"]
         scorer_dict: Optional[Dict[str, Callable]] = None
         if scoring is not None:
@@ -431,7 +441,7 @@ class TrustCVValidator:
                     scorer_dict[name] = scorer
             metric_list = list(scorer_dict.keys())
         else:
-            if is_regression:
+            if is_regression and user_metrics_provided is False:
                 metric_list = ["mse", "rmse", "mae", "r2", "explained_variance"]
             # otherwise, keep whatever metric_list is (possibly overridden for multilabel)
         per_metric_scores: Dict[str, List[float]] = {m: [] for m in metric_list}
