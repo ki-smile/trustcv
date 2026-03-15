@@ -540,26 +540,6 @@ print(results.summary())</code></pre>
                 setTimeout(function() { el.textContent = 'content_copy'; }, 2000);
             });
         }
-
-        function toggleTheme() {
-            var html = document.documentElement;
-            var current = html.getAttribute('data-theme');
-            var next = current === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', next);
-            localStorage.setItem('trustcv-theme', next);
-            updateThemeIcon(next);
-        }
-
-        function updateThemeIcon(theme) {
-            var icon = document.getElementById('theme-icon');
-            if (icon) icon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
-        }
-
-        // Set icon on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            var theme = document.documentElement.getAttribute('data-theme') || 'dark';
-            updateThemeIcon(theme);
-        });
     </script>
     <script>
         // Mobile menu toggle

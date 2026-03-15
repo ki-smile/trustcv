@@ -1441,9 +1441,10 @@ style.textContent = `
     .method-description {
         margin-top: 30px;
         padding: 20px;
-        background: white;
+        background: var(--card-bg);
         border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--md-sys-elevation-1);
+        border: 1px solid var(--border-color);
     }
     
     .method-description h3 {
@@ -1462,11 +1463,12 @@ style.textContent = `
     }
     
     .method-card {
-        background: white;
+        background: var(--card-bg);
         padding: 20px;
         border-radius: 12px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--md-sys-elevation-1);
+        border: 1px solid var(--border-color);
     }
     
     .method-card h4 {
