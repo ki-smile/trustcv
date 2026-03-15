@@ -3,9 +3,9 @@
 [![PyPI](https://img.shields.io/pypi/v/trustcv)](https://pypi.org/project/trustcv/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://github.com/ki-smile/trustcv)
+[![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://ki-smile.github.io/trustcv/)
 
-
+**Website & Docs:** [https://ki-smile.github.io/trustcv/](https://ki-smile.github.io/trustcv/)
 
 **TrustCV** is a framework-agnostic toolkit for **reliable cross-validation** in safety-critical and regulated settings.
 It builds on familiar scikit-learn idioms, but adds:
