@@ -1288,6 +1288,43 @@ pre:hover .copy-button {
     box-shadow: var(--md-sys-elevation-2);
 }
 
+/* Visualization Method Description Box */
+.method-description {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: var(--spacing-xl);
+    margin-top: var(--spacing-lg);
+    box-shadow: var(--md-sys-elevation-1);
+    color: var(--ki-dark-plum);
+}
+
+.method-description h3 {
+    color: var(--ki-plum);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.25rem;
+}
+
+.method-description p {
+    color: var(--ki-dark-plum);
+    margin-bottom: var(--spacing-md);
+    opacity: 0.9;
+}
+
+.method-description ul {
+    list-style: none;
+    padding: 0;
+}
+
+.method-description li {
+    padding: var(--spacing-xs) 0;
+    font-size: 0.95rem;
+    color: var(--ki-grey);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hero {

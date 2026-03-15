@@ -165,10 +165,14 @@ function updateVisualization() {
     const method = document.getElementById('cv-method').value;
     const nSplits = document.getElementById('n-splits').value;
     
-    document.getElementById('splits-label').textContent = `${nSplits} splits`;
+    const splitsLabel = document.getElementById('splits-label');
+    if (splitsLabel) {
+        splitsLabel.textContent = `${nSplits} splits`;
+    }
     
     // Clear previous visualization
     const vizContainer = document.getElementById('cv-visualization');
+    if (!vizContainer) return;
     vizContainer.innerHTML = '';
     
     // Create visualization based on method
