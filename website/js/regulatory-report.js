@@ -154,11 +154,11 @@ function generateReportHTML(data) {
             </table>
             
             <h3>2.2 Data Sources</h3>
-            <pre style="background: #f5f5f5; padding: 12px; border-radius: 4px; white-space: pre-wrap;">${data.dataSource}</pre>
+            <pre style="background: var(--md-sys-color-surface-variant); padding: 12px; border-radius: 4px; white-space: pre-wrap; color: var(--ki-dark-plum);">${data.dataSource}</pre>
             
             ${data.demographics ? `
             <h3>2.3 Patient Demographics</h3>
-            <pre style="background: #f5f5f5; padding: 12px; border-radius: 4px; white-space: pre-wrap;">${data.demographics}</pre>
+            <pre style="background: var(--md-sys-color-surface-variant); padding: 12px; border-radius: 4px; white-space: pre-wrap; color: var(--ki-dark-plum);">${data.demographics}</pre>
             ` : ''}
         </div>
         
@@ -325,17 +325,17 @@ function generateReportHTML(data) {
             <h2>8. Approval Signatures</h2>
             <table style="width: 100%; margin-top: 40px;">
                 <tr>
-                    <td style="width: 33%; padding: 20px; border-top: 2px solid #333;">
+                    <td style="width: 33%; padding: 20px; border-top: 2px solid var(--border-color);">
                         <strong>Clinical Study Director</strong><br>
                         Name: _________________<br>
                         Date: _________________
                     </td>
-                    <td style="width: 33%; padding: 20px; border-top: 2px solid #333;">
+                    <td style="width: 33%; padding: 20px; border-top: 2px solid var(--border-color);">
                         <strong>Quality Assurance</strong><br>
                         Name: _________________<br>
                         Date: _________________
                     </td>
-                    <td style="width: 33%; padding: 20px; border-top: 2px solid #333;">
+                    <td style="width: 33%; padding: 20px; border-top: 2px solid var(--border-color);">
                         <strong>Regulatory Affairs</strong><br>
                         Name: _________________<br>
                         Date: _________________

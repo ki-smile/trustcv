@@ -587,7 +587,7 @@ print(f"Parallel CV Score: {np.mean(scores):.3f} ± {np.std(scores):.3f}")
 
 ```python
 from trustcv.splitters.temporal import RollingWindowCV
-from trustcv.checkers.leakage import LeakageChecker
+from trustcv import DataLeakageChecker
 
 def icu_monitoring_pipeline(patient_data, vital_signs, outcomes, patient_ids, timestamps):
     """Complete pipeline for ICU patient deterioration prediction"""
@@ -604,17 +604,14 @@ def icu_monitoring_pipeline(patient_data, vital_signs, outcomes, patient_ids, ti
     )
     
     # 3. Leakage checking
-    checker = LeakageChecker()
+    checker = DataLeakageChecker()
     
     results = []
     for fold, (train_idx, test_idx) in enumerate(cv.split(X)):
         # Check for temporal leakage
-        has_leakage = checker.check_temporal_leakage(
-            train_timestamps=timestamps[train_idx],
-            test_timestamps=timestamps[test_idx]
-        )
-        
-        if has_leakage:
+        report = checker.check(X, y, timestamps=timestamps)
+
+        if report.has_leakage:
             print(f"⚠️ Warning: Temporal leakage detected in fold {fold}")
             continue
         

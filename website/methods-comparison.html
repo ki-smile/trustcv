@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,14 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/tutorials.css">
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -26,6 +34,7 @@
             </button>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
                 <li class="nav-dropdown">
                     <a href="#">Learn</a>
                     <div class="dropdown-menu">
@@ -41,6 +50,10 @@
                             <span class="material-icons" style="font-size: 18px;">menu_book</span>
                             Notebooks
                         </a>
+                        <a href="tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
                     </div>
                 </li>
                 <li class="nav-dropdown">
@@ -50,14 +63,26 @@
                             <span class="material-icons" style="font-size: 18px;">table_chart</span>
                             Methods Guide
                         </a>
+                        <a href="cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <div class="dropdown-divider"></div>
                         <a href="docs/API_REFERENCE.html">
                             <span class="material-icons" style="font-size: 18px;">api</span>
                             API Documentation
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="docs/CV_SELECTION_GUIDE.md">
-                            <span class="material-icons" style="font-size: 18px;">help</span>
-                            Selection Guide
                         </a>
                     </div>
                 </li>
@@ -72,15 +97,31 @@
                             <span class="material-icons" style="font-size: 18px;">description</span>
                             Report Generator
                         </a>
-                        
                     </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
                 </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
                 </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
+                </a></li>
             </ul>
         </div>
     </nav>
+
+    <!-- Breadcrumbs -->
+    <div class="breadcrumbs">
+        <div class="breadcrumbs-container">
+            <a href="index.html">Home</a>
+            <span class="separator">/</span>
+            <span class="current">Methods Comparison</span>
+        </div>
+    </div>
 
     <!-- Header Section -->
     <section class="page-header">
@@ -479,13 +520,12 @@
 <span class="keyword">from</span> trustcv.splitters <span class="keyword">import</span> GroupKFold, StratifiedGroupKFold
 
 <span class="comment"># Basic patient-grouped cross-validation</span>
-cv = GroupKFold(n_splits=<span class="number">5</span>)
-validator = TrustCVValidator(cv=cv, check_leakage=<span class="keyword">True</span>)
-results = validator.fit_validate(model, X, y, groups=patient_ids)
+validator = TrustCVValidator(method=<span class="string">'group_kfold'</span>, n_splits=<span class="number">5</span>, check_leakage=<span class="keyword">True</span>)
+results = validator.validate(model=model, X=X, y=y, groups=patient_ids)
 
 <span class="comment"># Stratified patient grouping (preserves class balance)</span>
-cv = StratifiedGroupKFold(n_splits=<span class="number">5</span>)
-results = validator.fit_validate(model, X, y, groups=patient_ids)</code></pre>
+validator = TrustCVValidator(method=<span class="string">'stratified_group_kfold'</span>, n_splits=<span class="number">5</span>)
+results = validator.validate(model=model, X=X, y=y, groups=patient_ids)</code></pre>
                     </div>
                 </div>
 
@@ -526,6 +566,80 @@ cv = HierarchicalGroupKFold(n_splits=<span class="number">5</span>)</code></pre>
         </div>
     </section>
 
+    <!-- ML Toolbox Comparison -->
+    <section class="toolbox-comparison-section">
+        <div class="container">
+            <h2>📈 Framework Comparison: Why TrustCV?</h2>
+            <p class="section-subtitle">Comparing built-in cross-validation support across popular ML/DL toolboxes</p>
+            
+            <div class="table-container">
+                <table class="cv-methods-table">
+                    <thead>
+                        <tr>
+                            <th>Toolbox</th>
+                            <th>Built-in CV Splitters</th>
+                            <th>Medical CV Support</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="highlight-row">
+                            <td><strong>TrustCV (ours)</strong></td>
+                            <td><strong>29</strong></td>
+                            <td>⭐⭐⭐ Excellent</td>
+                            <td>Native support for Patient-Grouping, Temporal Purging, Spatial Blocking, and Leakage Detection.</td>
+                        </tr>
+                        <tr>
+                            <td>Scikit-learn</td>
+                            <td>15</td>
+                            <td>⭐⭐ Good</td>
+                            <td>Solid for basic IID and simple Group/Time splits, but lacks medical-specific temporal/spatial logic.</td>
+                        </tr>
+                        <tr>
+                            <td>PyCaret</td>
+                            <td>5</td>
+                            <td>⭐⭐⭐ Strong</td>
+                            <td>Good high-level strategies for simple group/time splits, but limited configuration.</td>
+                        </tr>
+                        <tr>
+                            <td>CatBoost / XGBoost / LightGBM</td>
+                            <td>2-3</td>
+                            <td>⭐⭐ Moderate</td>
+                            <td>Native support for basic folds and simple grouping/stratification.</td>
+                        </tr>
+                        <tr>
+                            <td>MONAI</td>
+                            <td>1</td>
+                            <td>⭐⭐ Moderate</td>
+                            <td>Specialized for medical imaging datasets but lacks broader clinical CV methods.</td>
+                        </tr>
+                        <tr>
+                            <td>TensorFlow / PyTorch / JAX</td>
+                            <td>0</td>
+                            <td>⭐ Basic</td>
+                            <td>No dedicated CV module; requires manual loops or external splitters (like sklearn or TrustCV).</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-cards">
+                <div class="info-card">
+                    <h4><span class="material-icons">layers</span> What Scikit-learn Lacks</h4>
+                    <p>TrustCV provides 14+ specialized methods not found in scikit-learn, including <strong>PurgedKFoldCV</strong>, <strong>SpatialBlockCV</strong>, <strong>HierarchicalCV</strong>, and <strong>EnvironmentalHealthCV</strong>.</p>
+                </div>
+                <div class="info-card">
+                    <h4><span class="material-icons">shield</span> Integrated Leakage Detection</h4>
+                    <p>Unlike standard toolkits, TrustCV includes 6 types of automated data leakage checkers (Patient, Temporal, Spatial, Preprocessing, Duplicate, Feature-Target).</p>
+                </div>
+                <div class="info-card">
+                    <h4><span class="material-icons">description</span> Regulatory Readiness</h4>
+                    <p>Our splitters are designed to map directly to <strong>FDA 510(k)</strong> and <strong>CE MDR</strong> documentation requirements for clinical validation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -537,8 +651,9 @@ cv = HierarchicalGroupKFold(n_splits=<span class="number">5</span>)</code></pre>
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
                         <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
                         <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -547,12 +662,13 @@ cv = HierarchicalGroupKFold(n_splits=<span class="number">5</span>)</code></pre>
                     <ul>
                         <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
                         <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
                 </div>
             </div>
         </div>
@@ -737,6 +853,19 @@ cv = HierarchicalGroupKFold(n_splits=<span class="number">5</span>)</code></pre>
         .code-example .function {
             color: #dcdcaa;
         }
+
+        /* Dark theme overrides */
+        [data-theme="dark"] .method-table, [data-theme="dark"] .comparison-card { background: #1F1030; }
+        [data-theme="dark"] .method-table th { background: #0E000C; color: #F5EDF3; }
+        [data-theme="dark"] .method-table td { border-color: rgba(255,135,111,0.1); color: #F5EDF3; }
+        [data-theme="dark"] .method-table tr:hover { background: #240820; }
+        [data-theme="dark"] .category-header { background: #C066A0; }
+        [data-theme="dark"] .filter-btn { background: #1F1030; color: #F5EDF3; border-color: rgba(255,135,111,0.1); }
+        [data-theme="dark"] .filter-btn.active { background: #C066A0; color: #0E000C; }
+        [data-theme="dark"] .selector-card { background: #1F1030; }
+        [data-theme="dark"] .example-card { background: #1F1030; }
     </style>
+    <script src="js/theme.js"></script>
+    <script src="js/tooltips.js"></script>
 </body>
 </html>

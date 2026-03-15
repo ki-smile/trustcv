@@ -2,6 +2,10 @@
  * Temporal Cross-Validation Visualizations
  */
 
+function getColors() {
+    return (typeof getThemeColors === 'function') ? getThemeColors() : { plum:'#870052', darkPlum:'#4F0433', orange:'#FF876F', lightBlue:'#EDF4F4', grey:'#6B6B6B', text:'#000000', plotBg:'#FFFFFF', paperBg:'#EDF4F4', axisColor:'#666666', gridColor:'rgba(0,0,0,0.06)', titleColor:'#4F0433', annotationColor:'#666666', train:'#3498DB', test:'#E74C3C', inactive:'#BDC3C7' };
+}
+
 function visualizeTemporal(nSplits) {
     const container = document.getElementById('cv-visualization');
     
@@ -30,7 +34,7 @@ function visualizeTemporal(nSplits) {
             x1: dates[Math.min(end, n - 1)],
             y0: 0,
             y1: 1,
-            fillcolor: fold === nSplits - 1 ? colors.orange : colors.plum,
+            fillcolor: fold === nSplits - 1 ? getColors().orange : getColors().plum,
             opacity: 0.2,
             line: {width: 0}
         });
@@ -39,7 +43,8 @@ function visualizeTemporal(nSplits) {
             x: dates[start + foldSize / 2],
             y: 75,
             text: fold === nSplits - 1 ? 'Test' : `Train ${fold + 1}`,
-            showarrow: false
+            showarrow: false,
+            font: {color: getColors().annotationColor}
         });
     }
     
@@ -49,17 +54,18 @@ function visualizeTemporal(nSplits) {
         type: 'scatter',
         mode: 'lines',
         name: 'Patient Vital Signs',
-        line: {color: colors.darkPlum, width: 2}
+        line: {color: getColors().darkPlum, width: 2}
     };
     
     const layout = {
         title: 'Time Series Split: Respects Temporal Order',
-        xaxis: {title: 'Time'},
-        yaxis: {title: 'Measurement Value'},
+        font: {color: getColors().text},
+        xaxis: {title: 'Time', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Measurement Value', color: getColors().axisColor, gridcolor: getColors().gridColor},
         shapes: shapes,
         annotations: annotations,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg
     };
     
     Plotly.newPlot(container, [trace], layout, {responsive: true});
@@ -94,7 +100,7 @@ function visualizeRollingWindow() {
             x1: trainEnd,
             y0: i * 0.3,
             y1: i * 0.3 + 0.25,
-            fillcolor: colors.plum,
+            fillcolor: getColors().plum,
             opacity: 0.5,
             line: {width: 0}
         });
@@ -105,7 +111,7 @@ function visualizeRollingWindow() {
             x1: testEnd,
             y0: i * 0.3,
             y1: i * 0.3 + 0.25,
-            fillcolor: colors.orange,
+            fillcolor: getColors().orange,
             opacity: 0.5,
             line: {width: 0}
         });
@@ -113,11 +119,12 @@ function visualizeRollingWindow() {
     
     const layout = {
         title: 'Rolling Window: Fixed-Size Training Window',
-        xaxis: {title: 'Time Index', range: [0, 40]},
-        yaxis: {title: 'Window', range: [-0.1, 1], showticklabels: false},
+        font: {color: getColors().text},
+        xaxis: {title: 'Time Index', range: [0, 40], color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Window', range: [-0.1, 1], showticklabels: false, color: getColors().axisColor, gridcolor: getColors().gridColor},
         shapes: shapes,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         showlegend: false
     };
     
@@ -148,7 +155,7 @@ function visualizeExpandingWindow() {
             x1: trainEnd,
             y0: i * 0.3,
             y1: i * 0.3 + 0.25,
-            fillcolor: colors.plum,
+            fillcolor: getColors().plum,
             opacity: 0.5,
             line: {width: 0}
         });
@@ -159,7 +166,7 @@ function visualizeExpandingWindow() {
             x1: testEnd,
             y0: i * 0.3,
             y1: i * 0.3 + 0.25,
-            fillcolor: colors.orange,
+            fillcolor: getColors().orange,
             opacity: 0.5,
             line: {width: 0}
         });
@@ -167,11 +174,12 @@ function visualizeExpandingWindow() {
     
     const layout = {
         title: 'Expanding Window: Growing Training Set',
-        xaxis: {title: 'Time Index', range: [0, 40]},
-        yaxis: {title: 'Window', range: [-0.1, 1], showticklabels: false},
+        font: {color: getColors().text},
+        xaxis: {title: 'Time Index', range: [0, 40], color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Window', range: [-0.1, 1], showticklabels: false, color: getColors().axisColor, gridcolor: getColors().gridColor},
         shapes: shapes,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         showlegend: false
     };
     
@@ -203,9 +211,9 @@ function visualizeBlockedTimeSeries(nSplits) {
         // Assign block colors
         const blockId = Math.floor(i / daysPerBlock);
         if (blockId % nSplits === nSplits - 1) {
-            blockColors.push(colors.orange); // Test blocks
+            blockColors.push(getColors().orange); // Test blocks
         } else {
-            blockColors.push(colors.plum); // Train blocks
+            blockColors.push(getColors().plum); // Train blocks
         }
     }
     
@@ -227,9 +235,9 @@ function visualizeBlockedTimeSeries(nSplits) {
             x1: dates[endIdx],
             y0: 0,
             y1: 1,
-            fillcolor: isTestBlock ? colors.orange : colors.plum,
+            fillcolor: isTestBlock ? getColors().orange : getColors().plum,
             opacity: 0.2,
-            line: {width: 1, color: isTestBlock ? colors.orange : colors.plum}
+            line: {width: 1, color: isTestBlock ? getColors().orange : getColors().plum}
         });
         
         if (block < nSplits * 2) { // Only label first few blocks
@@ -238,31 +246,34 @@ function visualizeBlockedTimeSeries(nSplits) {
                 y: 35,
                 text: `Week ${block + 1}<br>${isTestBlock ? 'TEST' : 'TRAIN'}`,
                 showarrow: false,
-                font: {size: 10}
+                font: {size: 10, color: getColors().annotationColor}
             });
         }
     }
-    
+
     const trace = {
         x: dates,
         y: values,
         type: 'scatter',
         mode: 'lines',
         name: 'Patient Monitoring Data',
-        line: {color: colors.darkPlum, width: 2}
+        line: {color: getColors().darkPlum, width: 2}
     };
     
     const layout = {
         title: 'Blocked Time Series: Weekly Blocks Stay Together',
+        font: {color: getColors().text},
         xaxis: {
             title: 'Date',
-            tickformat: '%b %d'
+            tickformat: '%b %d',
+            color: getColors().axisColor,
+            gridcolor: getColors().gridColor
         },
-        yaxis: {title: 'Measurement Value'},
+        yaxis: {title: 'Measurement Value', color: getColors().axisColor, gridcolor: getColors().gridColor},
         shapes: shapes,
         annotations: annotations,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         hovermode: 'x unified'
     };
     
@@ -285,9 +296,9 @@ function visualizePurgedKFold(nSplits) {
     
     const shapes = [];
     const colors_map = {
-        train: colors.plum,
-        test: colors.orange,
-        purge: colors.grey
+        train: getColors().plum,
+        test: getColors().orange,
+        purge: getColors().grey
     };
     
     for (let fold = 0; fold < nSplits; fold++) {
@@ -337,11 +348,12 @@ function visualizePurgedKFold(nSplits) {
     
     const layout = {
         title: 'Purged K-Fold: Gaps Prevent Information Leakage',
-        xaxis: {title: 'Sample Index', range: [0, n]},
-        yaxis: {title: '', range: [0, 1], showticklabels: false},
+        font: {color: getColors().text},
+        xaxis: {title: 'Sample Index', range: [0, n], color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: '', range: [0, 1], showticklabels: false, color: getColors().axisColor, gridcolor: getColors().gridColor},
         shapes: shapes,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg
     };
     
     Plotly.newPlot(container, [], layout, {responsive: true});
@@ -382,7 +394,7 @@ function visualizeCPCV() {
             let color, opacity;
             if (combo.includes(g)) {
                 // Test group
-                color = colors.orange;
+                color = getColors().orange;
                 opacity = 0.8;
             } else {
                 // Check if in purge zone
@@ -397,10 +409,10 @@ function visualizeCPCV() {
                 });
                 
                 if (inPurge) {
-                    color = colors.grey;
+                    color = getColors().grey;
                     opacity = 0.3;
                 } else {
-                    color = colors.plum;
+                    color = getColors().plum;
                     opacity = 0.6;
                 }
             }
@@ -413,7 +425,7 @@ function visualizeCPCV() {
                 y1: yBase + 0.15,
                 fillcolor: color,
                 opacity: opacity,
-                line: {width: 1, color: 'white'}
+                line: {width: 1, color: getColors().plotBg}
             });
         }
         
@@ -424,26 +436,31 @@ function visualizeCPCV() {
             text: `C(${combo[0]},${combo[1]})`,
             mode: 'text',
             showlegend: false,
-            textfont: {size: 10, color: colors.darkPlum}
+            textfont: {size: 10, color: getColors().darkPlum}
         });
     });
     
     const layout = {
         title: 'Combinatorial Purged CV: Multiple Test Group Combinations',
+        font: {color: getColors().text},
         xaxis: {
             title: 'Sample Index',
             range: [0, n],
-            showgrid: false
+            showgrid: false,
+            color: getColors().axisColor,
+            gridcolor: getColors().gridColor
         },
         yaxis: {
             title: 'Combinations',
             range: [-0.05, 0.85],
             showticklabels: false,
-            showgrid: false
+            showgrid: false,
+            color: getColors().axisColor,
+            gridcolor: getColors().gridColor
         },
         shapes: shapes,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         showlegend: false,
         annotations: [
             {
@@ -453,7 +470,7 @@ function visualizeCPCV() {
                 yref: 'paper',
                 text: 'Orange: Test | Grey: Purged | Purple: Train',
                 showarrow: false,
-                font: {size: 11}
+                font: {size: 11, color: getColors().annotationColor}
             }
         ]
     };
@@ -464,11 +481,11 @@ function visualizeCPCV() {
     const formulaDiv = document.createElement('div');
     formulaDiv.style.marginTop = '15px';
     formulaDiv.style.padding = '10px';
-    formulaDiv.style.backgroundColor = 'white';
+    formulaDiv.style.backgroundColor = getColors().plotBg;
     formulaDiv.style.borderRadius = '8px';
     formulaDiv.innerHTML = `
-        <h4>Total Combinations: C(${nGroups}, ${nTestGroups}) = ${combination(nGroups, nTestGroups)}</h4>
-        <p style="color: ${colors.grey}; font-size: 14px;">
+        <h4 style="color: ${getColors().titleColor};">Total Combinations: C(${nGroups}, ${nTestGroups}) = ${combination(nGroups, nTestGroups)}</h4>
+        <p style="color: ${getColors().grey}; font-size: 14px;">
             Each combination tests different group pairs with purging to prevent leakage.
         </p>
     `;
@@ -533,9 +550,9 @@ function visualizeNestedTemporal() {
             x1: outerTestEnd,
             y0: outerHeight,
             y1: outerHeight + 0.15,
-            fillcolor: colors.orange,
+            fillcolor: getColors().orange,
             opacity: 0.7,
-            line: {width: 1, color: colors.orange}
+            line: {width: 1, color: getColors().orange}
         });
         
         // Outer train region
@@ -545,9 +562,9 @@ function visualizeNestedTemporal() {
             x1: outerTrainEnd,
             y0: outerHeight,
             y1: outerHeight + 0.15,
-            fillcolor: colors.plum,
+            fillcolor: getColors().plum,
             opacity: 0.3,
-            line: {width: 1, color: colors.plum}
+            line: {width: 1, color: getColors().plum}
         });
         
         // Add outer fold label
@@ -556,7 +573,7 @@ function visualizeNestedTemporal() {
             y: outerHeight + 0.2,
             text: `Outer ${outer + 1}`,
             showarrow: false,
-            font: {size: 10, color: colors.darkPlum}
+            font: {size: 10, color: getColors().darkPlum}
         });
         
         // Inner loop visualization (show for first outer fold only)
@@ -575,9 +592,9 @@ function visualizeNestedTemporal() {
                         x1: innerTestEnd,
                         y0: innerHeight,
                         y1: innerHeight + 0.1,
-                        fillcolor: '#FFA500',
+                        fillcolor: getColors().orange,
                         opacity: 0.5,
-                        line: {width: 0.5, color: '#FFA500'}
+                        line: {width: 0.5, color: getColors().orange}
                     });
                     
                     // Inner train region
@@ -587,9 +604,9 @@ function visualizeNestedTemporal() {
                         x1: innerTestStart - 2,
                         y0: innerHeight,
                         y1: innerHeight + 0.1,
-                        fillcolor: '#800080',
+                        fillcolor: getColors().plum,
                         opacity: 0.2,
-                        line: {width: 0.5, color: '#800080'}
+                        line: {width: 0.5, color: getColors().plum}
                     });
                     
                     // Inner fold label
@@ -598,7 +615,7 @@ function visualizeNestedTemporal() {
                         y: innerHeight - 0.05,
                         text: `Inner ${inner + 1}`,
                         showarrow: false,
-                        font: {size: 8, color: colors.grey}
+                        font: {size: 8, color: getColors().grey}
                     });
                 }
             }
@@ -611,7 +628,7 @@ function visualizeNestedTemporal() {
         y: 0.9,
         text: 'OUTER LOOP (Model Evaluation)',
         showarrow: false,
-        font: {size: 12, color: colors.darkPlum, family: 'Arial Black'}
+        font: {size: 12, color: getColors().darkPlum, family: 'Arial Black'}
     });
     
     annotations.push({
@@ -619,27 +636,31 @@ function visualizeNestedTemporal() {
         y: 0.15,
         text: 'INNER LOOP (Hyperparameter Tuning)',
         showarrow: false,
-        font: {size: 10, color: colors.grey}
+        font: {size: 10, color: getColors().grey}
     });
     
     const layout = {
         title: 'Nested Temporal CV: Two-Level Time-Aware Validation',
+        font: {color: getColors().text},
         xaxis: {
             title: 'Time Index',
             range: [0, totalSamples],
             showgrid: true,
-            gridcolor: colors.lightBlue
+            gridcolor: getColors().gridColor,
+            color: getColors().axisColor
         },
         yaxis: {
             title: '',
             range: [0, 1],
             showticklabels: false,
-            showgrid: false
+            showgrid: false,
+            color: getColors().axisColor,
+            gridcolor: getColors().gridColor
         },
         shapes: shapes,
         annotations: annotations,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         showlegend: false,
         margin: {t: 50, b: 50, l: 50, r: 50}
     };
@@ -650,11 +671,11 @@ function visualizeNestedTemporal() {
     const explanationDiv = document.createElement('div');
     explanationDiv.style.marginTop = '15px';
     explanationDiv.style.padding = '15px';
-    explanationDiv.style.backgroundColor = 'white';
+    explanationDiv.style.backgroundColor = getColors().plotBg;
     explanationDiv.style.borderRadius = '8px';
     explanationDiv.innerHTML = `
-        <h4>How Nested Temporal CV Works:</h4>
-        <ol style="color: ${colors.grey}; font-size: 14px; line-height: 1.6;">
+        <h4 style="color: ${getColors().titleColor};">How Nested Temporal CV Works:</h4>
+        <ol style="color: ${getColors().grey}; font-size: 14px; line-height: 1.6;">
             <li><strong>Outer Loop:</strong> Evaluates final model performance (orange = test, purple = train)</li>
             <li><strong>Inner Loop:</strong> Finds best hyperparameters using only outer training data</li>
             <li><strong>Temporal Constraint:</strong> Both loops respect time order - no future data leakage</li>
@@ -669,3 +690,10 @@ function visualizeNestedTemporal() {
         ['Very computationally expensive', 'Complex to implement correctly', 'Requires large datasets']
     );
 }
+
+window.addEventListener('themechange', function() {
+    var methodSelect = document.getElementById('cv-method');
+    if (methodSelect) {
+        try { updateVisualization(); } catch(e) {}
+    }
+});

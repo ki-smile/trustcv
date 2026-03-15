@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +15,14 @@
     
     <!-- Plotly for interactive visualizations -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -29,6 +37,7 @@
             </button>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
                 <li class="nav-dropdown">
                     <a href="#">Learn</a>
                     <div class="dropdown-menu">
@@ -44,6 +53,10 @@
                             <span class="material-icons" style="font-size: 18px;">menu_book</span>
                             Notebooks
                         </a>
+                        <a href="tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
                     </div>
                 </li>
                 <li class="nav-dropdown">
@@ -53,14 +66,26 @@
                             <span class="material-icons" style="font-size: 18px;">table_chart</span>
                             Methods Guide
                         </a>
+                        <a href="cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <div class="dropdown-divider"></div>
                         <a href="docs/API_REFERENCE.html">
                             <span class="material-icons" style="font-size: 18px;">api</span>
                             API Documentation
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="docs/CV_SELECTION_GUIDE.md">
-                            <span class="material-icons" style="font-size: 18px;">help</span>
-                            Selection Guide
                         </a>
                     </div>
                 </li>
@@ -75,15 +100,31 @@
                             <span class="material-icons" style="font-size: 18px;">description</span>
                             Report Generator
                         </a>
-                        
                     </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
                 </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
                 </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
+                </a></li>
             </ul>
         </div>
     </nav>
+
+    <!-- Breadcrumbs -->
+    <div class="breadcrumbs">
+        <div class="breadcrumbs-container">
+            <a href="index.html">Home</a>
+            <span class="separator">/</span>
+            <span class="current">Demonstrations</span>
+        </div>
+    </div>
 
     <!-- Header Section -->
     <section class="page-header">
@@ -143,7 +184,12 @@
                 <!-- Data Leakage Demo -->
                 <div id="data-leakage" class="demo-content active">
                     <div class="demo-info">
-                        <h3>🚨 Data Leakage Consequences</h3>
+                        <div class="demo-header-inline">
+                            <h3>🚨 Data Leakage Consequences</h3>
+                            <a href="https://github.com/ki-smile/trustcv/blob/main/examples/data_leakage_detection_demo.py" target="_blank" class="btn-code-link">
+                                <span class="material-icons">code</span> See Python Code
+                            </a>
+                        </div>
                         <div class="demo-description">
                             <p><strong>Scenario:</strong> ICU mortality prediction using patient vital signs and lab results</p>
                             <p><strong>Problem:</strong> What happens when future information leaks into training data?</p>
@@ -210,7 +256,12 @@
                 <!-- CV Comparison Demo -->
                 <div id="cv-comparison" class="demo-content">
                     <div class="demo-info">
-                        <h3>🏥 Cross-Validation Method Comparison</h3>
+                        <div class="demo-header-inline">
+                            <h3>🏥 Cross-Validation Method Comparison</h3>
+                            <a href="https://github.com/ki-smile/trustcv/blob/main/examples/all_cv_methods_demo.py" target="_blank" class="btn-code-link">
+                                <span class="material-icons">code</span> See Python Code
+                            </a>
+                        </div>
                         <div class="demo-description">
                             <p><strong>Scenario:</strong> Multi-site diabetes prediction across 8 hospitals</p>
                             <p><strong>Problem:</strong> How do different CV methods handle site-specific biases?</p>
@@ -253,7 +304,12 @@
                 <!-- Temporal Demo -->
                 <div id="temporal-demo" class="demo-content">
                     <div class="demo-info">
-                        <h3>⏰ Temporal Validation in ICU Monitoring</h3>
+                        <div class="demo-header-inline">
+                            <h3>⏰ Temporal Validation in ICU Monitoring</h3>
+                            <a href="https://github.com/ki-smile/trustcv/blob/main/examples/icu_patient_monitoring.py" target="_blank" class="btn-code-link">
+                                <span class="material-icons">code</span> See Python Code
+                            </a>
+                        </div>
                         <div class="demo-description">
                             <p><strong>Scenario:</strong> Real-time sepsis prediction using continuous monitoring</p>
                             <p><strong>Problem:</strong> How to validate time-series models without look-ahead bias?</p>
@@ -301,7 +357,12 @@
                 <!-- Patient Grouping Demo -->
                 <div id="patient-demo" class="demo-content">
                     <div class="demo-info">
-                        <h3>👥 Patient-Level Cross-Validation</h3>
+                        <div class="demo-header-inline">
+                            <h3>👥 Patient-Level Cross-Validation</h3>
+                            <a href="https://github.com/ki-smile/trustcv/blob/main/examples/heart_disease_classification.py" target="_blank" class="btn-code-link">
+                                <span class="material-icons">code</span> See Python Code
+                            </a>
+                        </div>
                         <div class="demo-description">
                             <p><strong>Scenario:</strong> Longitudinal study with multiple visits per patient</p>
                             <p><strong>Problem:</strong> How to prevent patient-level data leakage?</p>
@@ -601,8 +662,9 @@
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
                         <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
                         <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -611,17 +673,23 @@
                     <ul>
                         <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
                         <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
-                        <li><a href="LICENSE">MIT License</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
                 </div>
             </div>
         </div>
     </footer>
+
+    <!-- Theme (must load before visualizations) -->
+    <script src="js/theme.js"></script>
+
+    <!-- Tooltips -->
+    <script src="js/tooltips.js"></script>
 
     <!-- JavaScript Files -->
     <script src="js/main.js"></script>
@@ -631,19 +699,19 @@
     <script src="js/cv-spatial.js"></script>
     <script src="js/tutorials.js"></script>
     <script src="js/cv-animation.js"></script>
-    
+
     <script>
         // Mobile menu toggle
         function toggleMobileMenu() {
             const menu = document.getElementById('navMenu');
             menu.classList.toggle('active');
         }
-        
+
         // Close mobile menu when clicking outside
         document.addEventListener('click', function(event) {
             const menu = document.getElementById('navMenu');
             const toggle = document.querySelector('.nav-toggle');
-            
+
             if (menu && toggle && !menu.contains(event.target) && !toggle.contains(event.target)) {
                 menu.classList.remove('active');
             }

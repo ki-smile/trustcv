@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,7 +20,7 @@
         }
         
         .tutorial-header {
-            background: linear-gradient(135deg, var(--ki-plum) 0%, var(--ki-dark-plum) 100%);
+            background: linear-gradient(135deg, var(--ki-plum) 0%, var(--ki-brand-dark-plum) 100%);
             color: white;
             padding: 60px 40px;
             border-radius: 16px;
@@ -49,11 +49,12 @@
         }
         
         .toc-section {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 30px;
             margin-bottom: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
         }
         
         .toc-list {
@@ -63,7 +64,7 @@
         
         .toc-list li {
             padding: 10px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .toc-list a {
@@ -79,11 +80,12 @@
         }
         
         .guideline-section {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: 40px;
             margin-bottom: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
         }
         
         .guideline-header {
@@ -109,11 +111,12 @@
         }
         
         .requirement-box {
-            background: #f8f9fa;
+            background: var(--md-sys-color-background);
             border-left: 4px solid var(--ki-plum);
             padding: 20px;
             margin: 20px 0;
             border-radius: 4px;
+            color: var(--ki-dark-plum);
         }
         
         .requirement-box h4 {
@@ -122,8 +125,8 @@
         }
         
         .checklist {
-            background: #fff;
-            border: 1px solid #e0e0e0;
+            background: var(--md-sys-color-surface);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 20px;
             margin: 20px 0;
@@ -134,6 +137,7 @@
             align-items: flex-start;
             gap: 10px;
             margin-bottom: 12px;
+            color: var(--ki-dark-plum);
         }
         
         .checklist-item input[type="checkbox"] {
@@ -148,6 +152,40 @@
         .comparison-table table {
             width: 100%;
             border-collapse: collapse;
+        }
+        
+        .comparison-table th {
+            background: var(--section-dark);
+            color: white;
+            text-align: left;
+            padding: 15px;
+        }
+        
+        .comparison-table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--ki-dark-plum);
+        }
+        
+        .rejection-warning {
+            background: var(--status-error-bg);
+            border: 1px solid var(--status-error-border);
+            color: var(--status-error-text);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .success-note {
+            background: var(--status-success-bg);
+            border: 1px solid var(--status-success-border);
+            color: var(--status-success-text);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .comparison-table table {
             min-width: 800px;
         }
         
@@ -161,39 +199,38 @@
         
         .comparison-table td {
             padding: 15px;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .comparison-table tr:nth-child(even) {
-            background: #f8f9fa;
+            border: 1px solid var(--border-color);
         }
         
         .source-reference {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
+            background: var(--md-sys-color-surface-variant);
+            border-left: 4px solid var(--ki-plum);
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
+            color: var(--ki-dark-plum);
         }
         
         .source-reference strong {
-            color: #1565c0;
+            color: var(--ki-plum);
         }
         
         .warning-box {
-            background: #fff3e0;
-            border-left: 4px solid #ff9800;
+            background: var(--status-warning-bg);
+            border-left: 4px solid var(--status-warning-border);
             padding: 20px;
             margin: 20px 0;
             border-radius: 4px;
+            color: var(--status-warning-text);
         }
         
         .success-box {
-            background: #e8f5e9;
-            border-left: 4px solid #4caf50;
+            background: var(--status-success-bg);
+            border-left: 4px solid var(--status-success-border);
             padding: 20px;
             margin: 20px 0;
             border-radius: 4px;
+            color: var(--status-success-text);
         }
         
         .code-example {
@@ -214,23 +251,22 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
+            border-bottom: 1px solid var(--border-color);
         }
         
         .tab-button {
             padding: 10px 20px;
             background: none;
             border: none;
-            color: #666;
-            cursor: pointer;
-            font-size: 16px;
             border-bottom: 3px solid transparent;
-            transition: all 0.3s;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--ki-grey);
         }
         
         .tab-button.active {
-            color: var(--ki-plum);
             border-bottom-color: var(--ki-plum);
+            color: var(--ki-plum);
         }
         
         .tab-content {
@@ -241,33 +277,33 @@
             display: block;
         }
         
-        .download-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            text-align: center;
-            margin: 40px 0;
-        }
-        
         .download-button {
-            background: white;
-            color: var(--ki-plum);
-            padding: 12px 30px;
-            border-radius: 24px;
-            text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            margin: 10px;
-            transition: all 0.3s;
+            padding: 12px 24px;
+            background: var(--ki-plum);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-right: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
         }
         
         .download-button:hover {
+            background: var(--ki-brand-dark-plum);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
     </style>
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -282,6 +318,7 @@
             </button>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
                 <li class="nav-dropdown">
                     <a href="#">Learn</a>
                     <div class="dropdown-menu">
@@ -297,6 +334,10 @@
                             <span class="material-icons" style="font-size: 18px;">menu_book</span>
                             Notebooks
                         </a>
+                        <a href="tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
                     </div>
                 </li>
                 <li class="nav-dropdown">
@@ -306,14 +347,26 @@
                             <span class="material-icons" style="font-size: 18px;">table_chart</span>
                             Methods Guide
                         </a>
+                        <a href="cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <div class="dropdown-divider"></div>
                         <a href="docs/API_REFERENCE.html">
                             <span class="material-icons" style="font-size: 18px;">api</span>
                             API Documentation
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="docs/CV_SELECTION_GUIDE.md">
-                            <span class="material-icons" style="font-size: 18px;">help</span>
-                            Selection Guide
                         </a>
                     </div>
                 </li>
@@ -328,15 +381,31 @@
                             <span class="material-icons" style="font-size: 18px;">description</span>
                             Report Generator
                         </a>
-                        
                     </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
                 </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
                 </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
+                </a></li>
             </ul>
         </div>
     </nav>
+
+    <!-- Breadcrumbs -->
+    <div class="breadcrumbs">
+        <div class="breadcrumbs-container" style="max-width: 1200px; margin: 0 auto; padding: 10px 20px;">
+            <a href="index.html">Home</a>
+            <span class="separator">/</span>
+            <span class="current">Regulatory Guidelines</span>
+        </div>
+    </div>
 
     <div class="tutorial-container">
         <!-- Header -->
@@ -605,29 +674,29 @@ X_train, X_val, y_train, y_val = train_test_split(
                 <h4>Classification Rules for AI/ML Software</h4>
                 <table style="width: 100%; margin-top: 15px;">
                     <tr>
-                        <th style="background: #2196F3; color: white; padding: 10px;">Class</th>
-                        <th style="background: #2196F3; color: white; padding: 10px;">Description</th>
-                        <th style="background: #2196F3; color: white; padding: 10px;">Validation Requirements</th>
+                        <th style="background: var(--ki-plum); color: white; padding: 10px;">Class</th>
+                        <th style="background: var(--ki-plum); color: white; padding: 10px;">Description</th>
+                        <th style="background: var(--ki-plum); color: white; padding: 10px;">Validation Requirements</th>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class I</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Low risk, no direct patient impact</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Basic validation</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);"><strong>Class I</strong></td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Low risk, no direct patient impact</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Basic validation</td>
                     </tr>
-                    <tr style="background: #f5f5f5;">
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class IIa</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Inform clinical decisions</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Clinical evaluation required</td>
+                    <tr style="background: var(--md-sys-color-surface-variant);">
+                        <td style="padding: 10px; border: 1px solid var(--border-color);"><strong>Class IIa</strong></td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Inform clinical decisions</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Clinical evaluation required</td>
                     </tr>
                     <tr>
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class IIb</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Direct diagnosis/monitoring vital functions</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Extensive clinical validation</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);"><strong>Class IIb</strong></td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Direct diagnosis/monitoring vital functions</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Extensive clinical validation</td>
                     </tr>
-                    <tr style="background: #f5f5f5;">
-                        <td style="padding: 10px; border: 1px solid #ddd;"><strong>Class III</strong></td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Life-supporting/life-saving</td>
-                        <td style="padding: 10px; border: 1px solid #ddd;">Highest level validation + clinical trials</td>
+                    <tr style="background: var(--md-sys-color-surface-variant);">
+                        <td style="padding: 10px; border: 1px solid var(--border-color);"><strong>Class III</strong></td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Life-supporting/life-saving</td>
+                        <td style="padding: 10px; border: 1px solid var(--border-color);">Highest level validation + clinical trials</td>
                     </tr>
                 </table>
             </div>
@@ -915,7 +984,7 @@ def tripod_compliant_cv(X, y, patient_ids, model):
                             <td>✅ Required for Class IIa+</td>
                             <td>✅ Strongly recommended</td>
                         </tr>
-                        <tr style="background: #f5f5f5;">
+                        <tr style="background: var(--md-sys-color-surface-variant);">
                             <td><strong>Patient Grouping</strong></td>
                             <td>✅ Mandatory</td>
                             <td>✅ Required when applicable</td>
@@ -927,7 +996,7 @@ def tripod_compliant_cv(X, y, patient_ids, model):
                             <td>State of the art</td>
                             <td>Fully documented with code</td>
                         </tr>
-                        <tr style="background: #f5f5f5;">
+                        <tr style="background: var(--md-sys-color-surface-variant);">
                             <td><strong>Confidence Intervals</strong></td>
                             <td>✅ Required (95% CI)</td>
                             <td>✅ Required</td>
@@ -939,7 +1008,7 @@ def tripod_compliant_cv(X, y, patient_ids, model):
                             <td>Risk-based requirement</td>
                             <td>✅ Recommended</td>
                         </tr>
-                        <tr style="background: #f5f5f5;">
+                        <tr style="background: var(--md-sys-color-surface-variant);">
                             <td><strong>External Validation</strong></td>
                             <td>Often for De Novo</td>
                             <td>Depends on class</td>
@@ -951,7 +1020,7 @@ def tripod_compliant_cv(X, y, patient_ids, model):
                             <td>Summary statistics ok</td>
                             <td>✅ Must report each fold</td>
                         </tr>
-                        <tr style="background: #f5f5f5;">
+                        <tr style="background: var(--md-sys-color-surface-variant);">
                             <td><strong>Code Sharing</strong></td>
                             <td>Not required</td>
                             <td>Not required</td>
@@ -963,7 +1032,7 @@ def tripod_compliant_cv(X, y, patient_ids, model):
                             <td>New assessment</td>
                             <td>Document update methods</td>
                         </tr>
-                        <tr style="background: #f5f5f5;">
+                        <tr style="background: var(--md-sys-color-surface-variant);">
                             <td><strong>Clinical Evidence</strong></td>
                             <td>Clinical validation study</td>
                             <td>Clinical Evaluation Report</td>
@@ -1525,6 +1594,60 @@ if __name__ == "__main__":
             </ul>
         </div>
 
+        <!-- Submission Readiness Checklist -->
+        <div class="guideline-section" id="readiness-checklist">
+            <div class="guideline-header">
+                <div class="guideline-icon">✓</div>
+                <h2>Submission Readiness Checklist</h2>
+            </div>
+            <p>Use this interactive checklist to evaluate your validation strategy against regulatory expectations (FDA/CE MDR/TRIPOD+AI).</p>
+            
+            <div class="checklist">
+                <h4>🛡️ Data Integrity & Leakage</h4>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-1">
+                    <label for="check-1"><strong>Patient-Level Integrity:</strong> All samples from one patient are kept together in the same fold.</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-2">
+                    <label for="check-2"><strong>Independent Test Set:</strong> A completely held-out test set (15-20%) was locked before any model tuning.</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-3">
+                    <label for="check-3"><strong>Leakage Detection:</strong> Automated leakage checkers have been run and reviewed for all splits.</label>
+                </div>
+
+                <h4 style="margin-top: 20px;">📊 Method Justification</h4>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-4">
+                    <label for="check-4"><strong>Method Suitability:</strong> CV method choice (Grouped, Temporal, etc.) matches the clinical data structure.</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-5">
+                    <label for="check-5"><strong>Pre-specification:</strong> Validation strategy was defined in the protocol before data analysis began.</label>
+                </div>
+
+                <h4 style="margin-top: 20px;">📝 Documentation</h4>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-6">
+                    <label for="check-6"><strong>Subgroup Analysis:</strong> Performance reported across key demographics (age, sex, race).</label>
+                </div>
+                <div class="checklist-item">
+                    <input type="checkbox" id="check-7">
+                    <label for="check-7"><strong>Confidence Intervals:</strong> All primary performance metrics include 95% CIs.</label>
+                </div>
+            </div>
+            
+            <div id="readiness-result" class="success-note" style="display: none;">
+                <h4 id="readiness-title">Calculating...</h4>
+                <p id="readiness-text"></p>
+            </div>
+            
+            <button class="btn-primary" onclick="checkReadiness()" style="margin-top: 10px;">
+                <span class="material-icons">fact_check</span> Check Readiness
+            </button>
+        </div>
+
         <!-- Download Section -->
         <div class="download-section">
             <h2>📥 Download Resources</h2>
@@ -1552,18 +1675,30 @@ if __name__ == "__main__":
             <div class="footer-content">
                 <div class="footer-section">
                     <h4>trustcv</h4>
-                    <p>Trustworthy Cross-Validation Toolkit</p>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
                 </div>
                 <div class="footer-section">
-                    <h4>Disclaimer</h4>
-                    <p style="font-size: 12px; opacity: 0.8;">
-                        This tutorial provides educational guidance based on publicly available regulatory documents. 
-                        Always consult with regulatory professionals and refer to the latest official guidelines for your specific submission.
-                    </p>
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                    </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2025 trustcv. Educational content only.</p>
+                <div class="copyright">
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
             </div>
         </div>
     </footer>
@@ -1586,6 +1721,46 @@ if __name__ == "__main__":
             // Mark button as active
             event.target.classList.add('active');
         }
+
+        function checkReadiness() {
+            const total = 7;
+            let checked = 0;
+            for (let i = 1; i <= total; i++) {
+                if (document.getElementById(`check-${i}`).checked) checked++;
+            }
+            
+            const resultDiv = document.getElementById('readiness-result');
+            const title = document.getElementById('readiness-title');
+            const text = document.getElementById('readiness-text');
+            
+            resultDiv.style.display = 'block';
+            const percentage = Math.round((checked / total) * 100);
+            
+            if (percentage === 100) {
+                resultDiv.className = 'success-note';
+                title.innerHTML = '🌟 100% Exemplary Readiness';
+                text.innerHTML = 'Your validation strategy aligns perfectly with FDA GMLP and TRIPOD+AI standards. You are ready for formal documentation.';
+            } else if (percentage >= 70) {
+                resultDiv.className = 'success-note';
+                title.innerHTML = `✅ ${percentage}% Solid Readiness`;
+                text.innerHTML = 'Good foundation. Ensure the remaining items are addressed before final clinical evaluation.';
+            } else if (percentage >= 40) {
+                resultDiv.className = 'rejection-warning';
+                resultDiv.style.background = 'var(--status-warning-bg)';
+                resultDiv.style.color = 'var(--status-warning-text)';
+                resultDiv.style.borderColor = 'var(--status-warning-border)';
+                title.innerHTML = `⚠️ ${percentage}% Incomplete Strategy`;
+                text.innerHTML = 'Your validation plan has critical gaps. Focus on patient-level integrity and leakage detection to meet regulatory standards.';
+            } else {
+                resultDiv.className = 'rejection-warning';
+                title.innerHTML = `❌ ${percentage}% High Risk Strategy`;
+                text.innerHTML = 'Serious validation deficiencies detected. This approach is highly likely to be rejected by regulatory bodies due to data leakage risks.';
+            }
+            
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     </script>
+    <script src="js/theme.js"></script>
+    <script src="js/tooltips.js"></script>
 </body>
 </html>

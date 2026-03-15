@@ -282,7 +282,7 @@ Check class balance and distribution issues.
 from trustcv.checkers import BalanceChecker
 
 checker = BalanceChecker()
-report = checker.check_balance(y, patient_ids)
+report = checker.check_class_balance(y)
 ```
 
 ---

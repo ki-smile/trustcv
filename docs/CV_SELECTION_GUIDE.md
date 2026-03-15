@@ -139,8 +139,8 @@ for train, test in cv.split(X, y):
 - **Method**: Grouped Time Series CV
 - **Code Example**:
 ```python
-from trustcv.splitters.temporal import PurgedGroupTimeSeriesCV
-cv = PurgedGroupTimeSeriesCV(n_splits=5, purge_gap=30)  # 30-day gap
+from trustcv.splitters.temporal import PurgedGroupTimeSeriesSplit
+cv = PurgedGroupTimeSeriesSplit(n_splits=5, purge_gap=30)  # 30-day gap
 for train, test in cv.split(X, y, groups=patient_ids, times=visit_dates):
     # Respects both patient grouping and temporal order
 ```

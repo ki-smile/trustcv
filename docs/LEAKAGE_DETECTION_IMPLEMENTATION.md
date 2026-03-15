@@ -1,3 +1,5 @@
+> **Note:** This document describes internal implementation details. The public API uses `DataLeakageChecker.check()` which orchestrates all detection types automatically. See [DATA_LEAKAGE_DETECTION.md](DATA_LEAKAGE_DETECTION.md) for usage examples.
+
 # Data Leakage Detection - Implementation Details
 
 ## Core Architecture

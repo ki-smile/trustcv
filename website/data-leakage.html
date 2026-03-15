@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Leakage Detection - trustcv</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration:none;display:flex;align-items:baseline;gap:8px;">
+                    <span class="brand-logo">trustcv</span>
+                    <span class="brand-tagline">Data Leakage Detection</span>
+                </a>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html"><span class="material-icons" style="font-size:18px;">play_circle</span> Demonstrations</a>
+                        <a href="quiz.html"><span class="material-icons" style="font-size:18px;">quiz</span> Interactive Quiz</a>
+                        <a href="notebooks.html"><span class="material-icons" style="font-size:18px;">menu_book</span> Notebooks</a>
+                        <a href="tutorials.html"><span class="material-icons" style="font-size:18px;">school</span> Tutorials</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html"><span class="material-icons" style="font-size:18px;">table_chart</span> Methods Guide</a>
+                        <a href="cv-selection-guide.html"><span class="material-icons" style="font-size:18px;">help</span> Selection Guide</a>
+                        <a href="frameworks.html"><span class="material-icons" style="font-size:18px;">integration_instructions</span> Framework Integration</a>
+                        <a href="data-leakage.html" class="active"><span class="material-icons" style="font-size:18px;">shield</span> Data Leakage Detection</a>
+                        <a href="best-practices.html"><span class="material-icons" style="font-size:18px;">verified</span> Best Practices</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/API_REFERENCE.html"><span class="material-icons" style="font-size:18px;">api</span> API Documentation</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html"><span class="material-icons" style="font-size:18px;">school</span> Guidelines Tutorial</a>
+                        <a href="regulatory-report.html"><span class="material-icons" style="font-size:18px;">description</span> Report Generator</a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github"><span class="material-icons">code</span> GitHub</a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">PyPI</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header Section -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">Data Leakage Detection</h1>
+            <p class="page-subtitle">
+                Data leakage occurs when information from the test set inadvertently influences the training process,
+                leading to overly optimistic performance estimates that fail to generalize. In medical machine learning,
+                where patient safety depends on honest validation, detecting and preventing leakage is critical.
+            </p>
+            <div class="header-badges">
+                <span class="badge">4 Leakage Types</span>
+                <span class="badge">Automated Detection</span>
+                <span class="badge">Medical ML Focus</span>
+                <span class="badge">Callback Integration</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 1: What is Data Leakage? -->
+    <section class="leakage-intro-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">warning</span>What is Data Leakage?</h2>
+            <p class="section-intro">
+                Data leakage occurs when information from the test set inadvertently influences the training process,
+                leading to overly optimistic performance estimates that don't generalize to real-world data.
+                In medical ML, this can mean the difference between a model that appears to work perfectly in validation
+                but fails catastrophically in clinical practice. trustcv provides comprehensive tools to detect,
+                report, and prevent all major forms of data leakage.
+            </p>
+        </div>
+    </section>
+
+    <!-- Section 2: Types of Leakage -->
+    <section class="leakage-types-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">category</span>Types of Data Leakage</h2>
+            <p class="section-subtitle">Four categories of leakage commonly encountered in medical machine learning</p>
+
+            <div class="leakage-types-grid">
+                <!-- Patient Leakage -->
+                <div class="leakage-card leakage-critical">
+                    <div class="leakage-card-header">
+                        <span class="material-icons leakage-icon">person</span>
+                        <span class="severity-badge severity-critical">CRITICAL</span>
+                    </div>
+                    <h3>Patient Leakage</h3>
+                    <p>
+                        The same patient's data appears in both training and test sets. This is the most common form
+                        of leakage in healthcare ML, occurring when patients have multiple samples (repeated measurements,
+                        multiple images, multi-modal data like CT + MRI).
+                    </p>
+                    <ul class="leakage-examples">
+                        <li>Multiple images per patient</li>
+                        <li>Longitudinal studies with temporal data</li>
+                        <li>Multi-modal data from the same patient</li>
+                    </ul>
+                </div>
+
+                <!-- Temporal Leakage -->
+                <div class="leakage-card leakage-high">
+                    <div class="leakage-card-header">
+                        <span class="material-icons leakage-icon">schedule</span>
+                        <span class="severity-badge severity-high">HIGH</span>
+                    </div>
+                    <h3>Temporal Leakage</h3>
+                    <p>
+                        Using future information to predict past events. This happens when time series data is
+                        shuffled or when post-treatment data is used to predict pre-treatment outcomes.
+                    </p>
+                    <ul class="leakage-examples">
+                        <li>Training on 2024 data to predict 2023 outcomes</li>
+                        <li>Post-treatment data predicting pre-treatment</li>
+                        <li>Time series without proper temporal gaps</li>
+                    </ul>
+                </div>
+
+                <!-- Spatial Leakage -->
+                <div class="leakage-card leakage-medium">
+                    <div class="leakage-card-header">
+                        <span class="material-icons leakage-icon">map</span>
+                        <span class="severity-badge severity-medium">MEDIUM</span>
+                    </div>
+                    <h3>Spatial Leakage</h3>
+                    <p>
+                        Spatially correlated samples end up in both train and test sets. Adjacent tissue samples,
+                        neighboring geographic regions, or overlapping image patches share information that inflates
+                        apparent performance.
+                    </p>
+                    <ul class="leakage-examples">
+                        <li>Adjacent tissue samples</li>
+                        <li>Neighboring geographic regions</li>
+                        <li>Overlapping image patches</li>
+                    </ul>
+                </div>
+
+                <!-- Hierarchical Leakage -->
+                <div class="leakage-card leakage-high">
+                    <div class="leakage-card-header">
+                        <span class="material-icons leakage-icon">account_tree</span>
+                        <span class="severity-badge severity-high">HIGH</span>
+                    </div>
+                    <h3>Hierarchical Leakage</h3>
+                    <p>
+                        Related samples through hierarchical structure appear in both sets. Hospital-specific
+                        practices, scanner-specific artifacts, or site-specific protocols create hidden correlations.
+                    </p>
+                    <ul class="leakage-examples">
+                        <li>Same hospital in train/test</li>
+                        <li>Same scanner/device artifacts</li>
+                        <li>Same clinical site or research group</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 3: Detection Examples -->
+    <section class="detection-examples-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">code</span>Detection Examples</h2>
+            <p class="section-subtitle">Side-by-side comparison of wrong vs. correct approaches for each leakage type</p>
+
+            <!-- Example 1: Patient Leakage -->
+            <div class="example-block">
+                <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">person</span>Example 1: Patient Leakage in Medical Imaging</h3>
+                <div class="code-comparison">
+                    <div class="code-panel code-wrong">
+                        <div class="code-panel-header">
+                            <span class="material-icons">cancel</span> Wrong: Standard KFold
+                        </div>
+                        <pre><code class="language-python">from sklearn.model_selection import KFold
+import numpy as np
+
+# Multiple images per patient
+n_images = 1000
+n_patients = 200
+patient_ids = np.repeat(
+    np.arange(n_patients),
+    n_images // n_patients
+)
+
+X = np.random.randn(n_images, 224, 224, 3)
+y = np.random.randint(0, 2, n_images)
+
+# WRONG: ignores patient grouping
+standard_cv = KFold(n_splits=5)
+for train_idx, test_idx in standard_cv.split(X):
+    # Same patient can be in train AND test!
+    pass</code></pre>
+                    </div>
+                    <div class="code-panel code-correct">
+                        <div class="code-panel-header">
+                            <span class="material-icons">check_circle</span> Correct: GroupKFoldMedical
+                        </div>
+                        <pre><code class="language-python">from trustcv import GroupKFoldMedical
+from trustcv import DataLeakageChecker
+
+checker = DataLeakageChecker()
+
+# CORRECT: groups by patient ID
+grouped_cv = GroupKFoldMedical(n_splits=5)
+for train_idx, test_idx in grouped_cv.split(
+    X, y, groups=patient_ids
+):
+    # Verify no leakage in this fold
+    report = checker.check(
+        X, y, groups=patient_ids, n_splits=5
+    )
+    # No leakage: patients stay together</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 2: Temporal Leakage -->
+            <div class="example-block">
+                <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">schedule</span>Example 2: Temporal Leakage in Clinical Time Series</h3>
+                <div class="code-comparison">
+                    <div class="code-panel code-wrong">
+                        <div class="code-panel-header">
+                            <span class="material-icons">cancel</span> Wrong: Shuffled KFold
+                        </div>
+                        <pre><code class="language-python">from sklearn.model_selection import KFold
+
+n_timepoints = 365
+n_patients = 100
+timestamps = np.repeat(
+    np.arange(n_timepoints), n_patients
+)
+X = np.random.randn(
+    n_timepoints * n_patients, 20
+)
+y = np.random.randint(
+    0, 2, n_timepoints * n_patients
+)
+
+# WRONG: shuffles time series data!
+cv = KFold(n_splits=5, shuffle=True)
+for train_idx, test_idx in cv.split(X):
+    # Future data leaks into training!
+    pass</code></pre>
+                    </div>
+                    <div class="code-panel code-correct">
+                        <div class="code-panel-header">
+                            <span class="material-icons">check_circle</span> Correct: PurgedKFoldCV
+                        </div>
+                        <pre><code class="language-python">from trustcv import PurgedKFoldCV
+
+# CORRECT: respects temporal order with gap
+purged_cv = PurgedKFoldCV(
+    n_splits=5,
+    purge_gap=7  # 7-day gap
+)
+
+for train_idx, test_idx in purged_cv.split(
+    X, y, groups=timestamps
+):
+    # Purged CV prevents temporal leakage
+    # No future data leaks into training</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 3: Spatial Leakage -->
+            <div class="example-block">
+                <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">map</span>Example 3: Spatial Leakage in Pathology Images</h3>
+                <div class="code-comparison">
+                    <div class="code-panel code-wrong">
+                        <div class="code-panel-header">
+                            <span class="material-icons">cancel</span> Wrong: Random Split
+                        </div>
+                        <pre><code class="language-python">from sklearn.model_selection import KFold
+
+n_patches = 500
+coordinates = np.random.randn(
+    n_patches, 2
+) * 100  # x, y positions
+X = np.random.randn(n_patches, 2048)
+y = np.random.randint(0, 2, n_patches)
+
+# WRONG: ignores spatial correlation
+random_cv = KFold(n_splits=5, shuffle=True)
+for train_idx, test_idx in random_cv.split(X):
+    # Adjacent patches in train and test!
+    pass</code></pre>
+                    </div>
+                    <div class="code-panel code-correct">
+                        <div class="code-panel-header">
+                            <span class="material-icons">check_circle</span> Correct: BufferedSpatialCV
+                        </div>
+                        <pre><code class="language-python">from trustcv import BufferedSpatialCV
+
+# CORRECT: spatial blocking with buffer
+spatial_cv = BufferedSpatialCV(
+    n_splits=5,
+    spatial_coordinates=coordinates,
+    buffer_size=10  # 10-unit buffer
+)
+
+for train_idx, test_idx in spatial_cv.split(X):
+    # Buffer zones prevent spatial leakage
+    # No adjacent patches in train and test</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 4: Hierarchical Leakage -->
+            <div class="example-block">
+                <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">account_tree</span>Example 4: Hierarchical Leakage in Multi-Center Studies</h3>
+                <div class="code-comparison">
+                    <div class="code-panel code-wrong">
+                        <div class="code-panel-header">
+                            <span class="material-icons">cancel</span> Wrong: Standard KFold
+                        </div>
+                        <pre><code class="language-python">from sklearn.model_selection import KFold
+
+# Multi-center clinical trial data
+# countries -> hospitals -> patients -> samples
+countries = np.array(countries)
+hospitals = np.array(hospitals)
+patients = np.array(patients)
+
+# WRONG: ignores hierarchical structure
+cv = KFold(n_splits=5)
+for train_idx, test_idx in cv.split(
+    range(len(patients))
+):
+    # Leakage at patient, hospital,
+    # and country levels!
+    pass</code></pre>
+                    </div>
+                    <div class="code-panel code-correct">
+                        <div class="code-panel-header">
+                            <span class="material-icons">check_circle</span> Correct: HierarchicalGroupKFold
+                        </div>
+                        <pre><code class="language-python">from trustcv import HierarchicalGroupKFold
+
+# CORRECT: respects hierarchy levels
+hierarchical_cv = HierarchicalGroupKFold(
+    n_splits=5,
+    hierarchy_levels=[
+        'country', 'hospital', 'patient'
+    ]
+)
+
+# Properly separates at chosen level
+# Entire hospitals kept together
+# No cross-contamination between groups</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Automated Detection -->
+    <section class="automated-detection-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">auto_fix_high</span>Automated Detection</h2>
+            <p class="section-subtitle">Use DataLeakageChecker and LeakageDetectionCallback to automatically detect leakage during cross-validation</p>
+
+            <div class="auto-detect-grid">
+                <div class="auto-detect-card">
+                    <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">search</span>DataLeakageChecker</h3>
+                    <p>Standalone checker you can use to verify any train/test split for all types of leakage.</p>
+                    <pre><code class="language-python">from trustcv import DataLeakageChecker
+
+checker = DataLeakageChecker(verbose=True)
+
+# Check all leakage types at once
+report = checker.check(
+    X, y,
+    groups=patient_ids,        # patient grouping
+    timestamps=timestamps,     # temporal order
+    coordinates=coordinates,   # spatial data
+    n_splits=5,
+    random_state=42
+)
+
+# Review the report
+print(report.summary)
+print(f"Has leakage: {report.has_leakage}")
+print(f"Severity: {report.severity}")
+print(f"Types: {report.leakage_types}")</code></pre>
+                </div>
+
+                <div class="auto-detect-card">
+                    <h3><span class="material-icons" style="vertical-align:middle;margin-right:6px;">play_arrow</span>LeakageDetectionCallback</h3>
+                    <p>Integrate leakage detection directly into your UniversalCVRunner pipeline for automatic fold-by-fold checking.</p>
+                    <pre><code class="language-python">from trustcv import UniversalCVRunner
+from trustcv.core.callbacks import LeakageDetectionCallback
+
+# Create callback with your metadata
+leakage_cb = LeakageDetectionCallback(
+    patient_ids=patient_ids,
+    timestamps=timestamps,
+    coordinates=spatial_coords
+)
+
+# Run CV with automatic leakage detection
+runner = UniversalCVRunner(cv_splitter=your_cv)
+results = runner.run(
+    model=your_model,
+    data=(X, y),
+    callbacks=[leakage_cb]
+)
+
+# Callback automatically:
+# - Checks each fold on_fold_start
+# - Reports severity and violations
+# - Prints summary on_cv_end</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: Prevention Strategies -->
+    <section class="prevention-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">verified_user</span>Prevention Strategies</h2>
+            <p class="section-subtitle">Quick reference for preventing each type of leakage</p>
+
+            <div class="prevention-grid">
+                <div class="prevention-card">
+                    <span class="material-icons prevention-icon">group</span>
+                    <h3>Always Use Patient Grouping</h3>
+                    <p>When you have multiple samples per patient, always group by patient ID to keep all of a patient's data on the same side of the split.</p>
+                    <pre><code class="language-python">cv = GroupKFoldMedical(n_splits=5)
+for train_idx, test_idx in cv.split(
+    X, y, groups=patient_ids
+):
+    # Safe from patient leakage
+    pass</code></pre>
+                </div>
+
+                <div class="prevention-card">
+                    <span class="material-icons prevention-icon">hourglass_empty</span>
+                    <h3>Add Temporal Gaps</h3>
+                    <p>For time series data, add a purge gap between training and test periods to prevent temporal information from leaking across folds.</p>
+                    <pre><code class="language-python"># Add purge gap for time series
+cv = PurgedKFoldCV(
+    n_splits=5,
+    purge_gap=30  # 30-day gap
+)</code></pre>
+                </div>
+
+                <div class="prevention-card">
+                    <span class="material-icons prevention-icon">fence</span>
+                    <h3>Use Spatial Buffers</h3>
+                    <p>For spatially correlated data, add buffer zones between train and test regions to eliminate spatial autocorrelation.</p>
+                    <pre><code class="language-python"># Add buffer zones for spatial data
+cv = BufferedSpatialCV(
+    buffer_size=100  # 100m buffer
+)</code></pre>
+                </div>
+
+                <div class="prevention-card">
+                    <span class="material-icons prevention-icon">lan</span>
+                    <h3>Respect Hierarchical Structure</h3>
+                    <p>In multi-center studies, group by the highest hierarchical level (e.g., hospital) to prevent cross-contamination.</p>
+                    <pre><code class="language-python"># Group by highest level
+cv = GroupKFoldMedical(n_splits=5)
+for train_idx, test_idx in cv.split(
+    X, y, groups=hospital_ids
+):
+    # Entire hospitals kept together
+    pass</code></pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 6: Common Pitfalls Table -->
+    <section class="pitfalls-section">
+        <div class="container">
+            <h2><span class="material-icons" style="vertical-align:middle;margin-right:8px;">report_problem</span>Common Pitfalls and Solutions</h2>
+            <p class="section-subtitle">Frequently encountered mistakes and how to fix them</p>
+
+            <div class="table-container">
+                <table class="pitfalls-table">
+                    <thead>
+                        <tr>
+                            <th>Pitfall</th>
+                            <th>Consequence</th>
+                            <th>Solution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Using patient's left and right eye images in different sets</td>
+                            <td>Model learns patient-specific features</td>
+                            <td>Group by patient ID</td>
+                        </tr>
+                        <tr>
+                            <td>Training on 2023 data, testing on 2022</td>
+                            <td>Impossible in real-world practice</td>
+                            <td>Use TimeSeriesSplit</td>
+                        </tr>
+                        <tr>
+                            <td>Adjacent tissue samples in train/test</td>
+                            <td>Spatial correlation inflates performance</td>
+                            <td>Use SpatialBlockCV</td>
+                        </tr>
+                        <tr>
+                            <td>Same MRI scanner in all training data</td>
+                            <td>Model learns scanner artifacts</td>
+                            <td>Stratify by scanner</td>
+                        </tr>
+                        <tr>
+                            <td>Data augmentation before splitting</td>
+                            <td>Augmented versions in both sets</td>
+                            <td>Augment after splitting</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Menu Toggle -->
+    <script>
+        function toggleMobileMenu() {
+            const navMenu = document.getElementById('navMenu');
+            navMenu.classList.toggle('nav-menu-open');
+        }
+    </script>
+
+    <!-- Page-specific Styles -->
+    <style>
+        /* Section intro */
+        .section-intro {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--ki-dark-plum);
+            max-width: 900px;
+        }
+
+        /* Leakage intro section */
+        .leakage-intro-section {
+            padding: var(--spacing-xl) 0;
+            background: var(--md-sys-color-background);
+        }
+
+        /* Types of leakage section */
+        .leakage-types-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .leakage-types-section h2 {
+            color: var(--ki-plum) !important;
+        }
+
+        .leakage-types-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .leakage-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: var(--spacing-lg);
+            box-shadow: var(--md-sys-elevation-1);
+            border-top: 4px solid var(--ki-grey);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .leakage-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--md-sys-elevation-2);
+        }
+
+        .leakage-critical { border-top-color: var(--status-error-border); }
+        .leakage-high { border-top-color: var(--status-warning-border); }
+        .leakage-medium { border-top-color: var(--ki-orange); }
+
+        .leakage-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .leakage-icon {
+            font-size: 36px;
+            color: var(--ki-plum);
+        }
+
+        .severity-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: white;
+        }
+
+        .severity-critical { background: var(--status-error-border); }
+        .severity-high { background: var(--status-warning-border); }
+        .severity-medium { background: var(--ki-orange); color: white; }
+
+        .leakage-card h3 {
+            color: var(--ki-dark-plum);
+            margin-bottom: 8px;
+            font-size: 1.15rem;
+        }
+
+        .leakage-card p {
+            color: var(--ki-grey);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .leakage-examples {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .leakage-examples li {
+            padding: 4px 0 4px 20px;
+            position: relative;
+            font-size: 0.9rem;
+            color: var(--ki-grey);
+        }
+
+        .leakage-examples li::before {
+            content: "\2022";
+            position: absolute;
+            left: 6px;
+            color: var(--ki-plum);
+            font-weight: bold;
+        }
+
+        /* Detection examples section */
+        .detection-examples-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-background);
+        }
+
+        .example-block {
+            margin-bottom: 40px;
+        }
+
+        .example-block h3 {
+            color: var(--ki-plum);
+            margin-bottom: 16px;
+            font-size: 1.2rem;
+        }
+
+        .code-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .code-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .code-panel {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
+        }
+
+        .code-panel-header {
+            padding: 10px 16px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .code-panel-header .material-icons {
+            font-size: 20px;
+        }
+
+        .code-wrong .code-panel-header {
+            background: var(--status-error-bg);
+            color: var(--status-error-text);
+        }
+
+        .code-correct .code-panel-header {
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
+        }
+
+        .code-panel pre {
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .code-panel pre code {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Automated detection section */
+        .automated-detection-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .auto-detect-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        @media (max-width: 860px) {
+            .auto-detect-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .auto-detect-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: var(--spacing-lg);
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
+        }
+
+        .auto-detect-card h3 {
+            color: var(--ki-plum);
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .auto-detect-card > p {
+            color: var(--ki-grey);
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .auto-detect-card pre {
+            border-radius: 8px;
+            margin: 0;
+        }
+
+        .auto-detect-card pre code {
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Prevention section */
+        .prevention-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-background);
+        }
+
+        .prevention-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .prevention-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: var(--spacing-lg);
+            box-shadow: var(--md-sys-elevation-1);
+            border-left: 4px solid var(--ki-plum);
+        }
+
+        .prevention-icon {
+            font-size: 32px;
+            color: var(--ki-plum);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .prevention-card h3 {
+            color: var(--ki-dark-plum);
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+        }
+
+        .prevention-card > p {
+            color: var(--ki-grey);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        .prevention-card pre {
+            border-radius: 8px;
+            margin: 0;
+        }
+
+        .prevention-card pre code {
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+
+        /* Pitfalls section */
+        .pitfalls-section {
+            padding: var(--spacing-xxl) 0;
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: var(--spacing-lg);
+        }
+
+        .pitfalls-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
+        }
+
+        .pitfalls-table thead {
+            background: var(--ki-plum);
+            color: white;
+        }
+
+        .pitfalls-table th {
+            padding: 14px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .pitfalls-table td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            color: var(--ki-dark-plum);
+            line-height: 1.5;
+        }
+
+        .pitfalls-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .pitfalls-table tbody tr:hover {
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        /* Section titles */
+        .leakage-intro-section h2,
+        .leakage-types-section h2,
+        .detection-examples-section h2,
+        .automated-detection-section h2,
+        .prevention-section h2,
+        .pitfalls-section h2 {
+            font-size: 1.8rem;
+            color: var(--ki-dark-plum);
+            margin-bottom: 8px;
+        }
+
+        .section-subtitle {
+            color: var(--ki-grey);
+            font-size: 1.05rem;
+            margin-bottom: 8px;
+        }
+
+        /* Dark theme overrides */
+        [data-theme="dark"] .leakage-card, 
+        [data-theme="dark"] .auto-detect-card,
+        [data-theme="dark"] .prevention-card, 
+        [data-theme="dark"] .pitfalls-table { background: var(--card-bg); }
+        [data-theme="dark"] .pitfalls-table th { background: var(--section-dark); }
+        [data-theme="dark"] .pitfalls-table td { border-color: var(--border-color); }
+        [data-theme="dark"] .leakage-intro-section { background: var(--section-dark); }
+        [data-theme="dark"] .leakage-types-section { background: var(--md-sys-color-background); }
+        [data-theme="dark"] .automated-detection-section { background: var(--md-sys-color-background); }
+        [data-theme="dark"] .pitfalls-section { background: var(--md-sys-color-background); }
+        [data-theme="dark"] .severity-medium { color: white; }
+    </style>
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Initialize code blocks
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof setupCodeBlocks === 'function') {
+                setupCodeBlocks();
+            }
+        });
+    </script>
+</body>
+</html>

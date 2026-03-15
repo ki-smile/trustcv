@@ -1,5 +1,6 @@
 # trustcv — Trustworthy Cross-Validation Toolkit
 
+[![PyPI](https://img.shields.io/pypi/v/trustcv)](https://pypi.org/project/trustcv/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://github.com/ki-smile/trustcv)
@@ -14,7 +15,7 @@ It builds on familiar scikit-learn idioms, but adds:
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.0.0 – Production release with 29 CV methods across IID, Grouped, Temporal, and Spatial categories. Full data leakage detection and reporting utilities for regulatory documentation.
+> **Status:** v1.0.6 – Production release with 29 CV methods across IID, Grouped, Temporal, and Spatial categories. Full data leakage detection and reporting utilities for regulatory documentation.
 
 ---
 
@@ -78,7 +79,7 @@ git clone https://github.com/ki-smile/trustcv.git
 cd trustcv
 pip install -e .
 
-# Or install from PyPI (when released)
+# Or install from PyPI
 pip install trustcv
 ```
 

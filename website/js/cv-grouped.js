@@ -2,13 +2,17 @@
  * Grouped/Hierarchical Cross-Validation Visualizations
  */
 
+function getColors() {
+    return (typeof getThemeColors === 'function') ? getThemeColors() : { plum:'#870052', darkPlum:'#4F0433', orange:'#FF876F', lightBlue:'#EDF4F4', grey:'#6B6B6B', text:'#000000', plotBg:'#FFFFFF', paperBg:'#EDF4F4', axisColor:'#666666', gridColor:'rgba(0,0,0,0.06)', train:'#3498DB', test:'#E74C3C', inactive:'#BDC3C7', surface:'#FFFFFF', cardBg:'#EDF4F4', border:'#EDDBE4', titleColor:'#4F0433', annotationColor:'#666666', textMuted:'#666666' };
+}
+
 function visualizeGrouped(nSplits) {
     const container = document.getElementById('cv-visualization');
     
     const patients = generatePatientData();
     const traces = [];
     const patientGroups = 10;
-    const colors_palette = [colors.plum, colors.orange, '#4CAF50', '#2196F3', '#FF9800'];
+    const colors_palette = [getColors().plum, getColors().orange, '#4CAF50', '#2196F3', '#FF9800'];
     
     for (let fold = 0; fold < nSplits; fold++) {
         const foldPatients = [];
@@ -31,10 +35,11 @@ function visualizeGrouped(nSplits) {
     const layout = {
         title: 'Patient-Grouped K-Fold: No Patient Appears in Multiple Folds',
         barmode: 'stack',
-        xaxis: {title: 'Patient ID'},
-        yaxis: {title: 'Number of Records'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        font: { color: getColors().text },
+        xaxis: {title: 'Patient ID', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Number of Records', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg
     };
     
     Plotly.newPlot(container, traces, layout, {responsive: true});
@@ -59,17 +64,18 @@ function visualizeStratifiedGrouped(nSplits) {
             y: [60, 40], // Preserved ratio
             name: `Fold ${fold + 1}`,
             type: 'bar',
-            marker: {color: fold === 0 ? colors.orange : colors.plum}
+            marker: {color: fold === 0 ? getColors().orange : getColors().plum}
         });
     }
     
     const layout = {
         title: 'Stratified Group K-Fold: Preserves Class Balance & Groups',
         barmode: 'group',
-        xaxis: {title: 'Patient Groups'},
-        yaxis: {title: 'Percentage'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        font: { color: getColors().text },
+        xaxis: {title: 'Patient Groups', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Percentage', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -100,7 +106,7 @@ function visualizeLOGO() {
             name: `Iteration ${i + 1}`,
             type: 'bar',
             marker: {
-                color: y.map(v => v === 0 ? colors.orange : colors.plum)
+                color: y.map(v => v === 0 ? getColors().orange : getColors().plum)
             },
             showlegend: i === 0
         });
@@ -108,11 +114,12 @@ function visualizeLOGO() {
     
     const layout = {
         title: 'Leave-One-Group-Out: Each Hospital as Test Set Once',
-        xaxis: {title: 'Hospital/Group'},
-        yaxis: {title: 'Role', ticktext: ['Test', 'Train'], tickvals: [0, 1]},
+        font: { color: getColors().text },
+        xaxis: {title: 'Hospital/Group', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Role', ticktext: ['Test', 'Train'], tickvals: [0, 1], color: getColors().axisColor, gridcolor: getColors().gridColor},
         barmode: 'group',
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -156,10 +163,11 @@ function visualizeRepeatedGrouped(nSplits) {
     
     const layout = {
         title: 'Repeated Group K-Fold: Multiple Runs with Patient Grouping',
-        xaxis: {title: 'Repeat-Fold'},
-        yaxis: {title: 'Accuracy (%)', range: [70, 95]},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        font: { color: getColors().text },
+        xaxis: {title: 'Repeat-Fold', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Accuracy (%)', range: [70, 95], color: getColors().axisColor, gridcolor: getColors().gridColor},
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         hovermode: 'x unified'
     };
     
@@ -179,10 +187,10 @@ function visualizeRepeatedGrouped(nSplits) {
     // Show how groups are shuffled in each repeat
     for (let repeat = 0; repeat < nRepeats; repeat++) {
         const repeatDiv = document.createElement('div');
-        repeatDiv.style.border = '1px solid ' + colors.grey;
+        repeatDiv.style.border = '1px solid ' + getColors().border;
         repeatDiv.style.borderRadius = '8px';
         repeatDiv.style.padding = '10px';
-        repeatDiv.style.backgroundColor = 'white';
+        repeatDiv.style.backgroundColor = getColors().surface;
         
         repeatDiv.innerHTML = `<h5>Repeat ${repeat + 1}</h5>`;
         
@@ -204,8 +212,8 @@ function visualizeRepeatedGrouped(nSplits) {
             }
             
             foldDiv.innerHTML = `
-                <span style="color: ${colors.plum}; font-weight: bold;">Fold ${fold + 1}:</span>
-                <span style="color: ${colors.grey};">${foldGroups.slice(0, 3).join(', ')}${foldGroups.length > 3 ? '...' : ''}</span>
+                <span style="color: ${getColors().plum}; font-weight: bold;">Fold ${fold + 1}:</span>
+                <span style="color: ${getColors().textMuted};">${foldGroups.slice(0, 3).join(', ')}${foldGroups.length > 3 ? '...' : ''}</span>
             `;
             foldsContainer.appendChild(foldDiv);
         }
@@ -236,14 +244,15 @@ function visualizeHierarchical() {
                  'Dept A1', 'Dept A1', 'Dept A2', 'Dept B1', 'Dept B1', 'Dept B1'],
         values: [0, 0, 0, 0, 0, 0, 10, 15, 8, 12, 14, 11],
         marker: {
-            colors: [colors.darkPlum, colors.plum, colors.plum, colors.orange, colors.orange, colors.orange,
-                    colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange]
+            colors: [getColors().darkPlum, getColors().plum, getColors().plum, getColors().orange, getColors().orange, getColors().orange,
+                    getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange]
         }
     }];
     
     const layout = {
         title: 'Hierarchical Structure: Hospital → Department → Patient',
-        paper_bgcolor: colors.lightBlue
+        font: { color: getColors().text },
+        paper_bgcolor: getColors().paperBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -288,7 +297,7 @@ function visualizeLPGO(p = 2) {
             name: `Iteration ${iter + 1}`,
             type: 'bar',
             marker: {
-                color: y.map(v => v === 0 ? colors.orange : colors.plum)
+                color: y.map(v => v === 0 ? getColors().orange : getColors().plum)
             },
             showlegend: iter < 3
         });
@@ -296,18 +305,20 @@ function visualizeLPGO(p = 2) {
     
     const layout = {
         title: `Leave-${p}-Groups-Out: ${p} Groups as Test Set Each Iteration`,
-        xaxis: {title: 'Group'},
-        yaxis: {title: 'Role', ticktext: ['Test', 'Train'], tickvals: [0, 1]},
+        font: { color: getColors().text },
+        xaxis: {title: 'Group', color: getColors().axisColor, gridcolor: getColors().gridColor},
+        yaxis: {title: 'Role', ticktext: ['Test', 'Train'], tickvals: [0, 1], color: getColors().axisColor, gridcolor: getColors().gridColor},
         barmode: 'group',
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
+        paper_bgcolor: getColors().paperBg,
+        plot_bgcolor: getColors().plotBg,
         annotations: [{
             text: `Total iterations: C(${nGroups},${p}) = ${Math.floor(factorial(nGroups) / (factorial(p) * factorial(nGroups - p)))}`,
             xref: 'paper',
             yref: 'paper',
             x: 0.5,
             y: -0.15,
-            showarrow: false
+            showarrow: false,
+            font: { color: getColors().annotationColor }
         }]
     };
     
@@ -351,10 +362,10 @@ function visualizeMultilevel() {
         textposition: 'middle center',
         marker: {
             colors: [
-                colors.darkPlum,
-                colors.plum, colors.plum, colors.plum,
-                colors.orange, colors.orange, colors.orange, colors.orange, colors.orange,
-                colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange, colors.lightOrange,
+                getColors().darkPlum,
+                getColors().plum, getColors().plum, getColors().plum,
+                getColors().orange, getColors().orange, getColors().orange, getColors().orange, getColors().orange,
+                getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange, getColors().lightOrange,
                 '#FFE5E0', '#FFE5E0', '#FFE5E0', '#FFE5E0', '#FFE5E0', '#FFE5E0', '#FFE5E0', '#FFE5E0'
             ]
         },
@@ -363,7 +374,8 @@ function visualizeMultilevel() {
     
     const layout = {
         title: 'Multi-level Hierarchy: System → Hospital → Department → Team → Patient',
-        paper_bgcolor: colors.lightBlue,
+        font: { color: getColors().text },
+        paper_bgcolor: getColors().paperBg,
         margin: {t: 50, l: 0, r: 0, b: 0}
     };
     
@@ -376,9 +388,9 @@ function visualizeMultilevel() {
     
     const levels = [
         {name: 'Patient Level', desc: 'Standard CV, may leak team/dept info', color: '#FFE5E0'},
-        {name: 'Team Level', desc: 'Groups by team, preserves team integrity', color: colors.lightOrange},
-        {name: 'Department Level', desc: 'Groups by department, tests dept generalization', color: colors.orange},
-        {name: 'Hospital Level', desc: 'Groups by hospital, tests site generalization', color: colors.plum}
+        {name: 'Team Level', desc: 'Groups by team, preserves team integrity', color: getColors().lightOrange},
+        {name: 'Department Level', desc: 'Groups by department, tests dept generalization', color: getColors().orange},
+        {name: 'Hospital Level', desc: 'Groups by hospital, tests site generalization', color: getColors().plum}
     ];
     
     const gridDiv = document.createElement('div');
@@ -392,11 +404,11 @@ function visualizeMultilevel() {
         levelCard.style.border = `2px solid ${level.color}`;
         levelCard.style.borderRadius = '8px';
         levelCard.style.padding = '10px';
-        levelCard.style.backgroundColor = 'white';
+        levelCard.style.backgroundColor = getColors().surface;
         
         levelCard.innerHTML = `
-            <h5 style="color: ${colors.darkPlum}; margin: 0;">${level.name}</h5>
-            <p style="font-size: 12px; color: ${colors.grey}; margin: 5px 0 0 0;">${level.desc}</p>
+            <h5 style="color: ${getColors().darkPlum}; margin: 0;">${level.name}</h5>
+            <p style="font-size: 12px; color: ${getColors().textMuted}; margin: 5px 0 0 0;">${level.desc}</p>
         `;
         gridDiv.appendChild(levelCard);
     });
@@ -431,3 +443,7 @@ function generatePatientData() {
     }
     return patients;
 }
+
+window.addEventListener('themechange', function() {
+    try { if(typeof updateVisualization === 'function') updateVisualization(); } catch(e) {}
+});

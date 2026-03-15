@@ -35,12 +35,12 @@
 
 ```
 Is your data temporal (time-series)?
-├── Yes → Use TemporalClinical or TimeSeriesSplit
+├── Yes → Use TimeSeriesSplit or TimeSeriesSplit
 │         └── Multiple patients? → Use GroupedTimeSeriesSplit
 └── No → Continue
     │
     └── Multiple records per patient?
-        ├── Yes → Use PatientGroupKFold
+        ├── Yes → Use GroupKFold
         │         └── Imbalanced? → Use StratifiedGroupKFold
         └── No → Continue
             │
@@ -55,8 +55,8 @@ Is your data temporal (time-series)?
 |--------|----------|------|------|
 | **KFold** | Balanced, independent samples | Simple, unbiased | Ignores class distribution |
 | **StratifiedKFold** | Imbalanced datasets | Preserves class ratios | Can't handle groups |
-| **PatientGroupKFold** | Multiple records/patient | Prevents patient leakage | May have uneven folds |
-| **TemporalClinical** | Time-series medical data | Respects temporal order | Less data for early folds |
+| **GroupKFold** | Multiple records/patient | Prevents patient leakage | May have uneven folds |
+| **TimeSeriesSplit** | Time-series medical data | Respects temporal order | Less data for early folds |
 | **NestedCV** | Hyperparameter tuning | Unbiased performance | Computationally expensive |
 
 ---
@@ -93,9 +93,9 @@ for train, test in kf.split(X):
 
 #### ✅ Correct Way
 ```python
-from trustcv.splitters import PatientGroupKFold
+from trustcv.splitters import GroupKFold
 
-pgkf = PatientGroupKFold(n_splits=5)
+pgkf = GroupKFold(n_splits=5)
 for train, test in pgkf.split(X, groups=patient_ids):
     # Patient data stays together
 ```
@@ -127,9 +127,9 @@ X_train, X_test = train_test_split(temporal_data, random_state=42)
 
 #### ✅ Correct Way
 ```python
-from trustcv.splitters import TemporalClinical
+from trustcv.splitters import TimeSeriesSplit
 
-tscv = TemporalClinical(n_splits=5)
+tscv = TimeSeriesSplit(n_splits=5)
 for train, test in tscv.split(X, timestamps=dates):
     # Always train on past, test on future
 ```
@@ -238,7 +238,7 @@ TrustCV supports generating documentation that maps to FDA validation requiremen
 ```python
 from trustcv import TrustCVValidator
 
-validator = TrustCVValidator(report_format='FDA')
+validator = TrustCVValidator(compliance='FDA')
 
 # Supports documentation of:
 # 1. Separate holdout test set (commonly required)
@@ -248,7 +248,7 @@ validator = TrustCVValidator(report_format='FDA')
 # 5. Failure mode analysis
 
 results = validator.fit_validate(model, X, y)
-results.generate_report('validation_report.pdf')
+# Results available via results.summary()
 ```
 
 ### Key Metrics for FDA Submissions
@@ -299,7 +299,7 @@ validator = TrustCVValidator(
     n_splits=5,
     check_leakage=True,
     check_balance=True,
-    report_format='FDA'  # Generate reports mapping to FDA documentation requirements
+    compliance='FDA'  # Generate reports mapping to FDA documentation requirements
 )
 
 # 4. Perform validation
@@ -313,10 +313,10 @@ results = validator.fit_validate(
 print(results.summary())
 
 # 6. Generate report for regulatory documentation
-results.generate_report('validation_report.pdf')
+# Results available via results.summary()
 
 # 7. Save for reproducibility
-results.save('validation_results.pkl')
+# Export results: results.to_dict()
 ```
 
 ### Handling Edge Cases

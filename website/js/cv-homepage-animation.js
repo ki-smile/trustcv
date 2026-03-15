@@ -9,6 +9,10 @@ class CVAnimation {
         if (!this.container) return;
         
         // Configuration
+        var tc = (typeof getThemeColors === 'function') ? getThemeColors() : {
+            train: '#3498DB', test: '#E74C3C', inactive: '#BDC3C7',
+            surface: '#FFFFFF', text: '#2C3E50', border: '#34495E', grey: '#7F8C8D'
+        };
         this.config = {
             width: 500,
             height: 400,
@@ -16,12 +20,14 @@ class CVAnimation {
             nFolds: 5,
             animationSpeed: 1500,
             colors: {
-                train: '#3498DB',
-                test: '#E74C3C',
-                inactive: '#BDC3C7',
-                background: '#FFFFFF',
-                border: '#34495E',
-                text: '#2C3E50'
+                train: tc.train,
+                test: tc.test,
+                inactive: tc.inactive,
+                background: tc.surface,
+                border: tc.text,
+                text: tc.text,
+                grey: tc.textMuted || tc.grey,
+                foldLabel: tc.text
             }
         };
         
@@ -35,10 +41,10 @@ class CVAnimation {
     init() {
         // Create the visualization container
         this.container.innerHTML = `
-            <div class="cv-animation-container" style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <div class="cv-animation-container" style="background: var(--md-sys-color-surface); border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
                 <div class="cv-header" style="text-align: center; margin-bottom: 20px;">
                     <h3 style="color: var(--ki-plum); margin: 0;">Cross-Validation in Action</h3>
-                    <p style="color: #666; font-size: 14px; margin: 5px 0;">Watch how ${this.config.nFolds}-fold CV splits data</p>
+                    <p style="color: var(--ki-grey); font-size: 14px; margin: 5px 0;">Watch how ${this.config.nFolds}-fold CV splits data</p>
                 </div>
                 
                 <canvas id="cv-canvas" width="${this.config.width}" height="${this.config.height}" style="display: block; margin: 0 auto;"></canvas>
@@ -64,18 +70,18 @@ class CVAnimation {
                         <span class="material-icons" style="font-size: 18px;">play_arrow</span>
                         Play
                     </button>
-                    <button id="cv-reset" class="cv-btn" style="padding: 8px 20px; background: #7F8C8D; color: white; border: none; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <button id="cv-reset" class="cv-btn" style="padding: 8px 20px; background: var(--ki-grey); color: var(--ki-dark-plum); border: none; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
                         <span class="material-icons" style="font-size: 18px;">refresh</span>
                         Reset
                     </button>
-                    <select id="cv-folds" style="padding: 8px 15px; border: 1px solid #BDC3C7; border-radius: 20px; cursor: pointer;">
+                    <select id="cv-folds" style="padding: 8px 15px; border: 1px solid var(--border-color); border-radius: 20px; cursor: pointer;">
                         <option value="3">3-Fold</option>
                         <option value="5" selected>5-Fold</option>
                         <option value="10">10-Fold</option>
                     </select>
                 </div>
                 
-                <div class="cv-explanation" style="margin-top: 20px; padding: 15px; background: #F8F9FA; border-radius: 8px; font-size: 14px; line-height: 1.6;">
+                <div class="cv-explanation" style="margin-top: 20px; padding: 15px; background: var(--md-sys-color-surface-variant); border-radius: 8px; font-size: 14px; line-height: 1.6;">
                     <strong style="color: var(--ki-plum);">How it works:</strong><br>
                     • Data is split into <strong>${this.config.nFolds} equal folds</strong><br>
                     • Each fold serves as test set once while others train<br>
@@ -136,8 +142,9 @@ class CVAnimation {
         this.ctx.fillStyle = this.config.colors.background;
         this.ctx.fillRect(0, 0, this.config.width, this.config.height);
         
-        const padding = 40;
-        const availableWidth = this.config.width - 2 * padding;
+        const paddingLeft = 65;
+        const padding = 20;
+        const availableWidth = this.config.width - paddingLeft - padding;
         const availableHeight = this.config.height - 2 * padding;
         
         // Calculate grid layout
@@ -157,12 +164,12 @@ class CVAnimation {
             
             if (boundaryCol === 0 && boundaryRow > 0) {
                 // Horizontal line between rows
-                this.ctx.strokeStyle = '#95A5A6';
+                this.ctx.strokeStyle = this.config.colors.inactive;
                 this.ctx.lineWidth = 2;
                 this.ctx.setLineDash([5, 5]);
                 this.ctx.beginPath();
-                this.ctx.moveTo(padding, padding + boundaryRow * cellHeight);
-                this.ctx.lineTo(padding + availableWidth, padding + boundaryRow * cellHeight);
+                this.ctx.moveTo(paddingLeft, padding + boundaryRow * cellHeight);
+                this.ctx.lineTo(paddingLeft + availableWidth, padding + boundaryRow * cellHeight);
                 this.ctx.stroke();
                 this.ctx.setLineDash([]);
             }
@@ -172,7 +179,7 @@ class CVAnimation {
         this.data.forEach((point, index) => {
             const col = index % cols;
             const row = Math.floor(index / cols);
-            const x = padding + col * cellWidth + cellWidth / 2;
+            const x = paddingLeft + col * cellWidth + cellWidth / 2;
             const y = padding + row * cellHeight + cellHeight / 2;
             
             // Determine color based on current fold
@@ -208,30 +215,48 @@ class CVAnimation {
             }
         });
         
-        // Draw fold labels
-        this.ctx.fillStyle = this.config.colors.text;
-        this.ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
-        this.ctx.textAlign = 'center';
-        
+        // Draw fold labels in the left margin
+        this.ctx.textAlign = 'right';
+        this.ctx.textBaseline = 'middle';
+
         for (let fold = 0; fold < this.config.nFolds; fold++) {
             const startIdx = fold * samplesPerFold;
-            const midIdx = startIdx + Math.floor(samplesPerFold / 2);
-            
-            if (midIdx < this.data.length) {
-                const col = midIdx % cols;
-                const row = Math.floor(midIdx / cols);
-                const x = padding + col * cellWidth + cellWidth / 2;
-                const y = padding + row * cellHeight - 10;
-                
-                if (fold === this.currentFold) {
-                    this.ctx.fillStyle = this.config.colors.test;
-                    this.ctx.fillText(`TEST ${fold + 1}`, x, y);
+            const endIdx = Math.min(startIdx + samplesPerFold - 1, this.config.nSamples - 1);
+            // Find the vertical center of this fold's rows
+            const startRow = Math.floor(startIdx / cols);
+            const endRow = Math.floor(endIdx / cols);
+            const midRow = (startRow + endRow) / 2;
+            const y = padding + midRow * cellHeight + cellHeight / 2;
+            const x = paddingLeft - 8;
+
+            if (fold === this.currentFold) {
+                // Draw highlighted TEST label with background pill
+                var label = 'TEST';
+                this.ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
+                var tw = this.ctx.measureText(label).width;
+                // Pill background
+                this.ctx.fillStyle = this.config.colors.test;
+                var pillH = 20, pillW = tw + 14, px = x - pillW, py = y - pillH / 2;
+                this.ctx.beginPath();
+                if (this.ctx.roundRect) {
+                    this.ctx.roundRect(px, py, pillW, pillH, 10);
                 } else {
-                    this.ctx.fillStyle = '#7F8C8D';
-                    this.ctx.fillText(`Fold ${fold + 1}`, x, y);
+                    this.ctx.rect(px, py, pillW, pillH);
                 }
+                this.ctx.fill();
+                // Text
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.fillText(label, x - 7, y);
+            } else {
+                // Draw subtle fold label
+                this.ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+                this.ctx.fillStyle = this.config.colors.foldLabel;
+                this.ctx.globalAlpha = 0.6;
+                this.ctx.fillText(`F${fold + 1}`, x - 4, y);
+                this.ctx.globalAlpha = 1.0;
             }
         }
+        this.ctx.textBaseline = 'alphabetic';
         
         // Request next frame for smooth animation
         if (this.isPlaying) {
@@ -338,6 +363,14 @@ class CVAnimation {
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('cv-demo-plot');
     if (container) {
-        new CVAnimation('cv-demo-plot');
+        window.cvHomepageAnimation = new CVAnimation('cv-demo-plot');
+    }
+});
+
+// Re-initialize on theme change so colors update
+window.addEventListener('themechange', function() {
+    var container = document.getElementById('cv-demo-plot');
+    if (container) {
+        window.cvHomepageAnimation = new CVAnimation('cv-demo-plot');
     }
 });
