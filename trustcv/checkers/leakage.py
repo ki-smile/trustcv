@@ -865,6 +865,11 @@ class DataLeakageChecker:
         """Detect near-duplicate samples across train/test via cosine
         similarity.
 
+        Features are standardized with training-set statistics before
+        cosine similarity is computed. This avoids false positives on
+        mixed-scale tabular data where raw feature magnitudes dominate
+        vector direction.
+
         Parameters
         ----------
         X_train, X_test : array-like
@@ -896,7 +901,17 @@ class DataLeakageChecker:
             X_test = X_test.values
 
         try:
-            sim = cosine_similarity(X_test, X_train)
+            X_train = np.asarray(X_train, dtype=float)
+            X_test = np.asarray(X_test, dtype=float)
+
+            train_mean = X_train.mean(axis=0)
+            train_std = X_train.std(axis=0)
+            train_std[train_std == 0] = 1.0
+
+            X_train_normalized = (X_train - train_mean) / train_std
+            X_test_normalized = (X_test - train_mean) / train_std
+
+            sim = cosine_similarity(X_test_normalized, X_train_normalized)
             near_dup_mask = sim.max(axis=1) >= similarity_threshold
             count = int(near_dup_mask.sum())
             pct = float(count / len(X_test) * 100) if len(X_test) else 0.0

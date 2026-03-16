@@ -12,6 +12,8 @@ import pytest
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import StratifiedKFold
 
 from trustcv.checkers.leakage import (
     DataLeakageChecker,
@@ -191,6 +193,22 @@ class TestNearDuplicateDetection:
         checker = DataLeakageChecker(verbose=False)
         report = checker.check_cv_splits(X_train, X_test)
         assert "near_duplicate" in report.leakage_types
+
+    def test_mixed_scale_tabular_data_not_falsely_flagged(self):
+        """Raw cosine on breast-cancer features should not flag all rows."""
+        X, y = load_breast_cancer(return_X_y=True)
+        train_idx, test_idx = next(
+            StratifiedKFold(
+                n_splits=5, shuffle=True, random_state=42
+            ).split(X, y)
+        )
+
+        result = self.checker.check_near_duplicates(
+            X[train_idx], X[test_idx]
+        )
+
+        assert not result["has_leakage"]
+        assert result["near_duplicate_count"] == 0
 
 
 class TestHierarchicalLeakage:
