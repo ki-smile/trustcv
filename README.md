@@ -1,4 +1,4 @@
-# trustcv — Trustworthy Cross-Validation Toolkit
+# trustcv — Trustworthy Cross-Validation Toolkit  
 
 [![PyPI](https://img.shields.io/pypi/v/trustcv)](https://pypi.org/project/trustcv/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -58,7 +58,8 @@ This release includes **29 cross-validation methods** across four categories:
   `TrustCVValidator` with automatic method selection and leakage detection.
 
 - **Data integrity checks**:
-  `DataLeakageChecker` (6 leakage types), `BalanceChecker`, and `LeakageReport`.
+  `TrustCVValidator` lightweight checks (`no_duplicate_samples`, `no_patient_leakage`, `balanced_classes`),
+  plus `DataLeakageChecker` extended leakage analysis and `LeakageReport`.
 
 - **Clinical/medical metrics**:
   `ClinicalMetrics` with confidence intervals (sensitivity, specificity, PPV/NPV, etc.).
@@ -144,9 +145,79 @@ print(results.summary())
 ```
 
 For a higher-level workflow with leakage and balance checks, see the
- [Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) and  [IID Splitters](https://github.com/ki-smile/trustcv/blob/main/docs/iid_splitters.md) tutorial.
+[Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) and [IID Splitters](https://github.com/ki-smile/trustcv/blob/main/docs/iid_splitters.md) tutorial.
 
- ### Run the example notebooks
+## Data Integrity Checks (What Is Checked and How)
+
+TrustCV runs integrity checks during `validate(...)` and returns them in
+`ValidationResult.leakage_check`.
+
+### 1) Built-in checks in `TrustCVValidator._basic_integrity_checks`
+
+These checks run when the corresponding flags are enabled:
+
+- `check_leakage=True` enables duplicate/group leakage checks.
+- `check_balance=True` enables class-balance checks.
+
+| Key in `results.leakage_check` | What it checks | Method used | Pass condition |
+| --- | --- | --- | --- |
+| `no_duplicate_samples` | Exact duplicate rows in `X` | `pandas.DataFrame.duplicated().any()` (DataFrame input) | `True` when no duplicates are found |
+| `no_patient_leakage` | Group/patient overlap between train/validation folds | Iterates the active CV splitter; computes set intersection of unique group IDs in each fold | `True` when there is no overlap in all folds |
+| `balanced_classes` | Binary class imbalance | Computes ratio `min(class_count) / max(class_count)` | `True` when ratio is `>= 0.10` |
+| `balanced_multilabel` *(multilabel only)* | Label-prevalence drift across folds | Computes max absolute deviation between per-fold prevalence and global prevalence | `True` when max deviation is `<= 0.10` |
+
+### 2) Extended leakage scan via `DataLeakageChecker`
+
+When `check_leakage=True`, `TrustCV` can run `DataLeakageChecker.check(...)`
+and fold its outcome into `results.leakage_check["has_leakage"]`.
+
+Important semantics:
+- `LeakageReport.has_leakage == True` means leakage was detected.
+- `results.leakage_check["has_leakage"] == True` means the check **passed**
+  (no leakage detected).  
+  In other words, this field is the inverse of `LeakageReport.has_leakage`.
+
+`DataLeakageChecker` methods used in the scan:
+
+| Leakage type | Method used |
+| --- | --- |
+| Patient leakage | Set intersection of patient IDs in train vs test |
+| Duplicate samples | Row hashing with `pandas.util.hash_pandas_object` across train/test |
+| Temporal leakage | Timestamp parsing + flags when test starts before train, or overlap fraction is high (`> 0.5`) |
+| Feature-statistics leakage | Near-identical feature means/stds (tight threshold) plus optional per-feature KS test |
+| Spatial proximity leakage | Euclidean nearest-distance analysis; threshold can be auto-derived from distance percentiles |
+| Near-duplicate leakage | Cosine similarity on train-normalized features (`>= 0.99` default) |
+| Label-distribution drift | Max class-proportion difference between train/test (`> 0.2`, optional chi-square test) |
+
+Additional methods such as hierarchical, preprocessing, and feature-target
+leakage checks are available in `DataLeakageChecker` for manual use.
+
+### Minimal usage
+
+```python
+from trustcv import TrustCV
+
+validator = TrustCV(
+    method="stratified_kfold",
+    n_splits=5,
+    check_leakage=True,
+    check_balance=True,
+)
+results = validator.validate(model=model, X=X, y=y)
+# If you have group/patient IDs, pass them as:
+# results = validator.validate(model=model, X=X, y=y, groups=patient_ids)
+
+print(results.leakage_check)
+# Example keys:
+# {
+#   "no_duplicate_samples": True,
+#   "no_patient_leakage": True,
+#   "balanced_classes": True,
+#   "has_leakage": True
+# }
+```
+
+### Run the example notebooks
 
 Prefer to learn by running code? From the repo root, open the notebooks in `notebooks/`:
 
