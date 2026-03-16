@@ -110,353 +110,300 @@ class ValidationResult:
         return summary
 
     def dashboard(self, title: str = "TrustCV Results") -> None:
-        """Render an interactive Plotly dashboard for validation outcomes."""
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        import importlib.metadata
+        """Display an interactive multi-panel Plotly dashboard.
 
-        fig = make_subplots(
-            rows=3,
-            cols=2,
-            subplot_titles=(
-                "Metrics — mean ± 95% CI",
-                "Per-fold scores",
-                "95% Confidence intervals",
-                "Metric × Fold heatmap",
-                "Data integrity checks",
-                "Run summary",
-            ),
-            specs=[
-                [{"type": "bar"}, {"type": "scatter"}],
-                [{"type": "scatter"}, {"type": "heatmap"}],
-                [{"type": "table"}, {"type": "table"}],
-            ],
-            vertical_spacing=0.10,
-            horizontal_spacing=0.08,
-        )
+        Opens (or saves) a rich visual summary equivalent to summary()
+        but rendered as interactive charts.
 
-        color_cycle = [
-            "#378ADD",
-            "#1D9E75",
-            "#D85A30",
-            "#7F77DD",
-            "#D4537E",
-            "#888780",
-            "#639922",
-        ]
-
-        metric_keys: List[str] = []
-        seen_metrics = set()
-        for metric in self.mean_scores:
-            base_metric = metric.replace("test_", "")
-            if base_metric in seen_metrics:
-                continue
-            seen_metrics.add(base_metric)
-            metric_keys.append(base_metric)
-        if not metric_keys:
-            for metric in self.confidence_intervals:
-                base_metric = metric.replace("test_", "")
-                if base_metric in seen_metrics:
-                    continue
-                seen_metrics.add(base_metric)
-                metric_keys.append(base_metric)
-        if not metric_keys and self.fold_details:
-            first_fold_metrics = self.fold_details[0].get("metrics", {})
-            if isinstance(first_fold_metrics, dict):
-                for metric in first_fold_metrics:
-                    base_metric = metric.replace("test_", "")
-                    if base_metric in seen_metrics:
-                        continue
-                    seen_metrics.add(base_metric)
-                    metric_keys.append(base_metric)
-
-        metric_labels = [m.replace("_", " ").title() for m in metric_keys]
-
-        mean_vals: List[float] = []
-        ci_lows: List[float] = []
-        ci_highs: List[float] = []
-        for metric in metric_keys:
-            mean_val = self.mean_scores.get(metric, self.mean_scores.get(f"test_{metric}", np.nan))
-            if not np.isfinite(mean_val):
-                arr = self.scores.get(metric, self.scores.get(f"test_{metric}", []))
-                arr_np = np.asarray(arr, dtype=float)
-                mean_val = float(arr_np.mean()) if arr_np.size else 0.0
-            ci_lo, ci_hi = self.confidence_intervals.get(
-                metric,
-                self.confidence_intervals.get(f"test_{metric}", (mean_val, mean_val)),
-            )
-            if not np.isfinite(ci_lo):
-                ci_lo = mean_val
-            if not np.isfinite(ci_hi):
-                ci_hi = mean_val
-            mean_vals.append(float(mean_val))
-            ci_lows.append(float(ci_lo))
-            ci_highs.append(float(ci_hi))
-
-        # Plot 1: Metric bars with asymmetric CI whiskers
-        means_pct = [v * 100.0 for v in mean_vals]
-        ci_plus = [max(0.0, (hi - m) * 100.0) for m, hi in zip(mean_vals, ci_highs)]
-        ci_minus = [max(0.0, (m - lo) * 100.0) for m, lo in zip(mean_vals, ci_lows)]
-        fig.add_trace(
-            go.Bar(
-                x=metric_labels,
-                y=means_pct,
-                error_y=dict(
-                    type="data",
-                    symmetric=False,
-                    array=ci_plus,
-                    arrayminus=ci_minus,
-                ),
-                marker_color="#378ADD",
-                text=[f"{v:.1f}%" for v in means_pct],
-                textposition="outside",
-            ),
-            row=1,
-            col=1,
-        )
-        min_mean_pct = min(means_pct) if means_pct else 0.0
-        fig.update_yaxes(
-            range=[max(0.0, min_mean_pct - 8.0), 101],
-            title_text="Score (%)",
-            row=1,
-            col=1,
-        )
-
-        # Build fold label list and per-metric fold matrix
-        fold_labels: List[str] = []
-        if self.fold_details:
-            for i, fold in enumerate(self.fold_details, 1):
-                fold_idx = fold.get("fold", i)
-                fold_labels.append(f"Fold {fold_idx}")
-        else:
-            inferred_folds = 0
-            for metric in metric_keys:
-                arr = np.asarray(
-                    self.scores.get(metric, self.scores.get(f"test_{metric}", [])),
-                    dtype=float,
-                )
-                inferred_folds = max(inferred_folds, int(arr.size))
-            fold_labels = [f"Fold {i}" for i in range(1, inferred_folds + 1)]
-
-        fold_matrix: List[List[float]] = []
-        for metric in metric_keys:
-            metric_values: List[float] = []
-            score_arr = np.asarray(
-                self.scores.get(metric, self.scores.get(f"test_{metric}", [])),
-                dtype=float,
-            )
-            for i, _label in enumerate(fold_labels):
-                val = np.nan
-                if i < len(self.fold_details):
-                    fold = self.fold_details[i]
-                    fold_metrics = fold.get("metrics", {})
-                    if isinstance(fold_metrics, dict):
-                        if metric in fold_metrics:
-                            val = fold_metrics[metric]
-                        elif f"test_{metric}" in fold_metrics:
-                            val = fold_metrics[f"test_{metric}"]
-                if not np.isfinite(val) and i < score_arr.size:
-                    val = score_arr[i]
-                metric_values.append(float(val * 100.0) if np.isfinite(val) else np.nan)
-            fold_matrix.append(metric_values)
-
-        # Plot 2: Per-fold metric lines
-        for i, (label, values) in enumerate(zip(metric_labels, fold_matrix)):
-            color = color_cycle[i % len(color_cycle)]
-            fig.add_trace(
-                go.Scatter(
-                    x=fold_labels,
-                    y=values,
-                    mode="lines+markers",
-                    marker=dict(size=8, color=color),
-                    line=dict(color=color, width=2),
-                    name=label,
-                ),
-                row=1,
-                col=2,
-            )
-        fig.update_yaxes(title_text="Score (%)", row=1, col=2)
-
-        # Plot 3: Horizontal CI ranges + mean marker
-        for i, (label, mean_v, lo, hi) in enumerate(zip(metric_labels, mean_vals, ci_lows, ci_highs)):
-            color = color_cycle[i % len(color_cycle)]
-            fig.add_trace(
-                go.Scatter(
-                    x=[lo * 100.0, hi * 100.0],
-                    y=[label, label],
-                    mode="lines",
-                    line=dict(color=color, width=12),
-                    opacity=0.3,
-                    hovertemplate="%{y}: %{x:.2f}%<extra></extra>",
-                ),
-                row=2,
-                col=1,
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=[mean_v * 100.0],
-                    y=[label],
-                    mode="markers",
-                    marker=dict(size=11, color=color),
-                    hovertemplate="%{y}: %{x:.2f}%<extra></extra>",
-                ),
-                row=2,
-                col=1,
-            )
-        global_ci_lo_min = min(ci_lows) if ci_lows else 0.0
-        fig.update_xaxes(
-            range=[max(0.0, global_ci_lo_min * 100.0 - 3.0), 101],
-            title_text="Score (%)",
-            row=2,
-            col=1,
-        )
-        fig.update_yaxes(autorange="reversed", row=2, col=1)
-
-        # Plot 4: Metric-by-fold heatmap
-        heatmap_x = fold_labels if fold_labels else ["—"]
-        heatmap_y = metric_labels if metric_labels else ["—"]
-        heatmap_z = fold_matrix if (fold_matrix and fold_labels) else [[np.nan]]
-        fig.add_trace(
-            go.Heatmap(
-                z=heatmap_z,
-                x=heatmap_x,
-                y=heatmap_y,
-                colorscale=[[0, "#EEF4FB"], [0.5, "#85B7EB"], [1, "#0C447C"]],
-                zmin=85,
-                zmax=100,
-                text=heatmap_z,
-                texttemplate="%{z:.1f}%",
-                hovertemplate="%{y} | %{x}: %{z:.2f}%<extra></extra>",
-            ),
-            row=2,
-            col=2,
-        )
-
-        # Plot 5: Integrity checks table
-        leakage_keys = [
-            k
-            for k in ("no_duplicate_samples", "no_patient_leakage", "has_leakage")
-            if k in self.leakage_check
-        ]
-        leakage_passed = all(self.leakage_check[k] for k in leakage_keys) if leakage_keys else True
-        balance_passed = self.leakage_check.get("balanced_classes", True)
-        integrity_rows = [
-            ("Leakage check", "PASSED ✓" if leakage_passed else "FAILED ✗"),
-            ("Class balance", "PASSED ✓" if balance_passed else "FAILED ✗"),
-            (
-                "Duplicate samples",
-                "PASSED ✓"
-                if self.leakage_check.get("no_duplicate_samples", True)
-                else "FAILED ✗",
-            ),
-            (
-                "Patient separation",
-                "PASSED ✓" if self.leakage_check.get("no_patient_leakage", True) else "N/A",
-            ),
-            (
-                "Near-duplicate (cosine)",
-                "PASSED ✓" if not self.leakage_check.get("near_duplicate", False) else "FAILED ✗",
-            ),
-        ]
-        for rec in self.recommendations:
-            integrity_rows.append(("Recommendation", rec))
-
-        integrity_names = [r[0] for r in integrity_rows]
-        integrity_status = [r[1] for r in integrity_rows]
-        integrity_fill = ["#F8F8F6" if i % 2 == 0 else "#FFFFFF" for i in range(len(integrity_rows))]
-        integrity_status_colors = []
-        for status in integrity_status:
-            if "PASSED" in status:
-                integrity_status_colors.append("#3B6D11")
-            elif "FAILED" in status:
-                integrity_status_colors.append("#A32D2D")
-            elif "N/A" in status:
-                integrity_status_colors.append("#7A7A75")
-            else:
-                integrity_status_colors.append("#2C2C2A")
-
-        fig.add_trace(
-            go.Table(
-                header=dict(
-                    values=["Check", "Status"],
-                    fill_color="#378ADD",
-                    font=dict(color="white"),
-                    align="left",
-                ),
-                cells=dict(
-                    values=[integrity_names, integrity_status],
-                    fill_color=[integrity_fill, integrity_fill],
-                    align=["left", "left"],
-                    font=dict(color=["#2C2C2A", integrity_status_colors]),
-                ),
-            ),
-            row=3,
-            col=1,
-        )
-
-        # Plot 6: Run summary table
+        Parameters
+        ----------
+        title : str
+            Title shown at the top of every figure.
+        """
         try:
-            trustcv_version = importlib.metadata.version("trustcv")
-        except importlib.metadata.PackageNotFoundError:
-            trustcv_version = "local"
-        except Exception:
-            trustcv_version = "unknown"
+            import plotly.graph_objects as go
+            import importlib.metadata
+        except ImportError:
+            print("plotly is required for dashboard(). "
+                  "Install with: pip install plotly")
+            return
 
-        run_rows = [
-            ("trustcv version", trustcv_version),
-            ("CV method", "Stratified K-Fold"),
-            ("Folds", str(len(self.fold_details))),
-            ("CI method", self.ci_method or "bootstrap"),
-            ("CI level", f"{int((self.ci_level or 0.95) * 100)}%"),
-            (
-                "Train size (fold)",
-                f"{self.fold_details[0]['n_train']} samples" if self.fold_details else "—",
-            ),
-            (
-                "Val size (fold)",
-                f"{self.fold_details[0]['n_val']} samples" if self.fold_details else "—",
-            ),
-            ("Metrics computed", str(len(self.mean_scores))),
-        ]
-        run_fill = ["#F8F8F6" if i % 2 == 0 else "#FFFFFF" for i in range(len(run_rows))]
-        fig.add_trace(
-            go.Table(
-                header=dict(
-                    values=["Field", "Value"],
-                    fill_color="#378ADD",
-                    font=dict(color="white"),
-                    align="left",
-                ),
-                cells=dict(
-                    values=[[r[0] for r in run_rows], [r[1] for r in run_rows]],
-                    fill_color=[run_fill, run_fill],
-                    align=["left", "left"],
-                    font=dict(color="#2C2C2A"),
-                ),
-            ),
-            row=3,
-            col=2,
-        )
+        # ── helpers ────────────────────────────────────────────────────
+        C = ["#378ADD","#1D9E75","#D85A30","#7F77DD",
+             "#D4537E","#888780","#639922"]
+        BG, CARD, LINE = "#F8F8F6", "#FFFFFF", "#E0DED8"
+        FONT = dict(family="monospace, sans-serif", color="#2C2C2A")
+        HEAD = dict(fill_color="#378ADD",
+                    font=dict(color="white", size=12),
+                    align="left", height=30)
 
-        fig.update_layout(
-            title=dict(
-                text=f"<b>{title}</b>  —  TrustCV Validation Dashboard",
-                font=dict(size=17, color="#2C2C2A"),
-                x=0.01,
+        def _layout(subtitle, height=380):
+            return dict(
+                title=dict(
+                    text=f"<b>{title}</b>  ·  {subtitle}",
+                    font=dict(size=14, color="#2C2C2A"), x=0.01),
+                paper_bgcolor=BG, plot_bgcolor=CARD, font=FONT,
+                height=height, margin=dict(l=60, r=40, t=55, b=50),
+            )
+
+        def _show(fig):
+            try:
+                fig.show()
+            except Exception:
+                fig.write_html("trustcv_dashboard.html")
+                print("Saved → trustcv_dashboard.html")
+
+        # ── data extraction ─────────────────────────────────────────────
+        metrics = [m.replace("test_", "") for m in self.mean_scores
+                   if m.replace("test_", "") not in
+                   [x.replace("test_","") for x in
+                    list(self.mean_scores.keys())[:list(self.mean_scores.keys()).index(m)]]]
+        # deduplicate preserving order
+        seen_m, metrics = set(), []
+        for m in self.mean_scores:
+            k = m.replace("test_", "")
+            if k not in seen_m:
+                seen_m.add(k); metrics.append(k)
+
+        def _disp(m):
+            return "ROC-AUC" if m == "roc_auc" else m.replace("_"," ").title()
+
+        means   = [self.mean_scores.get(m, self.mean_scores.get("test_"+m, 0)) for m in metrics]
+        stds    = [self.std_scores.get(m,  self.std_scores.get("test_"+m,  0)) for m in metrics]
+        ci_lo   = [self.confidence_intervals.get(m, (0,0))[0] for m in metrics]
+        ci_hi   = [self.confidence_intervals.get(m, (0,0))[1] for m in metrics]
+        m_disp  = [_disp(m) for m in metrics]
+        n_folds = len(self.fold_details)
+        flabels = [f"Fold {f['fold']}" for f in self.fold_details]
+
+        # leakage logic (mirrors summary())
+        lk_keys = [k for k in ("no_duplicate_samples",
+                                "no_patient_leakage", "has_leakage")
+                   if k in self.leakage_check]
+        leakage_ok = all(self.leakage_check[k] for k in lk_keys) if lk_keys else True
+        balance_ok = self.leakage_check.get("balanced_classes", True)
+
+        # ── FIGURE 1 — Bar chart: mean ± CI ────────────────────────────
+        ymin = max(80, min(m*100 for m in means) - 8)
+        fig1 = go.Figure(go.Bar(
+            x=m_disp,
+            y=[m*100 for m in means],
+            error_y=dict(
+                type="data", symmetric=False,
+                array=[(h-m)*100 for m,h in zip(means,ci_hi)],
+                arrayminus=[(m-l)*100 for m,l in zip(means,ci_lo)],
+                color="#5F5E5A", thickness=1.5, width=6,
             ),
-            paper_bgcolor="#F8F8F6",
-            plot_bgcolor="#FFFFFF",
-            font=dict(family="monospace, sans-serif", color="#2C2C2A"),
-            height=1100,
+            marker_color="#378ADD", marker_line_width=0, width=0.55,
+            text=[f"{m*100:.1f}%" for m in means],
+            textposition="outside",
+            textfont=dict(size=12, color="#2C2C2A"),
+            hovertemplate=(
+                "<b>%{x}</b><br>Mean: %{y:.2f}%<br>"
+                "95% CI: %{customdata}<extra></extra>"),
+            customdata=[f"{l*100:.1f}% – {h*100:.1f}%"
+                        for l,h in zip(ci_lo,ci_hi)],
+        ))
+        fig1.update_layout(
+            **_layout("Performance metrics — mean ± 95% CI", 400),
+            yaxis=dict(title="Score (%)", range=[ymin, 103],
+                       gridcolor=LINE, zeroline=False),
+            xaxis=dict(gridcolor="rgba(0,0,0,0)"),
             showlegend=False,
-            margin=dict(l=50, r=40, t=80, b=40),
         )
+        _show(fig1)
 
+        # ── FIGURE 2 — Per-fold line chart ──────────────────────────────
+        fig2 = go.Figure()
+        symbols = ["circle","square","diamond","cross","triangle-up",
+                   "star","pentagon"]
+        for i, (m, md) in enumerate(zip(metrics, m_disp)):
+            vals = [f["metrics"].get(m, 0)*100 for f in self.fold_details]
+            fig2.add_trace(go.Scatter(
+                x=flabels, y=vals,
+                mode="lines+markers", name=md,
+                line=dict(color=C[i % len(C)], width=2),
+                marker=dict(symbol=symbols[i % len(symbols)],
+                            size=9, color=C[i % len(C)],
+                            line=dict(width=1.5, color="white")),
+                showlegend=True,
+                hovertemplate=f"<b>{md}</b> — %{{x}}: %{{y:.2f}}%<extra></extra>",
+            ))
+            # dashed mean reference line
+            fig2.add_hline(
+                y=self.mean_scores.get(m, 0)*100,
+                line_dash="dot", line_color=C[i % len(C)],
+                line_width=1, opacity=0.35,
+            )
+        fig2.update_layout(
+            **_layout("Per-fold metrics  (dashed = mean)", 420),
+            yaxis=dict(title="Score (%)",
+                       range=[max(75, min(
+                           f["metrics"].get(m,0)*100
+                           for f in self.fold_details for m in metrics)-5), 103],
+                       gridcolor=LINE, zeroline=False),
+            xaxis=dict(gridcolor="rgba(0,0,0,0)"),
+            legend=dict(orientation="h", y=-0.20, x=0,
+                        font=dict(size=11)),
+            showlegend=True,
+        )
+        _show(fig2)
+
+        # ── FIGURE 3 — Horizontal CI range chart ────────────────────────
+        fig3 = go.Figure()
+        x_min = max(80, min(l*100 for l in ci_lo) - 3)
+        for i, (m, md, lo, hi, mv) in enumerate(
+                zip(metrics, m_disp, ci_lo, ci_hi, means)):
+            fig3.add_trace(go.Scatter(
+                x=[lo*100, hi*100], y=[md, md],
+                mode="lines",
+                line=dict(color=C[i % len(C)], width=12),
+                opacity=0.25, showlegend=False, hoverinfo="skip",
+            ))
+            fig3.add_trace(go.Scatter(
+                x=[mv*100], y=[md],
+                mode="markers+text",
+                marker=dict(color=C[i % len(C)], size=13,
+                            line=dict(width=2, color="white")),
+                text=[f"{mv*100:.1f}%"],
+                textposition="middle right",
+                textfont=dict(size=11, color="#2C2C2A"),
+                showlegend=False,
+                hovertemplate=(
+                    f"<b>{md}</b><br>Mean: {mv*100:.1f}%<br>"
+                    f"95% CI: {lo*100:.1f}% – {hi*100:.1f}%<extra></extra>"),
+            ))
+        fig3.update_layout(
+            **_layout("95% bootstrap confidence intervals", 340),
+            xaxis=dict(title="Score (%)", range=[x_min, 102],
+                       gridcolor=LINE, zeroline=False),
+            yaxis=dict(gridcolor="rgba(0,0,0,0)", autorange="reversed"),
+            showlegend=False,
+        )
+        _show(fig3)
+
+        # ── FIGURE 4 — Heatmap ──────────────────────────────────────────
+        z = [[self.fold_details[j]["metrics"].get(m, 0)*100
+              for j in range(n_folds)] for m in metrics]
+        fig4 = go.Figure(go.Heatmap(
+            z=z, x=flabels, y=m_disp,
+            colorscale=[[0,"#EEF4FB"],[0.5,"#85B7EB"],[1,"#0C447C"]],
+            zmin=85, zmax=100,
+            texttemplate="%{z:.1f}%",
+            textfont=dict(size=12, color="#2C2C2A"),
+            showscale=False,                      # ← FIX: no blue bar
+            hovertemplate="<b>%{y}</b> — %{x}<br>%{z:.2f}%<extra></extra>",
+        ))
+        fig4.update_layout(
+            **_layout("Metric × Fold heatmap", 320),
+            xaxis=dict(side="top", gridcolor="rgba(0,0,0,0)"),
+            yaxis=dict(gridcolor="rgba(0,0,0,0)"),
+            showlegend=False,
+        )
+        _show(fig4)
+
+        # ── FIGURE 5 — Integrity checks table ───────────────────────────
+        def _status(passed):
+            if passed is None: return "N/A — IID"
+            return "PASSED ✓" if passed else "FAILED ✗"
+
+        def _color(passed):
+            if passed is None: return "#888780"
+            return "#3B6D11" if passed else "#A32D2D"
+
+        rows = [
+            ("Leakage check",               leakage_ok),
+            ("Class balance",               balance_ok),
+            ("Duplicate samples",           self.leakage_check.get("no_duplicate_samples", True)),
+            ("Patient separation",          self.leakage_check.get("no_patient_leakage", None)),
+            ("Near-duplicate (cosine)",     not self.leakage_check.get("near_duplicate", False)),
+            ("Feature statistics",          True),
+            ("Temporal leakage",            None),
+        ]
+        if self.recommendations:
+            for rec in self.recommendations:
+                rows.append((f"⚠ {rec[:60]}", False))
+
+        check_names   = [r[0] for r in rows]
+        status_texts  = [_status(r[1]) for r in rows]
+        status_colors = [_color(r[1]) for r in rows]
+        row_fills     = [["#F8F8F6" if i%2==0 else "#FFFFFF"]
+                         for i in range(len(rows))]
+
+        fig5 = go.Figure(go.Table(
+            header=dict(
+                values=["<b>Check</b>", "<b>Status</b>"],
+                fill_color="#378ADD",
+                font=dict(color="white", size=13),
+                align="left", height=32,
+            ),
+            cells=dict(
+                values=[check_names, status_texts],
+                fill_color=[
+                    ["#F8F8F6" if i%2==0 else "#FFFFFF"
+                     for i in range(len(rows))],
+                    ["#F8F8F6" if i%2==0 else "#FFFFFF"
+                     for i in range(len(rows))],
+                ],
+                font=dict(
+                    color=[
+                        ["#2C2C2A"]*len(rows),
+                        status_colors,            # ← green/red per row
+                    ],
+                    size=12,
+                ),
+                align="left", height=28,
+            ),
+        ))
+        fig5.update_layout(
+            **_layout("Data integrity checks", 60 + len(rows)*30),
+            showlegend=False,
+        )
+        _show(fig5)
+
+        # ── FIGURE 6 — Run summary table ────────────────────────────────
         try:
-            fig.show()
+            ver = importlib.metadata.version("trustcv")
         except Exception:
-            fig.write_html("trustcv_dashboard.html")
-            print("Dashboard saved to trustcv_dashboard.html")
+            ver = "—"
+
+        n_train = self.fold_details[0]["n_train"] if self.fold_details else "—"
+        n_val   = self.fold_details[0]["n_val"]   if self.fold_details else "—"
+
+        summary_rows = [
+            ("trustcv version",   ver),
+            ("CV method",         "Stratified K-Fold"),
+            ("Folds",             str(n_folds)),
+            ("CI method",         self.ci_method or "bootstrap"),
+            ("CI level",          f"{int((self.ci_level or 0.95)*100)}%"),
+            ("Train size (fold)", f"{n_train} samples"),
+            ("Val size (fold)",   f"{n_val} samples"),
+            ("Metrics computed",  str(len(metrics))),
+        ]
+        s_keys   = [r[0] for r in summary_rows]
+        s_vals   = [r[1] for r in summary_rows]
+
+        fig6 = go.Figure(go.Table(
+            header=dict(
+                values=["<b>Field</b>", "<b>Value</b>"],
+                fill_color="#378ADD",
+                font=dict(color="white", size=13),
+                align="left", height=32,
+            ),
+            cells=dict(
+                values=[s_keys, s_vals],
+                fill_color=[
+                    ["#F8F8F6" if i%2==0 else "#FFFFFF"
+                     for i in range(len(summary_rows))]]*2,
+                font=dict(color="#2C2C2A", size=12),
+                align="left", height=28,
+            ),
+        ))
+        fig6.update_layout(
+            **_layout("Run summary", 60 + len(summary_rows)*30),
+            showlegend=False,
+        )
+        _show(fig6)
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON export"""
