@@ -473,6 +473,7 @@ body {
         box-shadow: -2px 0 8px rgba(0,0,0,0.1);
         transition: right 0.3s ease;
         overflow-y: auto;
+        display: flex; /* Ensure it is flex when not hidden */
     }
     
     .nav-menu.active {
@@ -490,13 +491,31 @@ body {
     
     .dropdown-menu {
         position: static;
-        opacity: 1;
-        visibility: visible;
+        opacity: 0;
+        visibility: hidden;
+        display: none;
         transform: none;
         box-shadow: none;
         background: var(--md-sys-color-surface-variant);
         margin-left: var(--spacing-md);
         margin-top: 0;
+        min-width: unset;
+        width: calc(100% - var(--spacing-md));
+        transition: none;
+    }
+
+    .nav-dropdown.active .dropdown-menu {
+        opacity: 1;
+        visibility: visible;
+        display: block;
+    }
+
+    .nav-dropdown > a::after {
+        margin-left: auto;
+    }
+
+    .nav-dropdown.active > a::after {
+        transform: rotate(180deg);
     }
 }
 
@@ -630,7 +649,7 @@ h2 {
 
 .decision-options {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-md);
 }
 
@@ -674,7 +693,7 @@ h2 {
 
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
 }
 
@@ -760,7 +779,7 @@ h2 {
 
 .notebooks-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
 }
 
@@ -1325,6 +1344,63 @@ pre:hover .copy-button {
     gap: 8px;
 }
 
+/* Podcast Section */
+.podcast-section {
+    padding: var(--spacing-xxl) var(--spacing-lg);
+    background: linear-gradient(135deg, var(--ki-brand-plum) 0%, var(--ki-brand-dark-plum) 100%);
+    color: white;
+    text-align: center;
+}
+
+.podcast-section h2 {
+    color: var(--ki-brand-orange);
+    margin-bottom: var(--spacing-md);
+}
+
+.podcast-container {
+    max-width: 800px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.1);
+    padding: var(--spacing-xl);
+    border-radius: 24px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--md-sys-elevation-3);
+}
+
+.podcast-description {
+    font-size: var(--md-sys-typescale-body-large);
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.9;
+}
+
+.podcast-player {
+    width: 100%;
+    height: 50px;
+    border-radius: 25px;
+    outline: none;
+}
+
+/* Customizing audio player for webkit if possible, but standard is fine */
+.podcast-player::-webkit-media-controls-panel {
+    background-color: var(--ki-light-blue);
+}
+
+.podcast-meta {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+.podcast-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hero {
@@ -1336,8 +1412,9 @@ pre:hover .copy-button {
         font-size: 36px;
     }
     
+    /* Remove conflicting nav-menu display none */
     .nav-menu {
-        display: none;
+        /* display: none; */ /* REMOVED */
     }
     
     .decision-options {

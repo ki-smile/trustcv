@@ -1,0 +1,232 @@
+# trustcv
+
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.6)
+> Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
+> GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
+
+## Installation
+
+```
+pip install trustcv
+pip install trustcv[pytorch]      # + PyTorch adapter
+pip install trustcv[tensorflow]   # + TensorFlow adapter
+pip install trustcv[all]          # all optional frameworks
+```
+
+## Quick Start
+
+```python
+from trustcv import TrustCV
+from sklearn.ensemble import RandomForestClassifier
+
+validator = TrustCV(method='stratified_kfold', n_splits=5)
+results = validator.validate(model=RandomForestClassifier(), X=X, y=y)
+print(results.summary())
+```
+
+## API Reference
+
+### TrustCVValidator (alias: TrustCV)
+Main orchestrator for trustworthy cross-validation.
+
+```python
+from trustcv import TrustCV  # or TrustCVValidator
+
+validator = TrustCV(
+    method='stratified_kfold',   # str: CV method name (see Splitters below)
+    n_splits=5,                  # int: number of folds
+    random_state=42,             # int: random seed
+    shuffle=True,                # bool: shuffle before splitting
+    check_leakage=True,          # bool: run leakage detection
+    check_balance=True,          # bool: check class balance
+    compliance=None,             # str|None: 'FDA', 'CE', or None
+    metrics=None,                # list[str]|None: metrics to compute
+    return_confidence_intervals=True,  # bool
+    ci_level=0.95,               # float: confidence level
+    ci_method='bootstrap',       # str: CI method
+    n_bootstrap=1000,            # int: bootstrap samples
+)
+```
+
+**Methods:**
+
+`validate(*, model, X, y, patient_ids=None, groups=None, cv=None, sample_weight=None, metrics=None, scoring=None) -> ValidationResult`
+
+`fit_validate(*, model, X_train, y_train, X_test, y_test, patient_ids=None, groups=None, sample_weight=None) -> ValidationResult`
+
+**ValidationResult attributes:** `scores`, `mean_scores`, `std_scores`, `confidence_intervals`, `fold_details`, `leakage_check`, `recommendations`, `ci_method`, `ci_level`
+**ValidationResult methods:** `summary() -> str`, `to_dict() -> dict`
+
+### UniversalCVRunner
+Framework-agnostic CV runner supporting sklearn, PyTorch, TensorFlow, MONAI, JAX, XGBoost, LightGBM, CatBoost.
+
+```python
+from trustcv import UniversalCVRunner, StratifiedKFold
+
+runner = UniversalCVRunner(
+    cv_splitter=StratifiedKFold(n_splits=5),
+    framework='auto',   # str: 'auto', 'sklearn', 'pytorch', 'tensorflow', etc.
+    verbose=1,           # int: 0=silent, 1=progress, 2=detailed
+)
+
+results = runner.run(
+    model=model,                # model instance or callable returning model
+    data=(X, y),                # tuple: (X, y) or (X, y, groups)
+    epochs=None,                # int|None: for neural networks
+    optimizer=None,             # framework-specific optimizer
+    loss_fn=None,               # framework-specific loss
+    metrics=None,               # list[str]: metrics to compute
+    callbacks=None,             # list[CVCallback]
+    groups=None,                # array: group labels
+)  # -> CVResults
+```
+
+### DataLeakageChecker
+Detects 6 types of data leakage: patient-level, duplicate samples, temporal, feature statistics, spatial proximity, label distribution.
+
+```python
+from trustcv import DataLeakageChecker
+
+checker = DataLeakageChecker(verbose=True)
+
+# Quick check via CV splits
+report = checker.check(X, y, groups=patient_ids, timestamps=dates)
+
+# Explicit train/test check
+report = checker.check_cv_splits(X_train, X_test, y_train, y_test,
+    patient_ids_train=ids_tr, patient_ids_test=ids_te,
+    timestamps_train=ts_tr, timestamps_test=ts_te)
+
+# Feature-target correlation check
+result = checker.check_feature_target_leakage(X, y, threshold=0.95)
+
+# Comprehensive check
+result = checker.comprehensive_check(X, y, groups=groups, timestamps=ts)
+
+# report.has_leakage, report.severity, report.leakage_types, report.recommendations
+```
+
+### BalanceChecker
+Checks class imbalance and distribution issues.
+
+```python
+from trustcv import BalanceChecker
+
+checker = BalanceChecker(threshold=0.1)
+report = checker.check_class_balance(y, groups=patient_ids)
+cv_report = checker.check_cv_balance(X, y, cv_splitter, groups=groups)
+feat_report = checker.check_feature_distribution(X, feature_names=names)
+```
+
+### ClinicalMetrics
+Medical metrics with confidence intervals (sensitivity, specificity, PPV, NPV, NNT, NNS, likelihood ratios, diagnostic odds ratio, Youden's index, AUC).
+
+```python
+from trustcv import ClinicalMetrics
+
+cm = ClinicalMetrics(confidence_level=0.95)
+metrics = cm.calculate_all(y_true, y_pred, y_proba=probabilities)
+print(cm.format_report(metrics))
+```
+
+### Splitters (29 methods)
+All follow sklearn interface: `splitter.split(X, y, groups)` yielding `(train_idx, test_idx)`.
+
+**IID Methods:**
+- `HoldOut(test_size=0.2, random_state=None, stratify=None)`
+- `KFold(n_splits=5, shuffle=False, random_state=None)` (alias: KFoldMedical)
+- `StratifiedKFold(n_splits=5, shuffle=False, random_state=None)` (alias: StratifiedKFoldMedical)
+- `RepeatedKFold(n_splits=5, n_repeats=10, random_state=None, stratify=False)`
+- `LOOCV()` (alias: LeaveOneOut)
+- `LPOCV(p)` (alias: LeavePOut)
+- `BootstrapValidation(n_iterations=100, estimator='standard', random_state=None)`
+- `MonteCarloCV(n_iterations=100, test_size=0.2, random_state=None)`
+- `NestedCV(outer_cv=KFold(5), inner_cv=KFold(3))`
+
+**Grouped Methods:**
+- `GroupKFold(n_splits=5, shuffle=True, random_state=None)` (alias: GroupKFoldMedical)
+- `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=None)`
+- `LeaveOneGroupOut()`
+- `LeavePGroupsOut(n_groups)`
+- `RepeatedGroupKFold(n_splits=5, n_repeats=10, random_state=None)`
+- `NestedGroupedCV(outer_cv=GroupKFold(5), inner_cv=GroupKFold(3))`
+- `HierarchicalGroupKFold(n_splits=5, hierarchy_level='patient', shuffle=True, random_state=None)`
+
+**Temporal Methods:**
+- `TimeSeriesSplit(n_splits=5, gap=0, test_size=None, max_train_size=None)`
+- `BlockedTimeSeries(n_splits=5, block_size='day')`
+- `RollingWindowCV(window_size, step_size=1, forecast_horizon=1, gap=0)`
+- `ExpandingWindowCV(initial_train_size=10, step_size=1, forecast_horizon=1, gap=0)`
+- `PurgedKFoldCV(n_splits=5, purge_gap=0, embargo_size=0.0)` (alias: PurgedKFold)
+- `CombinatorialPurgedCV(n_splits=5, n_test_splits=2, purge_gap=0, embargo_size=0.0)`
+- `PurgedGroupTimeSeriesSplit(n_splits=5, purge_gap=0, embargo_size=0.0, group_exclusive=False)`
+- `NestedTemporalCV(outer_cv=ExpandingWindowCV(100), inner_cv=RollingWindowCV(50))`
+
+**Spatial Methods:**
+- `SpatialBlockCV(n_splits=5, block_shape='grid', block_size=None, random_state=None)`
+- `BufferedSpatialCV(n_splits=5, buffer_size=0.1, distance_metric='euclidean')`
+- `SpatiotemporalBlockCV(n_spatial_blocks=3, n_temporal_blocks=3, buffer_space=0, buffer_time=0)`
+- `EnvironmentalHealthCV(spatial_blocks=4, temporal_strategy='seasonal')`
+
+**Multilabel Methods:**
+- `MultilabelStratifiedKFold(n_splits=5, shuffle=False, random_state=None)`
+- `MultilabelStratifiedGroupKFold(n_splits=5, shuffle=True, random_state=None)`
+
+### Dataset Loaders
+
+```python
+from trustcv import load_heart_disease, load_diabetic_readmission, load_cancer_imaging
+from trustcv import generate_synthetic_ehr, generate_temporal_patient_data
+```
+
+## Common Patterns
+
+### Patient-grouped CV (prevent leakage)
+```python
+validator = TrustCV(method='patient_grouped_kfold', n_splits=5)
+results = validator.validate(model=model, X=X, y=y, groups=patient_ids)
+```
+
+### Temporal CV for longitudinal data
+```python
+validator = TrustCV(method='temporal', n_splits=5)
+results = validator.validate(model=model, X=X, y=y)
+```
+
+### Leakage detection before training
+```python
+checker = DataLeakageChecker()
+report = checker.check(X, y, groups=patient_ids, timestamps=dates)
+if report.has_leakage:
+    print(report)  # shows severity, types, recommendations
+```
+
+### PyTorch model with UniversalCVRunner
+```python
+from trustcv import UniversalCVRunner, StratifiedKFold
+
+runner = UniversalCVRunner(cv_splitter=StratifiedKFold(n_splits=5))
+results = runner.run(
+    model=lambda: MyModel(),
+    data=(X_tensor, y_tensor),
+    epochs=50,
+    optimizer=torch.optim.Adam,
+    loss_fn=torch.nn.CrossEntropyLoss(),
+)
+```
+
+### FDA/CE compliance reporting
+```python
+validator = TrustCV(method='stratified_kfold', compliance='FDA')
+results = validator.validate(model=model, X=X, y=y)
+```
+
+## Gotchas
+
+1. **Always pass `groups=patient_ids`** when patients have multiple samples — standard k-fold will leak patient data across folds.
+2. **Use `TrustCV` (alias)** instead of `TrustCVValidator` for shorter code — they are identical.
+3. **method names are flexible**: `'stratified_kfold'`, `'stratifiedkfold'`, `'StratifiedKFold'` all work.
+4. **Old class names still work** but emit deprecation warnings (e.g., `KFoldMedical` → use `KFold`).
+5. **Framework adapters are lazy-imported** — you only need PyTorch/TF installed if you use those frameworks.
+6. **`validate()` uses keyword-only args** — call as `validator.validate(model=m, X=X, y=y)`, not positional.
+7. **Default CI method is bootstrap** with 1000 samples. Set `return_confidence_intervals=False` to skip.

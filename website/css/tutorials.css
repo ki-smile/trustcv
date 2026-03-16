@@ -8,7 +8,7 @@
 
 .nav-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
     max-width: 1000px;
     margin: 0 auto;
@@ -97,7 +97,7 @@
 
 .learning-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-xl);
     max-width: 1200px;
     margin: 0 auto;
@@ -315,7 +315,7 @@
 
 .concept-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--spacing-md);
     margin: var(--spacing-lg) 0;
 }
@@ -674,7 +674,7 @@
 
 .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--spacing-lg);
     max-width: 1000px;
     margin: 0 auto;
@@ -746,7 +746,7 @@
 
 .learning-levels {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
     max-width: 1000px;
     margin: 0 auto;
@@ -817,7 +817,7 @@
 
 .notebooks-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
     max-width: 1400px;
     margin: 0 auto;
