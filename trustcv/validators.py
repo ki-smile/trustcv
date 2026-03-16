@@ -109,6 +109,355 @@ class ValidationResult:
 
         return summary
 
+    def dashboard(self, title: str = "TrustCV Results") -> None:
+        """Render an interactive Plotly dashboard for validation outcomes."""
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        import importlib.metadata
+
+        fig = make_subplots(
+            rows=3,
+            cols=2,
+            subplot_titles=(
+                "Metrics — mean ± 95% CI",
+                "Per-fold scores",
+                "95% Confidence intervals",
+                "Metric × Fold heatmap",
+                "Data integrity checks",
+                "Run summary",
+            ),
+            specs=[
+                [{"type": "bar"}, {"type": "scatter"}],
+                [{"type": "scatter"}, {"type": "heatmap"}],
+                [{"type": "table"}, {"type": "table"}],
+            ],
+            vertical_spacing=0.10,
+            horizontal_spacing=0.08,
+        )
+
+        color_cycle = [
+            "#378ADD",
+            "#1D9E75",
+            "#D85A30",
+            "#7F77DD",
+            "#D4537E",
+            "#888780",
+            "#639922",
+        ]
+
+        metric_keys: List[str] = []
+        seen_metrics = set()
+        for metric in self.mean_scores:
+            base_metric = metric.replace("test_", "")
+            if base_metric in seen_metrics:
+                continue
+            seen_metrics.add(base_metric)
+            metric_keys.append(base_metric)
+        if not metric_keys:
+            for metric in self.confidence_intervals:
+                base_metric = metric.replace("test_", "")
+                if base_metric in seen_metrics:
+                    continue
+                seen_metrics.add(base_metric)
+                metric_keys.append(base_metric)
+        if not metric_keys and self.fold_details:
+            first_fold_metrics = self.fold_details[0].get("metrics", {})
+            if isinstance(first_fold_metrics, dict):
+                for metric in first_fold_metrics:
+                    base_metric = metric.replace("test_", "")
+                    if base_metric in seen_metrics:
+                        continue
+                    seen_metrics.add(base_metric)
+                    metric_keys.append(base_metric)
+
+        metric_labels = [m.replace("_", " ").title() for m in metric_keys]
+
+        mean_vals: List[float] = []
+        ci_lows: List[float] = []
+        ci_highs: List[float] = []
+        for metric in metric_keys:
+            mean_val = self.mean_scores.get(metric, self.mean_scores.get(f"test_{metric}", np.nan))
+            if not np.isfinite(mean_val):
+                arr = self.scores.get(metric, self.scores.get(f"test_{metric}", []))
+                arr_np = np.asarray(arr, dtype=float)
+                mean_val = float(arr_np.mean()) if arr_np.size else 0.0
+            ci_lo, ci_hi = self.confidence_intervals.get(
+                metric,
+                self.confidence_intervals.get(f"test_{metric}", (mean_val, mean_val)),
+            )
+            if not np.isfinite(ci_lo):
+                ci_lo = mean_val
+            if not np.isfinite(ci_hi):
+                ci_hi = mean_val
+            mean_vals.append(float(mean_val))
+            ci_lows.append(float(ci_lo))
+            ci_highs.append(float(ci_hi))
+
+        # Plot 1: Metric bars with asymmetric CI whiskers
+        means_pct = [v * 100.0 for v in mean_vals]
+        ci_plus = [max(0.0, (hi - m) * 100.0) for m, hi in zip(mean_vals, ci_highs)]
+        ci_minus = [max(0.0, (m - lo) * 100.0) for m, lo in zip(mean_vals, ci_lows)]
+        fig.add_trace(
+            go.Bar(
+                x=metric_labels,
+                y=means_pct,
+                error_y=dict(
+                    type="data",
+                    symmetric=False,
+                    array=ci_plus,
+                    arrayminus=ci_minus,
+                ),
+                marker_color="#378ADD",
+                text=[f"{v:.1f}%" for v in means_pct],
+                textposition="outside",
+            ),
+            row=1,
+            col=1,
+        )
+        min_mean_pct = min(means_pct) if means_pct else 0.0
+        fig.update_yaxes(
+            range=[max(0.0, min_mean_pct - 8.0), 101],
+            title_text="Score (%)",
+            row=1,
+            col=1,
+        )
+
+        # Build fold label list and per-metric fold matrix
+        fold_labels: List[str] = []
+        if self.fold_details:
+            for i, fold in enumerate(self.fold_details, 1):
+                fold_idx = fold.get("fold", i)
+                fold_labels.append(f"Fold {fold_idx}")
+        else:
+            inferred_folds = 0
+            for metric in metric_keys:
+                arr = np.asarray(
+                    self.scores.get(metric, self.scores.get(f"test_{metric}", [])),
+                    dtype=float,
+                )
+                inferred_folds = max(inferred_folds, int(arr.size))
+            fold_labels = [f"Fold {i}" for i in range(1, inferred_folds + 1)]
+
+        fold_matrix: List[List[float]] = []
+        for metric in metric_keys:
+            metric_values: List[float] = []
+            score_arr = np.asarray(
+                self.scores.get(metric, self.scores.get(f"test_{metric}", [])),
+                dtype=float,
+            )
+            for i, _label in enumerate(fold_labels):
+                val = np.nan
+                if i < len(self.fold_details):
+                    fold = self.fold_details[i]
+                    fold_metrics = fold.get("metrics", {})
+                    if isinstance(fold_metrics, dict):
+                        if metric in fold_metrics:
+                            val = fold_metrics[metric]
+                        elif f"test_{metric}" in fold_metrics:
+                            val = fold_metrics[f"test_{metric}"]
+                if not np.isfinite(val) and i < score_arr.size:
+                    val = score_arr[i]
+                metric_values.append(float(val * 100.0) if np.isfinite(val) else np.nan)
+            fold_matrix.append(metric_values)
+
+        # Plot 2: Per-fold metric lines
+        for i, (label, values) in enumerate(zip(metric_labels, fold_matrix)):
+            color = color_cycle[i % len(color_cycle)]
+            fig.add_trace(
+                go.Scatter(
+                    x=fold_labels,
+                    y=values,
+                    mode="lines+markers",
+                    marker=dict(size=8, color=color),
+                    line=dict(color=color, width=2),
+                    name=label,
+                ),
+                row=1,
+                col=2,
+            )
+        fig.update_yaxes(title_text="Score (%)", row=1, col=2)
+
+        # Plot 3: Horizontal CI ranges + mean marker
+        for i, (label, mean_v, lo, hi) in enumerate(zip(metric_labels, mean_vals, ci_lows, ci_highs)):
+            color = color_cycle[i % len(color_cycle)]
+            fig.add_trace(
+                go.Scatter(
+                    x=[lo * 100.0, hi * 100.0],
+                    y=[label, label],
+                    mode="lines",
+                    line=dict(color=color, width=12),
+                    opacity=0.3,
+                    hovertemplate="%{y}: %{x:.2f}%<extra></extra>",
+                ),
+                row=2,
+                col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[mean_v * 100.0],
+                    y=[label],
+                    mode="markers",
+                    marker=dict(size=11, color=color),
+                    hovertemplate="%{y}: %{x:.2f}%<extra></extra>",
+                ),
+                row=2,
+                col=1,
+            )
+        global_ci_lo_min = min(ci_lows) if ci_lows else 0.0
+        fig.update_xaxes(
+            range=[max(0.0, global_ci_lo_min * 100.0 - 3.0), 101],
+            title_text="Score (%)",
+            row=2,
+            col=1,
+        )
+        fig.update_yaxes(autorange="reversed", row=2, col=1)
+
+        # Plot 4: Metric-by-fold heatmap
+        heatmap_x = fold_labels if fold_labels else ["—"]
+        heatmap_y = metric_labels if metric_labels else ["—"]
+        heatmap_z = fold_matrix if (fold_matrix and fold_labels) else [[np.nan]]
+        fig.add_trace(
+            go.Heatmap(
+                z=heatmap_z,
+                x=heatmap_x,
+                y=heatmap_y,
+                colorscale=[[0, "#EEF4FB"], [0.5, "#85B7EB"], [1, "#0C447C"]],
+                zmin=85,
+                zmax=100,
+                text=heatmap_z,
+                texttemplate="%{z:.1f}%",
+                hovertemplate="%{y} | %{x}: %{z:.2f}%<extra></extra>",
+            ),
+            row=2,
+            col=2,
+        )
+
+        # Plot 5: Integrity checks table
+        leakage_keys = [
+            k
+            for k in ("no_duplicate_samples", "no_patient_leakage", "has_leakage")
+            if k in self.leakage_check
+        ]
+        leakage_passed = all(self.leakage_check[k] for k in leakage_keys) if leakage_keys else True
+        balance_passed = self.leakage_check.get("balanced_classes", True)
+        integrity_rows = [
+            ("Leakage check", "PASSED ✓" if leakage_passed else "FAILED ✗"),
+            ("Class balance", "PASSED ✓" if balance_passed else "FAILED ✗"),
+            (
+                "Duplicate samples",
+                "PASSED ✓"
+                if self.leakage_check.get("no_duplicate_samples", True)
+                else "FAILED ✗",
+            ),
+            (
+                "Patient separation",
+                "PASSED ✓" if self.leakage_check.get("no_patient_leakage", True) else "N/A",
+            ),
+            (
+                "Near-duplicate (cosine)",
+                "PASSED ✓" if not self.leakage_check.get("near_duplicate", False) else "FAILED ✗",
+            ),
+        ]
+        for rec in self.recommendations:
+            integrity_rows.append(("Recommendation", rec))
+
+        integrity_names = [r[0] for r in integrity_rows]
+        integrity_status = [r[1] for r in integrity_rows]
+        integrity_fill = ["#F8F8F6" if i % 2 == 0 else "#FFFFFF" for i in range(len(integrity_rows))]
+        integrity_status_colors = []
+        for status in integrity_status:
+            if "PASSED" in status:
+                integrity_status_colors.append("#3B6D11")
+            elif "FAILED" in status:
+                integrity_status_colors.append("#A32D2D")
+            elif "N/A" in status:
+                integrity_status_colors.append("#7A7A75")
+            else:
+                integrity_status_colors.append("#2C2C2A")
+
+        fig.add_trace(
+            go.Table(
+                header=dict(
+                    values=["Check", "Status"],
+                    fill_color="#378ADD",
+                    font=dict(color="white"),
+                    align="left",
+                ),
+                cells=dict(
+                    values=[integrity_names, integrity_status],
+                    fill_color=[integrity_fill, integrity_fill],
+                    align=["left", "left"],
+                    font=dict(color=["#2C2C2A", integrity_status_colors]),
+                ),
+            ),
+            row=3,
+            col=1,
+        )
+
+        # Plot 6: Run summary table
+        try:
+            trustcv_version = importlib.metadata.version("trustcv")
+        except importlib.metadata.PackageNotFoundError:
+            trustcv_version = "local"
+        except Exception:
+            trustcv_version = "unknown"
+
+        run_rows = [
+            ("trustcv version", trustcv_version),
+            ("CV method", "Stratified K-Fold"),
+            ("Folds", str(len(self.fold_details))),
+            ("CI method", self.ci_method or "bootstrap"),
+            ("CI level", f"{int((self.ci_level or 0.95) * 100)}%"),
+            (
+                "Train size (fold)",
+                f"{self.fold_details[0]['n_train']} samples" if self.fold_details else "—",
+            ),
+            (
+                "Val size (fold)",
+                f"{self.fold_details[0]['n_val']} samples" if self.fold_details else "—",
+            ),
+            ("Metrics computed", str(len(self.mean_scores))),
+        ]
+        run_fill = ["#F8F8F6" if i % 2 == 0 else "#FFFFFF" for i in range(len(run_rows))]
+        fig.add_trace(
+            go.Table(
+                header=dict(
+                    values=["Field", "Value"],
+                    fill_color="#378ADD",
+                    font=dict(color="white"),
+                    align="left",
+                ),
+                cells=dict(
+                    values=[[r[0] for r in run_rows], [r[1] for r in run_rows]],
+                    fill_color=[run_fill, run_fill],
+                    align=["left", "left"],
+                    font=dict(color="#2C2C2A"),
+                ),
+            ),
+            row=3,
+            col=2,
+        )
+
+        fig.update_layout(
+            title=dict(
+                text=f"<b>{title}</b>  —  TrustCV Validation Dashboard",
+                font=dict(size=17, color="#2C2C2A"),
+                x=0.01,
+            ),
+            paper_bgcolor="#F8F8F6",
+            plot_bgcolor="#FFFFFF",
+            font=dict(family="monospace, sans-serif", color="#2C2C2A"),
+            height=1100,
+            showlegend=False,
+            margin=dict(l=50, r=40, t=80, b=40),
+        )
+
+        try:
+            fig.show()
+        except Exception:
+            fig.write_html("trustcv_dashboard.html")
+            print("Dashboard saved to trustcv_dashboard.html")
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON export"""
         return {
