@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,8 +26,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             line-height: 1.6;
-            color: var(--ki-dark);
-            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+            color: var(--ki-dark-plum);
+            background: var(--md-sys-color-background);
         }
 
         .container {
@@ -37,10 +37,10 @@
         }
 
         header {
-            background: linear-gradient(135deg, var(--ki-plum) 0%, #a01060 100%);
+            background: linear-gradient(135deg, var(--ki-brand-plum) 0%, var(--ki-brand-dark-plum) 100%);
             color: white;
             padding: 30px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-2);
         }
 
         header h1 {
@@ -54,12 +54,13 @@
         }
 
         nav {
-            background: white;
+            background: var(--navbar-bg);
             padding: 15px 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
             position: sticky;
             top: 0;
             z-index: 100;
+            border-bottom: 1px solid var(--border-color);
         }
 
         nav ul {
@@ -70,7 +71,7 @@
         }
 
         nav a {
-            color: var(--ki-dark);
+            color: var(--ki-dark-plum);
             text-decoration: none;
             font-weight: 500;
             transition: color 0.3s;
@@ -88,18 +89,21 @@
         }
 
         .tutorial-card {
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
             cursor: pointer;
             transition: transform 0.3s, box-shadow 0.3s;
             border-left: 4px solid var(--ki-plum);
+            border-top: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .tutorial-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 6px 20px rgba(135,0,82,0.2);
+            box-shadow: var(--md-sys-elevation-2);
         }
 
         .tutorial-card h3 {
@@ -108,7 +112,7 @@
         }
 
         .tutorial-card p {
-            color: #666;
+            color: var(--ki-grey);
             font-size: 0.95rem;
         }
 
@@ -121,27 +125,28 @@
         }
 
         .difficulty.beginner {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
         }
 
         .difficulty.intermediate {
-            background: #fff3e0;
-            color: #e65100;
+            background: var(--status-warning-bg);
+            color: var(--status-warning-text);
         }
 
         .difficulty.advanced {
-            background: #fce4ec;
-            color: #c2185b;
+            background: var(--md-sys-color-primary-container);
+            color: var(--ki-plum);
         }
 
         .tutorial-content {
             display: none;
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 30px;
             margin-top: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-2);
+            border: 1px solid var(--border-color);
         }
 
         .tutorial-content.active {
@@ -149,15 +154,16 @@
         }
 
         .interactive-demo {
-            background: var(--ki-light);
+            background: var(--md-sys-color-surface-variant);
             border-radius: 8px;
             padding: 20px;
             margin: 20px 0;
+            border: 1px solid var(--border-color);
         }
 
         .code-block {
-            background: #2d2d2d;
-            color: #f8f8f2;
+            background: #1e1e1e;
+            color: #e0e0e0;
             padding: 15px;
             border-radius: 5px;
             font-family: 'Courier New', monospace;
@@ -166,7 +172,7 @@
         }
 
         .try-it-button {
-            background: var(--ki-green);
+            background: var(--ki-plum);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -177,16 +183,17 @@
         }
 
         .try-it-button:hover {
-            background: #45a049;
+            background: var(--ki-brand-plum);
         }
 
         .result-display {
-            background: white;
-            border: 2px solid var(--ki-blue);
+            background: var(--card-bg);
+            border: 2px solid var(--ki-plum);
             border-radius: 5px;
             padding: 15px;
             margin-top: 15px;
             display: none;
+            color: var(--ki-dark-plum);
         }
 
         .result-display.show {
@@ -194,28 +201,32 @@
         }
 
         .quiz-section {
-            background: #f9f9f9;
+            background: var(--md-sys-color-surface-variant);
             border-radius: 8px;
             padding: 20px;
             margin: 20px 0;
+            border: 1px solid var(--border-color);
         }
 
         .quiz-question {
             margin-bottom: 15px;
+            color: var(--ki-dark-plum);
         }
 
         .quiz-options label {
             display: block;
             padding: 10px;
             margin: 5px 0;
-            background: white;
+            background: var(--card-bg);
             border-radius: 5px;
             cursor: pointer;
             transition: background 0.3s;
+            border: 1px solid var(--border-color);
+            color: var(--ki-dark-plum);
         }
 
         .quiz-options label:hover {
-            background: var(--ki-light);
+            background: var(--md-sys-color-surface-variant);
         }
 
         .quiz-options input[type="radio"] {
@@ -223,7 +234,7 @@
         }
 
         .check-answer-button {
-            background: var(--ki-blue);
+            background: var(--ki-plum);
             color: white;
             border: none;
             padding: 10px 20px;
@@ -240,62 +251,76 @@
         }
 
         .feedback.correct {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border: 1px solid #4caf50;
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
+            border: 1px solid var(--status-success-border);
         }
 
         .feedback.incorrect {
-            background: #ffebee;
-            color: #c62828;
-            border: 1px solid #f44336;
+            background: var(--status-error-bg);
+            color: var(--status-error-text);
+            border: 1px solid var(--status-error-border);
         }
 
         .progress-tracker {
-            background: white;
+            background: var(--card-bg);
             border-radius: 10px;
             padding: 20px;
             margin: 20px 0;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
+            border: 1px solid var(--border-color);
+        }
+
+        .progress-tracker h3 {
+            color: var(--ki-plum);
+            margin-bottom: 10px;
         }
 
         .progress-bar {
-            background: #e0e0e0;
+            background: var(--md-sys-color-surface-variant);
             height: 20px;
             border-radius: 10px;
             overflow: hidden;
         }
 
         .progress-fill {
-            background: linear-gradient(90deg, var(--ki-green) 0%, var(--ki-blue) 100%);
+            background: linear-gradient(90deg, var(--ki-plum) 0%, var(--ki-orange) 100%);
             height: 100%;
             width: 0%;
             transition: width 0.5s;
         }
 
+        #progressText {
+            color: var(--ki-grey);
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+
         .tip-box {
-            background: #fff8e1;
-            border-left: 4px solid var(--ki-orange);
+            background: var(--status-warning-bg);
+            border-left: 4px solid var(--status-warning-border);
             padding: 15px;
             margin: 20px 0;
             border-radius: 5px;
+            color: var(--status-warning-text);
         }
 
         .tip-box h4 {
-            color: var(--ki-orange);
+            color: var(--status-warning-text);
             margin-bottom: 10px;
         }
 
         .warning-box {
-            background: #ffebee;
-            border-left: 4px solid #f44336;
+            background: var(--status-error-bg);
+            border-left: 4px solid var(--status-error-border);
             padding: 15px;
             margin: 20px 0;
             border-radius: 5px;
+            color: var(--status-error-text);
         }
 
         .warning-box h4 {
-            color: #c62828;
+            color: var(--status-error-text);
             margin-bottom: 10px;
         }
 
@@ -318,6 +343,12 @@
             }
         }
     </style>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <header>
@@ -888,6 +919,16 @@ nested_cv = NestedGroupedCV(outer_cv=GroupKFold(5), inner_cv=GroupKFold(3))
             resultsDiv.className = score === 3 ? "feedback correct" : "feedback incorrect";
             resultsDiv.style.display = "block";
         }
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Initialize code blocks
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof setupCodeBlocks === 'function') {
+                setupCodeBlocks();
+            }
+        });
     </script>
 </body>
 </html>

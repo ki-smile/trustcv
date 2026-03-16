@@ -34,10 +34,14 @@ Data leakage occurs when information from the test set inadvertently influences 
 
 ### Core Detection Algorithm
 
-```python
-from trustcv.checkers.leakage import LeakageChecker
+> **Note:** The following shows the internal detection logic. The public API uses
+> `checker.check()` which runs all checks automatically. See [Practical Examples](#practical-examples) below.
 
-class LeakageChecker:
+```python
+# Internal implementation details (not public API)
+from trustcv import DataLeakageChecker
+
+class DataLeakageChecker:
     """
     Comprehensive data leakage detection for ML
     """
@@ -210,19 +214,16 @@ y = np.random.randint(0, 2, n_images)
 from sklearn.model_selection import KFold
 standard_cv = KFold(n_splits=5)
 
-checker = LeakageChecker()
-print("Standard K-Fold:")
-for fold, (train_idx, test_idx) in enumerate(standard_cv.split(X)):
-    has_leakage = checker.check_patient_leakage(train_idx, test_idx, patient_ids)
-    if has_leakage:
-        print(f"  Fold {fold}: ❌ LEAKAGE DETECTED")
+# Detect patient leakage using the public API
+checker = DataLeakageChecker()
+report = checker.check(X, y, groups=patient_ids, n_splits=5)
+print(report.summary)
 
 # CORRECT: Group K-Fold (no leakage)
 grouped_cv = GroupKFoldMedical(n_splits=5)
 print("\nGroup K-Fold Medical:")
 for fold, (train_idx, test_idx) in enumerate(grouped_cv.split(X, y, groups=patient_ids)):
-    has_leakage = checker.check_patient_leakage(train_idx, test_idx, patient_ids)
-    print(f"  Fold {fold}: ✅ No leakage" if not has_leakage else f"  Fold {fold}: ❌ LEAKAGE")
+    pass  # No leakage when using GroupKFoldMedical with patient_ids
 ```
 
 ### Example 2: Temporal Leakage in Clinical Time Series
@@ -241,21 +242,16 @@ X = np.random.randn(n_samples, 20)
 y = np.random.randint(0, 2, n_samples)
 
 # WRONG: Standard K-Fold on time series
-standard_cv = KFold(n_splits=5, shuffle=True)  # Shuffling time series!
-checker = LeakageChecker()
-
-print("Standard K-Fold (Shuffled):")
-for fold, (train_idx, test_idx) in enumerate(standard_cv.split(X)):
-    has_temporal = checker.check_temporal_leakage(train_idx, test_idx, timestamps)
-    has_patient = checker.check_patient_leakage(train_idx, test_idx, patient_ids)
-    print(f"  Fold {fold}: Temporal={has_temporal}, Patient={has_patient}")
+# Detect temporal leakage using the public API
+checker = DataLeakageChecker()
+report = checker.check(X, y, timestamps=timestamps)
+print(report.summary)
 
 # CORRECT: Purged K-Fold with gap
 purged_cv = PurgedKFoldCV(n_splits=5, purge_gap=7)  # 7-day gap
 print("\nPurged K-Fold CV:")
 for fold, (train_idx, test_idx) in enumerate(purged_cv.split(X, y, groups=timestamps)):
-    has_temporal = checker.check_temporal_leakage(train_idx, test_idx, timestamps, min_gap=7)
-    print(f"  Fold {fold}: ✅ No temporal leakage" if not has_temporal else f"  ❌ Leakage")
+    pass  # No temporal leakage when using PurgedKFoldCV with purge gap
 ```
 
 ### Example 3: Spatial Leakage in Pathology Images
@@ -270,15 +266,10 @@ X = np.random.randn(n_patches, 2048)  # Deep features
 y = np.random.randint(0, 2, n_patches)
 
 # WRONG: Random split ignores spatial correlation
-random_cv = KFold(n_splits=5, shuffle=True)
-checker = LeakageChecker()
-
-print("Random Split:")
-for fold, (train_idx, test_idx) in enumerate(random_cv.split(X)):
-    has_spatial = checker.check_spatial_leakage(
-        train_idx, test_idx, coordinates, min_distance=10
-    )
-    print(f"  Fold {fold}: {'❌ Adjacent patches in train/test' if has_spatial else '✅ OK'}")
+# Detect spatial leakage using the public API
+checker = DataLeakageChecker()
+report = checker.check(X, y, coordinates=coordinates)
+print(report.summary)
 
 # CORRECT: Spatial blocking with buffer
 spatial_cv = BufferedSpatialCV(
@@ -289,10 +280,7 @@ spatial_cv = BufferedSpatialCV(
 
 print("\nBuffered Spatial CV:")
 for fold, (train_idx, test_idx) in enumerate(spatial_cv.split(X)):
-    has_spatial = checker.check_spatial_leakage(
-        train_idx, test_idx, coordinates, min_distance=10
-    )
-    print(f"  Fold {fold}: {'❌ Leakage' if has_spatial else '✅ No spatial leakage'}")
+    pass  # No spatial leakage when using BufferedSpatialCV with buffer
 ```
 
 ### Example 4: Hierarchical Leakage in Multi-Center Studies
@@ -325,22 +313,16 @@ countries = np.array(countries)
 hospitals = np.array(hospitals)
 patients = np.array(patients)
 
-# Check for multiple levels of leakage
-checker = LeakageChecker()
+# Check for multiple levels of leakage using the public API
+checker = DataLeakageChecker()
 
-# Standard split - will have leakage at all levels
-standard_cv = KFold(n_splits=5)
+# Check at patient level
+X_dummy = np.random.randn(len(patients), 10)
+y_dummy = np.random.randint(0, 2, len(patients))
 
-print("Standard K-Fold - Checking all hierarchy levels:")
-for fold, (train_idx, test_idx) in enumerate(standard_cv.split(range(len(patients)))):
-    patient_leak = checker.check_group_leakage(train_idx, test_idx, patients, "patient")
-    hospital_leak = checker.check_group_leakage(train_idx, test_idx, hospitals, "hospital")
-    country_leak = checker.check_group_leakage(train_idx, test_idx, countries, "country")
-    
-    print(f"  Fold {fold}:")
-    print(f"    Patient leakage: {'❌ Yes' if patient_leak else '✅ No'}")
-    print(f"    Hospital leakage: {'❌ Yes' if hospital_leak else '✅ No'}")
-    print(f"    Country leakage: {'❌ Yes' if country_leak else '✅ No'}")
+report = checker.check(X_dummy, y_dummy, groups=patients, n_splits=5)
+print("Patient-level leakage check:")
+print(report.summary)
 
 # Correct: Hierarchical grouping
 hierarchical_cv = HierarchicalGroupKFold(
@@ -356,72 +338,49 @@ print("\nHierarchical Group K-Fold:")
 
 ### Using the Universal CV Runner
 
-```python
-from trustcv import UniversalCVRunner
-from trustcv.core.callbacks import LeakageDetectionCallback
+> **Note:** The following shows the conceptual callback pattern, not the exact API.
+> In practice, `DataLeakageChecker.check()` runs all relevant checks automatically.
 
+```python
+from trustcv import UniversalCVRunner, DataLeakageChecker
+
+# Conceptual callback pattern (illustrative pseudocode)
 class LeakageDetectionCallback(CVCallback):
     """
     Automatically detect and report leakage during CV
     """
-    def __init__(self, patient_ids=None, timestamps=None, 
+    def __init__(self, patient_ids=None, timestamps=None,
                  coordinates=None, groups=None):
         self.patient_ids = patient_ids
         self.timestamps = timestamps
         self.coordinates = coordinates
         self.groups = groups
-        self.checker = LeakageChecker()
-    
-    def on_fold_start(self, fold_idx, train_idx, val_idx):
-        print(f"\n🔍 Checking for data leakage in fold {fold_idx + 1}...")
-        
-        leakage_found = False
-        
-        if self.patient_ids is not None:
-            if self.checker.check_patient_leakage(train_idx, val_idx, self.patient_ids):
-                leakage_found = True
-        
-        if self.timestamps is not None:
-            if self.checker.check_temporal_leakage(train_idx, val_idx, self.timestamps):
-                leakage_found = True
-        
-        if self.coordinates is not None:
-            if self.checker.check_spatial_leakage(train_idx, val_idx, self.coordinates):
-                leakage_found = True
-        
-        if not leakage_found:
-            print("✅ No data leakage detected!")
-        else:
-            print("⚠️ WARNING: Data leakage detected! See details above.")
-    
-    def on_cv_end(self, all_results):
-        print("\n" + "="*50)
-        print("LEAKAGE DETECTION SUMMARY")
-        print("="*50)
-        
-        if self.checker.leakage_report:
-            for leakage_type, details in self.checker.leakage_report.items():
-                print(f"\n{leakage_type.upper()}:")
-                print(f"  Severity: {details['severity']}")
-                for key, value in details.items():
-                    if key not in ['detected', 'severity']:
-                        print(f"  {key}: {value}")
-        else:
-            print("✅ No data leakage detected across any folds!")
+        self.checker = DataLeakageChecker()
 
-# Use in practice
-runner = UniversalCVRunner(cv_splitter=YourCVMethod())
-results = runner.run(
-    model=YourModel(),
-    data=(X, y),
-    callbacks=[
-        LeakageDetectionCallback(
-            patient_ids=patient_ids,
-            timestamps=timestamps,
-            coordinates=spatial_coords
+    def on_fold_start(self, fold_idx, train_idx, val_idx):
+        # The checker.check() method runs all relevant checks automatically
+        report = self.checker.check_cv_splits(
+            X_train=X[train_idx], X_test=X[val_idx],
+            groups=self.patient_ids,
+            timestamps=self.timestamps,
+            coordinates=self.coordinates
         )
-    ]
+        if report.has_leakage:
+            print(f"⚠️ WARNING: Data leakage detected in fold {fold_idx + 1}!")
+            print(report.summary)
+        else:
+            print(f"✅ No data leakage detected in fold {fold_idx + 1}!")
+
+# Use in practice - simplest approach with the public API
+checker = DataLeakageChecker()
+report = checker.check(
+    X, y,
+    groups=patient_ids,
+    timestamps=timestamps,
+    coordinates=spatial_coords,
+    n_splits=5
 )
+print(report.summary)
 ```
 
 ## Prevention Strategies

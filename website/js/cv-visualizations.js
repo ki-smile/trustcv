@@ -3,15 +3,22 @@
  * All visualization methods for different CV strategies
  */
 
-// KI Color Palette (imported from main)
-const colors = {
-    darkPlum: '#4F0433',
-    plum: '#870052',
-    orange: '#FF876F',
-    lightOrange: '#FEEEEB',
-    lightBlue: '#EDF4F4',
-    grey: '#6B6B6B'
-};
+// Theme-aware color accessor (falls back to light palette if theme.js not loaded)
+function getColors() {
+    return (typeof getThemeColors === 'function') ? getThemeColors() : {
+        darkPlum: '#4F0433',
+        plum: '#870052',
+        orange: '#FF876F',
+        lightOrange: '#FEEEEB',
+        lightBlue: '#EDF4F4',
+        grey: '#6B6B6B',
+        plotBg: '#FFFFFF',
+        paperBg: '#EDF4F4',
+        text: '#000000',
+        axisColor: '#666666',
+        gridColor: 'rgba(0,0,0,0.06)'
+    };
+}
 
 /**
  * I.I.D. Methods Visualizations
@@ -19,18 +26,21 @@ const colors = {
 
 function visualizeHoldOut() {
     const container = document.getElementById('cv-visualization');
-    
+    const c = getColors();
+
     const data = [
-        {x: ['Training Set (80%)'], y: [80], type: 'bar', marker: {color: colors.plum}},
-        {x: ['Test Set (20%)'], y: [20], type: 'bar', marker: {color: colors.orange}}
+        {x: ['Training Set (80%)'], y: [80], type: 'bar', marker: {color: c.plum}},
+        {x: ['Test Set (20%)'], y: [20], type: 'bar', marker: {color: c.orange}}
     ];
-    
+
     const layout = {
         title: 'Hold-Out Validation (Train-Test Split)',
         barmode: 'stack',
-        yaxis: {title: 'Percentage of Data'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        font: { color: c.text },
+        yaxis: {title: 'Percentage of Data', color: c.axisColor, gridcolor: c.gridColor},
+        xaxis: {color: c.axisColor, gridcolor: c.gridColor},
+        paper_bgcolor: c.paperBg,
+        plot_bgcolor: c.plotBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -63,7 +73,8 @@ function visualizeKFold(nSplits) {
 
 function visualizeStratified(nSplits) {
     const container = document.getElementById('cv-visualization');
-    
+    const c = getColors();
+
     const data = [];
     for (let fold = 0; fold < nSplits; fold++) {
         data.push({
@@ -71,17 +82,18 @@ function visualizeStratified(nSplits) {
             y: [30, 20],
             name: `Fold ${fold + 1}`,
             type: 'bar',
-            marker: {color: fold === 0 ? colors.orange : colors.plum}
+            marker: {color: fold === 0 ? c.orange : c.plum}
         });
     }
-    
+
     const layout = {
         title: 'Stratified K-Fold: Class Distribution Preserved',
         barmode: 'group',
-        xaxis: {title: 'Class'},
-        yaxis: {title: 'Number of Samples'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        font: { color: c.text },
+        xaxis: {title: 'Class', color: c.axisColor, gridcolor: c.gridColor},
+        yaxis: {title: 'Number of Samples', color: c.axisColor, gridcolor: c.gridColor},
+        paper_bgcolor: c.paperBg,
+        plot_bgcolor: c.plotBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -108,12 +120,14 @@ function visualizeRepeatedKFold(nSplits) {
         });
     }
     
+    const c = getColors();
     const layout = {
         title: 'Repeated K-Fold: Multiple Runs with Different Randomization',
-        xaxis: {title: 'Fold'},
-        yaxis: {title: 'Accuracy (%)'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        font: { color: c.text },
+        xaxis: {title: 'Fold', color: c.axisColor, gridcolor: c.gridColor},
+        yaxis: {title: 'Accuracy (%)', color: c.axisColor, gridcolor: c.gridColor},
+        paper_bgcolor: c.paperBg,
+        plot_bgcolor: c.plotBg
     };
     
     Plotly.newPlot(container, traces, layout, {responsive: true});
@@ -126,23 +140,24 @@ function visualizeRepeatedKFold(nSplits) {
 
 function visualizeLOOCV() {
     const container = document.getElementById('cv-visualization');
-    
+    const c = getColors();
+
     const n = 10;
     const foldDiv = document.createElement('div');
     foldDiv.className = 'fold-visualization';
-    
+
     for (let i = 0; i < Math.min(5, n); i++) {
         const foldContainer = document.createElement('div');
         foldContainer.className = 'fold-container';
         foldContainer.innerHTML = `<h4>Iteration ${i + 1}</h4>`;
-        
+
         const samplesDiv = document.createElement('div');
         samplesDiv.className = 'samples-container';
-        
+
         for (let j = 0; j < n; j++) {
             const sample = document.createElement('div');
             sample.className = 'sample';
-            sample.style.backgroundColor = j === i ? colors.orange : colors.plum;
+            sample.style.backgroundColor = j === i ? c.orange : c.plum;
             sample.title = j === i ? 'Test' : 'Train';
             samplesDiv.appendChild(sample);
         }
@@ -170,17 +185,19 @@ function visualizeLPOCV() {
 
 function visualizeBootstrap() {
     const container = document.getElementById('cv-visualization');
-    
+    const c = getColors();
+
     const data = [{
         labels: ['In-Bag', 'Out-of-Bag'],
         values: [63.2, 36.8],
         type: 'pie',
-        marker: {colors: [colors.plum, colors.orange]}
+        marker: {colors: [c.plum, c.orange]}
     }];
-    
+
     const layout = {
         title: 'Bootstrap Sampling: ~63.2% In-Bag, ~36.8% OOB',
-        paper_bgcolor: colors.lightBlue
+        font: { color: c.text },
+        paper_bgcolor: c.paperBg
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -214,26 +231,27 @@ function visualizeNested() {
  */
 
 function createFoldContainer(foldNum, nSamples, nSplits, currentFold) {
+    const c = getColors();
     const foldContainer = document.createElement('div');
     foldContainer.className = 'fold-container';
     foldContainer.innerHTML = `<h4>Fold ${foldNum}</h4>`;
-    
+
     const samplesDiv = document.createElement('div');
     samplesDiv.className = 'samples-container';
-    
+
     const foldSize = Math.floor(nSamples / nSplits);
     const testStart = currentFold * foldSize;
     const testEnd = testStart + foldSize;
-    
+
     for (let i = 0; i < nSamples; i++) {
         const sample = document.createElement('div');
         sample.className = 'sample';
-        
+
         if (i >= testStart && i < testEnd) {
-            sample.style.backgroundColor = colors.orange;
+            sample.style.backgroundColor = c.orange;
             sample.title = 'Test';
         } else {
-            sample.style.backgroundColor = colors.plum;
+            sample.style.backgroundColor = c.plum;
             sample.title = 'Train';
         }
         
@@ -272,3 +290,10 @@ function showTextDescription(title, description, extra, pros, cons) {
     
     container.innerHTML = html;
 }
+
+// Re-render active visualization on theme change
+window.addEventListener('themechange', function() {
+    if (typeof updateVisualization === 'function') {
+        try { updateVisualization(); } catch(e) {}
+    }
+});

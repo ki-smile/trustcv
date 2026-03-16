@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,152 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/tutorials.css">
+
+    <!-- Prism.js Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <style>
+        .api-docs {
+            padding: var(--spacing-xl) 0;
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: var(--spacing-xl);
+            align-items: start;
+        }
+
+        @media (max-width: 992px) {
+            .docs-grid {
+                grid-template-columns: 1fr;
+            }
+            .docs-sidebar {
+                position: static !important;
+                margin-bottom: var(--spacing-xl);
+            }
+        }
+
+        .docs-sidebar {
+            position: sticky;
+            top: 100px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--md-sys-elevation-1);
+        }
+
+        .docs-sidebar h3 {
+            font-size: 1.1rem;
+            color: var(--ki-plum);
+            margin-bottom: var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: var(--spacing-sm);
+        }
+
+        .docs-toc {
+            list-style: none;
+            padding: 0;
+        }
+
+        .docs-toc li {
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .docs-toc a {
+            color: var(--ki-grey);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .docs-toc a:hover {
+            color: var(--ki-plum);
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .docs-section {
+            margin-bottom: var(--spacing-xxl);
+            scroll-margin-top: 120px;
+        }
+
+        .docs-section h2 {
+            font-size: 2rem;
+            color: var(--ki-dark-plum);
+            margin-bottom: var(--spacing-md);
+            border-bottom: 2px solid var(--ki-plum);
+            padding-bottom: var(--spacing-sm);
+        }
+
+        .api-method {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--md-sys-elevation-1);
+            transition: transform 0.2s ease;
+        }
+
+        .api-method:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--md-sys-elevation-2);
+        }
+
+        .api-method h3 {
+            color: var(--ki-plum);
+            margin-bottom: var(--spacing-sm);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .method-signature {
+            background: var(--md-sys-color-background);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--ki-orange);
+            margin: var(--spacing-sm) 0;
+            border-left: 4px solid var(--ki-plum);
+        }
+
+        .api-method p {
+            color: var(--ki-grey);
+            font-size: 0.95rem;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .code-block {
+            margin: var(--spacing-md) 0;
+        }
+
+        .code-block h4 {
+            font-size: 0.9rem;
+            color: var(--ki-grey);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        pre[class*="language-"] {
+            border-radius: 10px !important;
+            margin: 0 !important;
+        }
+    </style>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -21,15 +167,84 @@
                 <span class="brand-logo">trustcv</span>
                 <span class="brand-tagline">API Reference</span>
             </div>
-            <ul class="nav-menu">
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="../index.html">Home</a></li>
-                <li><a href="../demonstrations.html">Demonstrations</a></li>
-                <li><a href="../quiz.html">Interactive Quiz</a></li>
-                <li><a href="../notebooks.html">Notebooks</a></li>
-                <li><a href="../methods-comparison.html">Methods Guide</a></li>
-                <li><a href="API_REFERENCE.html" class="active">Documentation</a></li>
+                <li><a href="../getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="../demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="../quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="../notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                        <a href="../tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="../methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="../cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="../frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="../data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="../best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <a href="../ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="API_REFERENCE.html" class="active">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="../regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="../regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
+                </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
                 </a></li>
             </ul>
         </div>
@@ -477,8 +692,9 @@ for train_idx, test_idx in cv.split(X_timeseries):
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="../getting-started.html">Getting Started</a></li>
                         <li><a href="API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="LICENSE.html">MIT License</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
                         <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -487,16 +703,32 @@ for train_idx, test_idx in cv.split(X_timeseries):
                     <ul>
                         <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
                         <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
-                        <li><a href="../LICENSE">MIT License</a></li>
+                        <li><a href="LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
                 </div>
             </div>
         </div>
     </footer>
+    <!-- Theme (must load before visualizations) -->
+    <script src="../js/theme.js"></script>
+
+    <!-- Tooltips -->
+    <script src="../js/tooltips.js"></script>
+
+    <!-- JavaScript Files -->
+    <script src="../js/main.js"></script>
+    <script>
+        // Initialize code blocks
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof setupCodeBlocks === 'function') {
+                setupCodeBlocks();
+            }
+        });
+    </script>
 </body>
 </html>

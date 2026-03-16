@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Framework Integration - trustcv</title>
+
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+
+    <!-- Prism.js Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+    <style>
+        /* Page header */
+        .page-hero {
+            background: linear-gradient(135deg, var(--ki-plum) 0%, var(--ki-brand-dark-plum) 100%);
+            color: white;
+            padding: 60px 0 48px;
+            text-align: center;
+        }
+        .page-hero h1 {
+            font-size: 2.6rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .page-hero p {
+            font-size: 1.15rem;
+            opacity: 0.92;
+            max-width: 680px;
+            margin: 0 auto 24px;
+        }
+
+        /* Badges */
+        .badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: rgba(255,255,255,0.18);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.35);
+            letter-spacing: 0.3px;
+        }
+
+        /* Sections */
+        .section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+        .section h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--ki-plum);
+            margin-bottom: 16px;
+        }
+        .section h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--ki-dark-plum);
+            margin: 24px 0 10px;
+        }
+        .section p, .section li {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--ki-grey);
+        }
+
+        /* Card grid for custom methods */
+        .method-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+        .method-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--md-sys-elevation-1);
+            border-left: 4px solid var(--ki-plum);
+            transition: box-shadow 0.2s;
+            border-top: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .method-card:hover {
+            box-shadow: var(--md-sys-elevation-2);
+        }
+        .method-card h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--ki-plum);
+            margin-bottom: 6px;
+        }
+        .method-card .method-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--md-sys-color-primary-container);
+            color: var(--ki-plum);
+            margin-bottom: 8px;
+        }
+        .method-card p {
+            font-size: 0.92rem;
+            color: var(--ki-grey);
+        }
+
+        /* CSS-only tabs */
+        .tabs-container {
+            margin-top: 24px;
+        }
+        .tabs-container input[type="radio"] {
+            display: none;
+        }
+        .tab-labels {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .tab-labels label {
+            padding: 12px 22px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--ki-grey);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .tab-labels label:hover {
+            color: var(--ki-plum);
+            background: var(--md-sys-color-surface-variant);
+        }
+        .tab-content {
+            display: none;
+            padding: 28px 0 8px;
+            animation: tabFade 0.3s ease;
+        }
+        @keyframes tabFade {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Tab activation */
+        #tab-sklearn:checked ~ .tab-labels label[for="tab-sklearn"],
+        #tab-pytorch:checked ~ .tab-labels label[for="tab-pytorch"],
+        #tab-tensorflow:checked ~ .tab-labels label[for="tab-tensorflow"],
+        #tab-monai:checked ~ .tab-labels label[for="tab-monai"],
+        #tab-jax:checked ~ .tab-labels label[for="tab-jax"] {
+            color: var(--ki-plum);
+            border-bottom-color: var(--ki-plum);
+            font-weight: 600;
+        }
+        #tab-sklearn:checked ~ .content-sklearn,
+        #tab-pytorch:checked ~ .content-pytorch,
+        #tab-tensorflow:checked ~ .content-tensorflow,
+        #tab-monai:checked ~ .content-monai,
+        #tab-jax:checked ~ .content-jax {
+            display: block;
+        }
+
+        /* Code blocks */
+        .tab-content pre {
+            border-radius: 12px;
+            margin: 16px 0;
+        }
+        .tab-content pre code {
+            font-size: 0.88rem;
+            line-height: 1.6;
+        }
+        .tab-content .tab-desc {
+            font-size: 0.95rem;
+            color: var(--ki-grey);
+            margin-bottom: 12px;
+        }
+
+        /* Install table */
+        .install-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--md-sys-elevation-1);
+            margin-top: 16px;
+            border: 1px solid var(--border-color);
+        }
+        .install-table thead th {
+            background: var(--ki-plum);
+            color: #fff;
+            padding: 14px 18px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 0.92rem;
+        }
+        .install-table tbody td {
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.92rem;
+            color: var(--ki-dark-plum);
+            background: var(--card-bg);
+        }
+        .install-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .install-table tbody tr:nth-child(even) td {
+            background: var(--md-sys-color-background);
+        }
+        .install-table code {
+            background: var(--section-dark);
+            color: var(--ki-plum);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        /* Best practices list */
+        .bp-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 16px;
+        }
+        .bp-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--ki-grey);
+        }
+        .bp-list li:last-child {
+            border-bottom: none;
+        }
+        .bp-list .material-icons {
+            color: var(--ki-plum);
+            font-size: 22px;
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .page-hero h1 {
+                font-size: 1.8rem;
+            }
+            .tab-labels label {
+                padding: 10px 14px;
+                font-size: 0.82rem;
+            }
+            .method-cards {
+                grid-template-columns: 1fr;
+            }
+            .section {
+                padding: 32px 16px;
+            }
+        }
+        /* Dark theme overrides */
+        [data-theme="dark"] .tab-content, [data-theme="dark"] .method-card { background: var(--card-bg); }
+        [data-theme="dark"] .tab-labels label { background: var(--section-dark); color: var(--ki-grey); border-color: var(--border-color); }
+        [data-theme="dark"] input[type="radio"]:checked + .tab-labels label { background: var(--card-bg); color: var(--ki-dark-plum); border-bottom-color: var(--card-bg); }
+        [data-theme="dark"] .tab-labels { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .install-table tbody td { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .bp-list li { border-bottom-color: var(--border-color); }
+    </style>
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration:none;display:flex;align-items:baseline;gap:8px;">
+                    <span class="brand-logo">trustcv</span>
+                    <span class="brand-tagline">Framework Integration</span>
+                </a>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html"><span class="material-icons" style="font-size:18px;">play_circle</span> Demonstrations</a>
+                        <a href="quiz.html"><span class="material-icons" style="font-size:18px;">quiz</span> Interactive Quiz</a>
+                        <a href="notebooks.html"><span class="material-icons" style="font-size:18px;">menu_book</span> Notebooks</a>
+                        <a href="tutorials.html"><span class="material-icons" style="font-size:18px;">school</span> Tutorials</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html"><span class="material-icons" style="font-size:18px;">table_chart</span> Methods Guide</a>
+                        <a href="cv-selection-guide.html"><span class="material-icons" style="font-size:18px;">help</span> Selection Guide</a>
+                        <a href="frameworks.html" class="active"><span class="material-icons" style="font-size:18px;">integration_instructions</span> Framework Integration</a>
+                        <a href="data-leakage.html"><span class="material-icons" style="font-size:18px;">shield</span> Data Leakage Detection</a>
+                        <a href="best-practices.html"><span class="material-icons" style="font-size:18px;">verified</span> Best Practices</a>
+                        <a href="ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/API_REFERENCE.html"><span class="material-icons" style="font-size:18px;">api</span> API Documentation</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html"><span class="material-icons" style="font-size:18px;">school</span> Guidelines Tutorial</a>
+                        <a href="regulatory-report.html"><span class="material-icons" style="font-size:18px;">description</span> Report Generator</a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github"><span class="material-icons">code</span> GitHub</a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">PyPI</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <div class="page-hero">
+        <div style="max-width:1100px;margin:0 auto;padding:0 24px;">
+            <h1>Framework Integration Guide</h1>
+            <p>Use trustcv with any ML framework &mdash; the same specialized CV strategies work across scikit-learn, PyTorch, TensorFlow, MONAI, and JAX.</p>
+            <div class="badge-row">
+                <span class="badge">scikit-learn</span>
+                <span class="badge">PyTorch</span>
+                <span class="badge">TensorFlow</span>
+                <span class="badge">MONAI</span>
+                <span class="badge">JAX</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 1: Overview -->
+    <div class="section">
+        <h2>Overview</h2>
+        <p>
+            TrustCV is designed from the ground up to be <strong>framework-agnostic</strong>. Whether you are training a simple random forest with scikit-learn or a 3D U-Net with MONAI, the same cross-validation splitters and runners handle data partitioning, leakage prevention, and result aggregation. This is particularly important for:
+        </p>
+        <ul style="margin:16px 0 16px 24px;">
+            <li><strong>Medical &amp; Clinical Research</strong> &mdash; specialized CV methods not available in standard libraries</li>
+            <li><strong>Deep Learning</strong> &mdash; proper CV applied to neural networks with minimal code</li>
+            <li><strong>Medical Imaging</strong> &mdash; MONAI integration for 3D volume validation</li>
+            <li><strong>Regulatory Documentation</strong> &mdash; consistent outputs supporting FDA/CE MDR submissions</li>
+        </ul>
+        <p>
+            <strong>Key innovation:</strong> trustcv provides <strong>29 specialized CV methods</strong>, many of which are <em>not</em> available in scikit-learn. All of them work with every supported framework through the <code>UniversalCVRunner</code> interface.
+        </p>
+    </div>
+
+    <!-- Section 2: Custom CV Methods -->
+    <div class="section" style="padding-top:0;">
+        <h2>Custom CV Methods Not in scikit-learn</h2>
+        <p>These methods address real-world data structures that standard K-fold cannot handle correctly.</p>
+
+        <div class="method-cards">
+            <div class="method-card">
+                <span class="method-tag">Time Series</span>
+                <h4>PurgedKFoldCV</h4>
+                <p><strong>Problem:</strong> Standard K-fold causes look-ahead bias in temporal data.<br>
+                <strong>Solution:</strong> Adds configurable temporal gaps between train and test sets, preventing information leakage across time boundaries.</p>
+            </div>
+            <div class="method-card">
+                <span class="method-tag">Hierarchical</span>
+                <h4>HierarchicalGroupKFold</h4>
+                <p><strong>Problem:</strong> Patients nested within hospitals, hospitals within regions.<br>
+                <strong>Solution:</strong> Respects multi-level grouping structure so that entire clusters stay together during splitting.</p>
+            </div>
+            <div class="method-card">
+                <span class="method-tag">Spatial</span>
+                <h4>SpatialBlockCV</h4>
+                <p><strong>Problem:</strong> Spatial autocorrelation violates the independence assumption.<br>
+                <strong>Solution:</strong> Creates spatially separated train/test blocks with automatic block-size determination.</p>
+            </div>
+            <div class="method-card">
+                <span class="method-tag">Spatial</span>
+                <h4>BufferedSpatialCV</h4>
+                <p><strong>Problem:</strong> Nearby samples can still leak information across block borders.<br>
+                <strong>Solution:</strong> Adds configurable buffer zones between spatial partitions to prevent spillover effects.</p>
+            </div>
+            <div class="method-card">
+                <span class="method-tag">Advanced Time Series</span>
+                <h4>CombinatorialPurgedCV</h4>
+                <p><strong>Problem:</strong> Need to validate on multiple future periods simultaneously.<br>
+                <strong>Solution:</strong> Combinatorial approach that tests on several future windows while purging temporal overlap.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Framework Tabs -->
+    <div class="section" style="padding-top:0;">
+        <h2>Framework Examples</h2>
+        <p>Select a framework below to see a complete integration example.</p>
+
+        <div class="tabs-container">
+            <!-- Radio inputs -->
+            <input type="radio" name="fw-tabs" id="tab-sklearn" checked>
+            <input type="radio" name="fw-tabs" id="tab-pytorch">
+            <input type="radio" name="fw-tabs" id="tab-tensorflow">
+            <input type="radio" name="fw-tabs" id="tab-monai">
+            <input type="radio" name="fw-tabs" id="tab-jax">
+
+            <!-- Tab labels -->
+            <div class="tab-labels">
+                <label for="tab-sklearn">scikit-learn</label>
+                <label for="tab-pytorch">PyTorch</label>
+                <label for="tab-tensorflow">TensorFlow / Keras</label>
+                <label for="tab-monai">MONAI</label>
+                <label for="tab-jax">JAX / Flax</label>
+            </div>
+
+            <!-- scikit-learn -->
+            <div class="tab-content content-sklearn">
+                <p class="tab-desc">The simplest integration &mdash; pass any sklearn estimator directly to the runner.</p>
+<pre><code class="language-python">from trustcv import StratifiedKFold, UniversalCVRunner
+from sklearn.ensemble import RandomForestClassifier
+
+cv = StratifiedKFold(n_splits=5)
+runner = UniversalCVRunner(cv_splitter=cv)
+results = runner.run(
+    model=RandomForestClassifier(),
+    data=(X, y)
+)
+
+print(f"Mean score: {results.mean_score:.4f}")</code></pre>
+            </div>
+
+            <!-- PyTorch -->
+            <div class="tab-content content-pytorch">
+                <p class="tab-desc">Clinical risk prediction with a tabular deep network, patient-grouped stratified CV, and early stopping.</p>
+<pre><code class="language-python">import torch
+import torch.nn as nn
+from trustcv import TorchCVRunner, StratifiedGroupKFold
+from trustcv import EarlyStopping, ProgressLogger
+
+class ClinicalRiskNet(nn.Module):
+    def __init__(self, input_dim, hidden_dims=[128, 64, 32], dropout=0.3):
+        super().__init__()
+        layers = []
+        prev_dim = input_dim
+        for hidden_dim in hidden_dims:
+            layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.BatchNorm1d(hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout)
+            ])
+            prev_dim = hidden_dim
+        layers.append(nn.Linear(prev_dim, 2))
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+cv = StratifiedGroupKFold(n_splits=5)
+
+runner = TorchCVRunner(
+    model_fn=lambda: ClinicalRiskNet(n_features),
+    cv_splitter=cv
+)
+
+results = runner.run(
+    dataset=(X, y),
+    epochs=50,
+    optimizer_fn=lambda m: torch.optim.AdamW(
+        m.parameters(), lr=0.001, weight_decay=1e-5
+    ),
+    loss_fn=nn.CrossEntropyLoss(weight=torch.tensor([1.0, 2.0])),
+    callbacks=[
+        EarlyStopping(monitor='val_loss', patience=10, restore_best=True),
+        ProgressLogger(log_file='training_log.json')
+    ],
+    groups=patient_ids
+)</code></pre>
+            </div>
+
+            <!-- TensorFlow / Keras -->
+            <div class="tab-content content-tensorflow">
+                <p class="tab-desc">Medical image classification with transfer learning and blocked time-series CV.</p>
+<pre><code class="language-python">import tensorflow as tf
+from tensorflow import keras
+from trustcv import KerasCVRunner, BlockedTimeSeries
+
+def create_transfer_model():
+    base_model = keras.applications.ResNet50(
+        weights='imagenet', include_top=False,
+        input_shape=(224, 224, 3)
+    )
+    base_model.trainable = False
+    return keras.Sequential([
+        base_model,
+        keras.layers.GlobalAveragePooling2D(),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dropout(0.5),
+        keras.layers.Dense(4, activation='softmax')
+    ])
+
+cv = BlockedTimeSeries(n_splits=5, block_size=200)
+
+runner = KerasCVRunner(
+    model_fn=create_transfer_model,
+    cv_splitter=cv,
+    compile_kwargs={
+        'optimizer': keras.optimizers.Adam(1e-4),
+        'loss': 'sparse_categorical_crossentropy',
+        'metrics': ['accuracy', keras.metrics.AUC(name='auc')]
+    }
+)
+
+results = runner.run(
+    X=X, y=y,
+    epochs=30, batch_size=16,
+    callbacks=[
+        keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5),
+        keras.callbacks.EarlyStopping(patience=5)
+    ],
+    groups=timestamps
+)
+
+print(f"Mean AUC: {results.mean_score['val_auc']:.4f}")</code></pre>
+            </div>
+
+            <!-- MONAI -->
+            <div class="tab-content content-monai">
+                <p class="tab-desc">Brain tumor segmentation with 3D U-Net, patient-grouped CV, and MONAI transforms.</p>
+<pre><code class="language-python">from trustcv import MONAICVRunner, GroupKFoldMedical
+from trustcv.frameworks.monai import MONAIAdapter
+from monai.networks.nets import UNet
+from monai.losses import DiceLoss
+from monai.metrics import DiceMetric
+
+# Patient-grouped CV (no patient in both train &amp; test)
+cv_splitter = GroupKFoldMedical(n_splits=5)
+
+def create_unet():
+    return UNet(
+        spatial_dims=3, in_channels=1, out_channels=2,
+        channels=(16, 32, 64, 128, 256), strides=(2, 2, 2, 2),
+        num_res_units=2
+    )
+
+runner = MONAICVRunner(
+    model_fn=create_unet,
+    cv_splitter=cv_splitter,
+    adapter=MONAIAdapter(
+        batch_size=2, cache_rate=0.5,
+        roi_size=(96, 96, 96), device='cuda'
+    )
+)
+
+results = runner.run(
+    data_dicts=data_dicts,
+    epochs=100,
+    train_transforms=train_transforms,
+    val_transforms=val_transforms,
+    optimizer_fn=lambda m: torch.optim.AdamW(m.parameters(), lr=1e-4),
+    loss_fn=DiceLoss(to_onehot_y=True, softmax=True),
+    metrics=[DiceMetric(include_background=False, reduction="mean")],
+    callbacks=[
+        EarlyStopping(monitor='val_dice', mode='max', patience=10),
+        ModelCheckpoint(filepath='best_model_fold_{fold}.pth', monitor='val_dice')
+    ],
+    groups=patient_ids
+)
+
+print(f"Mean Dice: {results.mean_score['val_dice']:.4f}")</code></pre>
+            </div>
+
+            <!-- JAX / Flax -->
+            <div class="tab-content content-jax">
+                <p class="tab-desc">Flax MLP with patient-grouped stratified CV and JIT compilation.</p>
+<pre><code class="language-python">import jax
+import jax.numpy as jnp
+import flax.linen as nn
+import optax
+from trustcv.frameworks.jax import JAXAdapter, JAXCVRunner
+from trustcv.splitters import StratifiedGroupKFold
+
+class MedicalMLP(nn.Module):
+    hidden_dim: int = 64
+    n_classes: int = 2
+
+    @nn.compact
+    def __call__(self, x, training: bool = True):
+        x = nn.Dense(self.hidden_dim)(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=0.1, deterministic=not training)(x)
+        x = nn.Dense(self.hidden_dim // 2)(x)
+        x = nn.relu(x)
+        x = nn.Dense(self.n_classes)(x)
+        return x
+
+runner = JAXCVRunner(
+    model_fn=lambda: MedicalMLP(hidden_dim=64, n_classes=2),
+    cv_splitter=StratifiedGroupKFold(n_splits=5),
+    adapter=JAXAdapter(batch_size=32, seed=42, use_jit=True)
+)
+
+results = runner.run(
+    X, y,
+    epochs=20,
+    groups=patient_ids,
+    optimizer=optax.adam(1e-3)
+)
+
+print(results.summary())</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 4: Installation by Framework -->
+    <div class="section" style="padding-top:0;">
+        <h2>Installation by Framework</h2>
+        <p>Install only the extras you need, or grab everything at once.</p>
+
+        <table class="install-table">
+            <thead>
+                <tr>
+                    <th>Framework</th>
+                    <th>Install Command</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Core (scikit-learn)</strong></td>
+                    <td><code>pip install trustcv</code></td>
+                    <td>Includes all 29 CV splitters and sklearn runners</td>
+                </tr>
+                <tr>
+                    <td><strong>PyTorch</strong></td>
+                    <td><code>pip install trustcv[torch]</code></td>
+                    <td>Adds TorchCVRunner and DataLoader helpers</td>
+                </tr>
+                <tr>
+                    <td><strong>TensorFlow / Keras</strong></td>
+                    <td><code>pip install trustcv[tensorflow]</code></td>
+                    <td>Adds KerasCVRunner and tf.data integration</td>
+                </tr>
+                <tr>
+                    <td><strong>MONAI</strong></td>
+                    <td><code>pip install trustcv[monai]</code></td>
+                    <td>Adds MONAICVRunner, 3D transforms, CacheDataset</td>
+                </tr>
+                <tr>
+                    <td><strong>JAX / Flax</strong></td>
+                    <td><code>pip install trustcv[jax]</code></td>
+                    <td>Adds JAXCVRunner and JIT-compiled training loops</td>
+                </tr>
+                <tr>
+                    <td><strong>All frameworks</strong></td>
+                    <td><code>pip install trustcv[all]</code></td>
+                    <td>Everything included</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 5: Best Practices -->
+    <div class="section" style="padding-top:0;">
+        <h2>Best Practices</h2>
+
+        <ul class="bp-list">
+            <li>
+                <span class="material-icons">shield</span>
+                <div>
+                    <strong>Always check for data leakage.</strong>
+                    Use <code>DataLeakageChecker</code> to verify that no patient, temporal, or spatial overlap exists between training and test folds before trusting your results.
+                </div>
+            </li>
+            <li>
+                <span class="material-icons">account_tree</span>
+                <div>
+                    <strong>Match the CV method to your data structure.</strong>
+                    If your data has patient groups, use a group-aware splitter. If it has temporal ordering, use a purged or blocked time-series split. If it has spatial coordinates, use spatial blocking. See the <a href="cv-selection-guide.html">Selection Guide</a> for a decision tree.
+                </div>
+            </li>
+            <li>
+                <span class="material-icons">description</span>
+                <div>
+                    <strong>Generate regulatory documentation.</strong>
+                    Use <code>RegulatoryDocumentationLogger</code> as a callback to produce structured outputs mapping to FDA and CE MDR requirements. See the <a href="regulatory-report.html">Report Generator</a> for details.
+                </div>
+            </li>
+            <li>
+                <span class="material-icons">speed</span>
+                <div>
+                    <strong>Start simple, then specialize.</strong>
+                    Begin with <code>UniversalCVRunner</code> + a basic splitter. Only switch to framework-specific runners (TorchCVRunner, KerasCVRunner, etc.) when you need advanced features like custom DataLoaders, callbacks, or JIT compilation.
+                </div>
+            </li>
+            <li>
+                <span class="material-icons">verified</span>
+                <div>
+                    <strong>Validate patient isolation per fold.</strong>
+                    After each run, iterate over <code>results.indices</code> and confirm zero overlap between train and test patient IDs. This is especially critical for multi-center clinical trials.
+                </div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile menu toggle -->
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Initialize code blocks
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof setupCodeBlocks === 'function') {
+                setupCodeBlocks();
+            }
+        });
+    </script>
+</body>
+</html>

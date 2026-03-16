@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Selection Guide - trustcv</title>
+
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+
+    <!-- Prism.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <style>
+        /* Decision Tree Styles */
+        :root {
+            /* Branch IID (Blue) */
+            --branch-iid-border: #4a90d9;
+            --branch-iid-bg: #e8f0fe;
+            --branch-iid-text: #1a4d8c;
+            --branch-iid-accent: #4a90d9;
+            
+            /* Branch Temporal (Orange) */
+            --branch-temporal-border: #e67e22;
+            --branch-temporal-bg: #fef5ec;
+            --branch-temporal-text: #7d4e14;
+            --branch-temporal-accent: #e67e22;
+            
+            /* Branch Grouped (Green) */
+            --branch-grouped-border: #27ae60;
+            --branch-grouped-bg: #eafaf1;
+            --branch-grouped-text: #1a6b3c;
+            --branch-grouped-accent: #27ae60;
+            
+            /* Branch Spatial (Purple) */
+            --branch-spatial-border: #8e44ad;
+            --branch-spatial-bg: #f4ecf7;
+            --branch-spatial-text: #5b2c6f;
+            --branch-spatial-accent: #8e44ad;
+        }
+
+        [data-theme="dark"] {
+            --branch-iid-bg: #1a3a5a;
+            --branch-iid-text: #d0e2f7;
+            
+            --branch-temporal-bg: #5a3a1a;
+            --branch-temporal-text: #fdebd0;
+            
+            --branch-grouped-bg: #1a4a2a;
+            --branch-grouped-text: #d5f5e3;
+            
+            --branch-spatial-bg: #3a1a4a;
+            --branch-spatial-text: #e8daef;
+        }
+
+        .decision-tree {
+            padding: var(--spacing-xl) 0;
+            overflow-x: auto;
+            position: relative;
+            scrollbar-width: thin;
+            scrollbar-color: var(--ki-plum) transparent;
+            scroll-behavior: smooth;
+        }
+
+        .decision-tree::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .decision-tree::-webkit-scrollbar-thumb {
+            background-color: var(--ki-plum);
+            border-radius: 10px;
+        }
+
+        /* Mobile Scroll Hint */
+        .scroll-hint {
+            display: none;
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--ki-brand-plum);
+            color: white;
+            padding: 8px;
+            border-radius: 50%;
+            box-shadow: var(--md-sys-elevation-2);
+            z-index: 10;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; transform: translateY(-50%) scale(1); }
+            50% { opacity: 1; transform: translateY(-50%) scale(1.1); }
+            100% { opacity: 0.6; transform: translateY(-50%) scale(1); }
+        }
+
+        @media (max-width: 900px) {
+            .scroll-hint { display: block; }
+        }
+
+        .tree-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 1000px;
+            padding: var(--spacing-lg);
+        }
+
+        @media (max-width: 768px) {
+            .tree-node {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+            .tree-node.root {
+                padding: 12px 24px;
+                font-size: 15px;
+            }
+            .connector {
+                height: 16px;
+            }
+        }
+
+        .tree-node {
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-weight: 500;
+            text-align: center;
+            position: relative;
+            box-shadow: var(--md-sys-elevation-1);
+            max-width: 340px;
+        }
+
+        .tree-node.root {
+            background: var(--ki-plum);
+            color: white;
+            font-size: 16px;
+            padding: 16px 32px;
+            border-radius: 16px;
+            box-shadow: var(--md-sys-elevation-2);
+        }
+
+        .tree-node.question {
+            background: var(--card-bg);
+            color: var(--ki-dark-plum);
+            border: 2px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .tree-node.answer {
+            font-size: 13px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 400;
+        }
+
+        .tree-node.answer.method {
+            font-weight: 600;
+            font-size: 12px;
+            padding: 8px 14px;
+        }
+
+        /* Branch colors using variables */
+        .branch-iid .tree-node.question { border-color: var(--branch-iid-border); background: var(--branch-iid-bg); color: var(--branch-iid-text); }
+        .branch-iid .tree-node.answer { background: var(--branch-iid-bg); color: var(--branch-iid-text); border: 1px solid var(--branch-iid-border); }
+        .branch-iid .tree-node.answer.method { background: var(--branch-iid-accent); color: white; border: none; }
+        .branch-iid .connector { border-color: var(--branch-iid-border); }
+
+        .branch-temporal .tree-node.question { border-color: var(--branch-temporal-border); background: var(--branch-temporal-bg); color: var(--branch-temporal-text); }
+        .branch-temporal .tree-node.answer { background: var(--branch-temporal-bg); color: var(--branch-temporal-text); border: 1px solid var(--branch-temporal-border); }
+        .branch-temporal .tree-node.answer.method { background: var(--branch-temporal-accent); color: white; border: none; }
+        .branch-temporal .connector { border-color: var(--branch-temporal-border); }
+
+        .branch-grouped .tree-node.question { border-color: var(--branch-grouped-border); background: var(--branch-grouped-bg); color: var(--branch-grouped-text); }
+        .branch-grouped .tree-node.answer { background: var(--branch-grouped-bg); color: var(--branch-grouped-text); border: 1px solid var(--branch-grouped-border); }
+        .branch-grouped .tree-node.answer.method { background: var(--branch-grouped-accent); color: white; border: none; }
+        .branch-grouped .connector { border-color: var(--branch-grouped-border); }
+
+        .branch-spatial .tree-node.question { border-color: var(--branch-spatial-border); background: var(--branch-spatial-bg); color: var(--branch-spatial-text); }
+        .branch-spatial .tree-node.answer { background: var(--branch-spatial-bg); color: var(--branch-spatial-text); border: 1px solid var(--branch-spatial-border); }
+        .branch-spatial .tree-node.answer.method { background: var(--branch-spatial-accent); color: white; border: none; }
+        .branch-spatial .connector { border-color: var(--branch-spatial-border); }
+
+        /* Connectors */
+        .connector {
+            width: 2px;
+            height: 24px;
+            border-left: 2px solid var(--ki-grey);
+            margin: 0 auto;
+        }
+
+        .connector.short {
+            height: 16px;
+        }
+
+        .tree-branches {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            position: relative;
+        }
+
+        .tree-branches::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 12.5%;
+            right: 12.5%;
+            height: 2px;
+            background: var(--ki-grey);
+        }
+
+        .tree-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            max-width: 220px;
+        }
+
+        .sub-branches {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .sub-branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .tree-arrow {
+            font-size: 11px;
+            color: var(--ki-grey);
+            margin: 4px 0;
+        }
+
+        /* Method Matrix Table */
+        .method-matrix {
+            overflow-x: auto;
+            margin: var(--spacing-lg) 0;
+        }
+
+        .method-matrix table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            min-width: 800px;
+        }
+
+        .method-matrix thead th {
+            background: var(--ki-plum);
+            color: white;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 500;
+            position: sticky;
+            top: 0;
+        }
+
+        .method-matrix thead th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        .method-matrix thead th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        .method-matrix tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+            color: var(--ki-dark-plum);
+        }
+
+        .method-matrix tbody tr:hover {
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .method-matrix .category-row td {
+            background: var(--ki-plum);
+            font-weight: 700;
+            color: white;
+            font-size: 15px;
+            padding: 10px 16px;
+            border-bottom: 2px solid var(--ki-brand-dark-plum);
+        }
+
+        .method-matrix tbody tr:nth-child(even):not(.category-row) {
+            background: var(--md-sys-color-background);
+        }
+
+        .method-matrix tbody tr:nth-child(even):not(.category-row):hover {
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        /* Scenario Cards */
+        .scenario-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            gap: var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .scenario-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--md-sys-elevation-2);
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+        .scenario-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--md-sys-elevation-3);
+        }
+
+        .scenario-card-header {
+            padding: 20px 24px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .scenario-card-header h3 {
+            font-size: 17px;
+            color: var(--ki-dark-plum);
+            margin-bottom: 4px;
+        }
+
+        .scenario-card-header .scenario-number {
+            display: inline-block;
+            background: var(--ki-plum);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .scenario-card-body {
+            padding: 16px 24px;
+        }
+
+        .scenario-card-body .scenario-detail {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--ki-grey);
+        }
+
+        .scenario-card-body .scenario-detail strong {
+            color: var(--ki-plum);
+            min-width: 60px;
+        }
+
+        .scenario-card-body .recommended-method {
+            display: inline-block;
+            background: var(--status-success-bg);
+            color: var(--status-success-text);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            margin: 8px 0;
+            border: 1px solid var(--status-success-border);
+        }
+
+        .scenario-card-body pre {
+            margin-top: 12px;
+            border-radius: 10px;
+            font-size: 12px !important;
+        }
+
+        .scenario-card-body pre code {
+            font-size: 12px !important;
+        }
+
+        /* Warnings Section */
+        .warnings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+
+        @media (max-width: 768px) {
+            .warnings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .warning-column {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--md-sys-elevation-1);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .warning-column.never .warning-header {
+            background: var(--status-error-border);
+            color: white;
+        }
+
+        .warning-column.always .warning-header {
+            background: var(--status-success-border);
+            color: white;
+        }
+
+        .warning-header {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .warning-list {
+            list-style: none;
+            padding: 16px 24px;
+        }
+
+        .warning-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            color: var(--ki-dark-plum);
+        }
+
+        .warning-list li:last-child {
+            border-bottom: none;
+        }
+
+        .warning-list li .material-icons {
+            font-size: 20px;
+            margin-top: 1px;
+        }
+
+        .warning-column.never .warning-list li .material-icons {
+            color: var(--status-error-border);
+        }
+
+        .warning-column.always .warning-list li .material-icons {
+            color: var(--status-success-border);
+        }
+
+        /* Performance Table */
+        .perf-table {
+            overflow-x: auto;
+            margin: var(--spacing-lg) 0;
+        }
+
+        .perf-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .perf-table thead th {
+            background: var(--ki-dark-plum);
+            color: white;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .perf-table tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--ki-dark-plum);
+        }
+
+        .perf-table tbody tr:nth-child(even) {
+            background: var(--md-sys-color-background);
+        }
+
+        .perf-table tbody tr:hover {
+            background: var(--md-sys-color-surface-variant);
+        }
+
+        .cost-bar {
+            display: inline-flex;
+            gap: 2px;
+        }
+
+        .cost-bar .pip {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--ki-orange);
+        }
+
+        .cost-bar .pip.empty {
+            background: #e0e0e0;
+        }
+
+        .tag-high { color: var(--status-error-border); font-weight: 600; }
+        .tag-medium { color: var(--status-warning-border); font-weight: 600; }
+        .tag-low { color: var(--status-success-border); font-weight: 600; }
+        .tag-lowest { color: var(--ki-plum); font-weight: 600; }
+
+        /* Rules of Thumb Cards */
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .rule-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: var(--md-sys-elevation-1);
+            padding: 24px;
+            border-top: 4px solid var(--ki-plum);
+            transition: transform 0.2s ease;
+        }
+
+        .rule-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--md-sys-elevation-2);
+        }
+
+        .rule-card h3 {
+            color: var(--ki-plum);
+            font-size: 17px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rule-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rule-card ul li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .rule-card ul li:last-child {
+            border-bottom: none;
+        }
+
+        .rule-card .rule-highlight {
+            background: var(--ki-light-blue);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--ki-dark-plum);
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        /* Section styling */
+        .guide-section {
+            padding: var(--spacing-xxl) 0;
+        }
+
+        .guide-section:nth-child(even) {
+            background: var(--ki-light-blue);
+        }
+
+        .guide-section .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-lg);
+        }
+
+        .section-title {
+            font-size: var(--md-sys-typescale-headline-large);
+            color: var(--ki-dark-plum);
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .section-title .material-icons {
+            color: var(--ki-plum);
+            font-size: 32px;
+        }
+
+        .section-subtitle {
+            font-size: var(--md-sys-typescale-body-large);
+            color: var(--ki-grey);
+            margin-bottom: var(--spacing-xl);
+            max-width: 700px;
+        }
+
+        /* Hero */
+        .guide-hero {
+            background: linear-gradient(135deg, var(--ki-dark-plum) 0%, var(--ki-plum) 60%, var(--ki-orange) 100%);
+            color: white;
+            padding: 64px 0 48px;
+            text-align: center;
+        }
+
+        .guide-hero h1 {
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .guide-hero p {
+            font-size: 18px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .scenario-cards {
+                grid-template-columns: 1fr;
+            }
+            .tree-container {
+                min-width: 600px;
+            }
+            .guide-hero h1 {
+                font-size: 28px;
+            }
+        }
+
+        /* Dark theme overrides */
+        [data-theme="dark"] .scenario-card, [data-theme="dark"] .rule-card, [data-theme="dark"] .method-table { background: var(--card-bg); }
+        [data-theme="dark"] .method-table th { background: var(--section-dark); }
+        [data-theme="dark"] .method-table td { border-color: var(--border-color); }
+        [data-theme="dark"] .tree-node { background: var(--card-bg); border-color: var(--border-color); }
+        [data-theme="dark"] .tree-answer { background: var(--section-dark); }
+        [data-theme="dark"] .warning-column { background: var(--card-bg); }
+        [data-theme="dark"] .method-matrix tbody td { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .method-matrix tbody tr:nth-child(even):not(.category-row) { background: var(--md-sys-color-background); }
+        [data-theme="dark"] .method-matrix .category-row td { background: var(--section-dark); border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .scenario-card-header { border-bottom-color: var(--border-color); }
+        [data-theme="dark"] .cost-bar .pip.empty { background: var(--section-dark); }
+    </style>
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration:none;display:flex;align-items:baseline;gap:8px;">
+                    <span class="brand-logo">trustcv</span>
+                    <span class="brand-tagline">CV Selection Guide</span>
+                </a>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html"><span class="material-icons" style="font-size:18px;">play_circle</span> Demonstrations</a>
+                        <a href="quiz.html"><span class="material-icons" style="font-size:18px;">quiz</span> Interactive Quiz</a>
+                        <a href="notebooks.html"><span class="material-icons" style="font-size:18px;">menu_book</span> Notebooks</a>
+                        <a href="tutorials.html"><span class="material-icons" style="font-size:18px;">school</span> Tutorials</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html"><span class="material-icons" style="font-size:18px;">table_chart</span> Methods Guide</a>
+                        <a href="cv-selection-guide.html" class="active"><span class="material-icons" style="font-size:18px;">help</span> Selection Guide</a>
+                        <a href="frameworks.html"><span class="material-icons" style="font-size:18px;">integration_instructions</span> Framework Integration</a>
+                        <a href="data-leakage.html"><span class="material-icons" style="font-size:18px;">shield</span> Data Leakage Detection</a>
+                        <a href="best-practices.html"><span class="material-icons" style="font-size:18px;">verified</span> Best Practices</a>
+                        <a href="ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/API_REFERENCE.html"><span class="material-icons" style="font-size:18px;">api</span> API Documentation</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html"><span class="material-icons" style="font-size:18px;">school</span> Guidelines Tutorial</a>
+                        <a href="regulatory-report.html"><span class="material-icons" style="font-size:18px;">description</span> Report Generator</a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github"><span class="material-icons">code</span> GitHub</a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">PyPI</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="guide-hero">
+        <div class="container">
+            <h1>Cross-Validation Selection Guide</h1>
+            <p>Choose the right CV method for your medical machine learning project. Follow our interactive decision tree or consult the detailed method matrix.</p>
+        </div>
+    </section>
+
+    <!-- Section 1: Interactive Decision Tree -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">account_tree</span>
+                Interactive Decision Tree
+            </h2>
+            <p class="section-subtitle">Start with the data type question and follow the branches to find the best CV method for your use case.</p>
+
+            <div class="decision-tree" id="decision-tree">
+                <div class="scroll-hint" id="scroll-hint">
+                    <span class="material-icons">swap_horiz</span>
+                </div>
+                <div class="tree-container">
+                    <!-- Root -->
+                    <div class="tree-node root">What type of data structure do you have?</div>
+                    <div class="connector"></div>
+
+                    <!-- Four main branches -->
+                    <div class="tree-branches">
+                        <!-- IID Branch -->
+                        <div class="tree-branch branch-iid">
+                            <div class="connector"></div>
+                            <div class="tree-node question">
+                                <span class="material-icons" style="font-size:16px;vertical-align:middle;">person</span>
+                                Independent samples<br><small>(each row = different patient)</small>
+                            </div>
+                            <div class="sub-branches" style="margin-top:12px;">
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Small dataset (&lt;100)?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">LOOCV / Bootstrap .632</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Imbalanced classes?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Stratified k-Fold</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Need hyperparameter tuning?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Nested CV</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Standard case?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">5-Fold or 10-Fold CV</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Temporal Branch -->
+                        <div class="tree-branch branch-temporal">
+                            <div class="connector"></div>
+                            <div class="tree-node question">
+                                <span class="material-icons" style="font-size:16px;vertical-align:middle;">schedule</span>
+                                Time series data<br><small>(temporal order matters)</small>
+                            </div>
+                            <div class="sub-branches" style="margin-top:12px;">
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Fixed training size?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Rolling Window CV</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Use all historical data?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Expanding Window CV</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Seasonal/periodic patterns?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Blocked Time Series CV</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Standard forecasting?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Time Series Split</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Grouped Branch -->
+                        <div class="tree-branch branch-grouped">
+                            <div class="connector"></div>
+                            <div class="tree-node question">
+                                <span class="material-icons" style="font-size:16px;vertical-align:middle;">groups</span>
+                                Grouped data<br><small>(multiple records per patient)</small>
+                            </div>
+                            <div class="sub-branches" style="margin-top:12px;">
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Generalize to new patients?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Leave-One-Group-Out</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Need class balance?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Stratified Group k-Fold</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Standard grouped case?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Group k-Fold</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Spatial Branch -->
+                        <div class="tree-branch branch-spatial">
+                            <div class="connector"></div>
+                            <div class="tree-node question">
+                                <span class="material-icons" style="font-size:16px;vertical-align:middle;">map</span>
+                                Spatial / Geographic data
+                            </div>
+                            <div class="sub-branches" style="margin-top:12px;">
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Prevent spatial leakage?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Buffered Spatial CV</div>
+                                </div>
+                                <div class="sub-branch">
+                                    <div class="tree-node answer">Standard spatial case?</div>
+                                    <div class="tree-arrow">&#9660;</div>
+                                    <div class="tree-node answer method">Spatial Block CV</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Detailed Method Matrix -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">table_chart</span>
+                Detailed Method Selection Matrix
+            </h2>
+            <p class="section-subtitle">A comprehensive reference of all cross-validation methods, organized by data type and use case.</p>
+
+            <div class="method-matrix">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data Characteristic</th>
+                            <th>Sample Size</th>
+                            <th>Primary Goal</th>
+                            <th>Recommended Method</th>
+                            <th>Why?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- IID -->
+                        <tr class="category-row"><td colspan="5">I.I.D. Data</td></tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>&gt;1000</td>
+                            <td>Quick evaluation</td>
+                            <td><strong>Hold-Out (70/30)</strong></td>
+                            <td>Fast, simple</td>
+                        </tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>100 - 1000</td>
+                            <td>Robust evaluation</td>
+                            <td><strong>5-Fold CV</strong></td>
+                            <td>Good bias-variance tradeoff</td>
+                        </tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>&lt;100</td>
+                            <td>Max data usage</td>
+                            <td><strong>LOOCV</strong></td>
+                            <td>Uses all data for training</td>
+                        </tr>
+                        <tr>
+                            <td>Imbalanced classes</td>
+                            <td>Any</td>
+                            <td>Maintain class ratio</td>
+                            <td><strong>Stratified k-Fold</strong></td>
+                            <td>Preserves class distribution</td>
+                        </tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>Any</td>
+                            <td>Confidence intervals</td>
+                            <td><strong>Bootstrap .632</strong></td>
+                            <td>Provides CI estimates</td>
+                        </tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>Any</td>
+                            <td>Model selection</td>
+                            <td><strong>Nested CV</strong></td>
+                            <td>Unbiased hyperparameter tuning</td>
+                        </tr>
+
+                        <!-- Temporal -->
+                        <tr class="category-row"><td colspan="5">Temporal Data</td></tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>Any</td>
+                            <td>Forecasting</td>
+                            <td><strong>Time Series Split</strong></td>
+                            <td>Respects temporal order</td>
+                        </tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>Long series</td>
+                            <td>Fixed window</td>
+                            <td><strong>Rolling Window</strong></td>
+                            <td>Constant training size</td>
+                        </tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>Growing data</td>
+                            <td>Use all history</td>
+                            <td><strong>Expanding Window</strong></td>
+                            <td>Increasing training data</td>
+                        </tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>With patterns</td>
+                            <td>Preserve patterns</td>
+                            <td><strong>Blocked Time Series</strong></td>
+                            <td>Maintains temporal blocks</td>
+                        </tr>
+                        <tr>
+                            <td>Financial / Trading</td>
+                            <td>Any</td>
+                            <td>Prevent leakage</td>
+                            <td><strong>Purged K-Fold</strong></td>
+                            <td>Adds temporal gaps</td>
+                        </tr>
+
+                        <!-- Grouped -->
+                        <tr class="category-row"><td colspan="5">Grouped Data</td></tr>
+                        <tr>
+                            <td>Patient records</td>
+                            <td>Many groups</td>
+                            <td>Standard validation</td>
+                            <td><strong>Group k-Fold</strong></td>
+                            <td>No patient in multiple folds</td>
+                        </tr>
+                        <tr>
+                            <td>Patient records</td>
+                            <td>Few groups</td>
+                            <td>Test generalization</td>
+                            <td><strong>Leave-One-Group-Out</strong></td>
+                            <td>Each group as test</td>
+                        </tr>
+                        <tr>
+                            <td>Hierarchical</td>
+                            <td>Multi-level</td>
+                            <td>Respect hierarchy</td>
+                            <td><strong>Hierarchical Group CV</strong></td>
+                            <td>Maintains structure</td>
+                        </tr>
+                        <tr>
+                            <td>Imbalanced groups</td>
+                            <td>Any</td>
+                            <td>Balance + grouping</td>
+                            <td><strong>Stratified Group k-Fold</strong></td>
+                            <td>Preserves both constraints</td>
+                        </tr>
+
+                        <!-- Spatial -->
+                        <tr class="category-row"><td colspan="5">Spatial Data</td></tr>
+                        <tr>
+                            <td>Geographic</td>
+                            <td>Grid-based</td>
+                            <td>Prevent leakage</td>
+                            <td><strong>Buffered Spatial CV</strong></td>
+                            <td>Adds buffer zones</td>
+                        </tr>
+                        <tr>
+                            <td>Geographic</td>
+                            <td>Continuous</td>
+                            <td>Standard spatial</td>
+                            <td><strong>Spatial Block CV</strong></td>
+                            <td>Creates spatial blocks</td>
+                        </tr>
+                        <tr>
+                            <td>Spatiotemporal</td>
+                            <td>Both dimensions</td>
+                            <td>Complex patterns</td>
+                            <td><strong>Spatiotemporal Block</strong></td>
+                            <td>Handles both aspects</td>
+                        </tr>
+                        <tr>
+                            <td>Environmental health</td>
+                            <td>Geographic + health</td>
+                            <td>Environmental factors</td>
+                            <td><strong>Environmental Health CV</strong></td>
+                            <td>Epidemiology studies</td>
+                        </tr>
+
+                        <!-- Additional -->
+                        <tr class="category-row"><td colspan="5">Additional Methods</td></tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>&lt;50</td>
+                            <td>Exhaustive validation</td>
+                            <td><strong>LPOCV (Leave-p-Out)</strong></td>
+                            <td>Tests all p-combinations</td>
+                        </tr>
+                        <tr>
+                            <td>Independent samples</td>
+                            <td>Any</td>
+                            <td>Multiple random splits</td>
+                            <td><strong>Monte Carlo CV</strong></td>
+                            <td>Flexible, confidence intervals</td>
+                        </tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>Complex patterns</td>
+                            <td>Multiple test periods</td>
+                            <td><strong>Combinatorial Purged CV</strong></td>
+                            <td>Financial / trading data</td>
+                        </tr>
+                        <tr>
+                            <td>Time + Groups</td>
+                            <td>Both constraints</td>
+                            <td>Combined validation</td>
+                            <td><strong>Purged Group Time Series</strong></td>
+                            <td>Complex medical studies</td>
+                        </tr>
+                        <tr>
+                            <td>Time series</td>
+                            <td>Nested optimization</td>
+                            <td>Temporal + hyperparam</td>
+                            <td><strong>Nested Temporal CV</strong></td>
+                            <td>Advanced forecasting</td>
+                        </tr>
+                        <tr>
+                            <td>Grouped data</td>
+                            <td>Test on p groups</td>
+                            <td>Multiple group testing</td>
+                            <td><strong>Leave-p-Groups-Out</strong></td>
+                            <td>Multi-site validation</td>
+                        </tr>
+                        <tr>
+                            <td>Grouped data</td>
+                            <td>Multiple runs</td>
+                            <td>Robust group validation</td>
+                            <td><strong>Repeated Group k-Fold</strong></td>
+                            <td>Stable estimates</td>
+                        </tr>
+                        <tr>
+                            <td>Hierarchical</td>
+                            <td>Multiple levels</td>
+                            <td>Respect all levels</td>
+                            <td><strong>Multi-level CV</strong></td>
+                            <td>Hospital &gt; Dept &gt; Patient</td>
+                        </tr>
+                        <tr>
+                            <td>Grouped data</td>
+                            <td>Hyperparam tuning</td>
+                            <td>Nested + grouped</td>
+                            <td><strong>Nested Grouped CV</strong></td>
+                            <td>Unbiased selection</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 3: Common Medical Scenarios -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">local_hospital</span>
+                Common Medical Scenarios
+            </h2>
+            <p class="section-subtitle">Real-world medical ML scenarios with recommended CV methods and ready-to-use code examples.</p>
+
+            <div class="scenario-cards">
+                <!-- Scenario 1 -->
+                <div class="scenario-card">
+                    <div class="scenario-card-header">
+                        <h3><span class="scenario-number">1</span>Clinical Trial with Multiple Sites</h3>
+                    </div>
+                    <div class="scenario-card-body">
+                        <div class="scenario-detail"><strong>Data:</strong> Patients nested within hospitals</div>
+                        <div class="scenario-detail"><strong>Goal:</strong> Test generalization to new sites</div>
+                        <div class="recommended-method">Group k-Fold / Leave-One-Site-Out</div>
+<pre><code class="language-python">from trustcv.splitters.grouped import GroupKFoldMedical
+cv = GroupKFoldMedical(n_splits=5)
+for train, test in cv.split(X, y, groups=site_ids):
+    # No site appears in both train and test</code></pre>
+                    </div>
+                </div>
+
+                <!-- Scenario 2 -->
+                <div class="scenario-card">
+                    <div class="scenario-card-header">
+                        <h3><span class="scenario-number">2</span>ICU Patient Monitoring</h3>
+                    </div>
+                    <div class="scenario-card-body">
+                        <div class="scenario-detail"><strong>Data:</strong> Hourly vital signs over time</div>
+                        <div class="scenario-detail"><strong>Goal:</strong> Predict future deterioration</div>
+                        <div class="recommended-method">Time Series Split / Rolling Window</div>
+<pre><code class="language-python">from trustcv.splitters.temporal import TimeSeriesSplit
+cv = TimeSeriesSplit(n_splits=5)
+for train, test in cv.split(X):
+    # Always train on past, test on future</code></pre>
+                    </div>
+                </div>
+
+                <!-- Scenario 3 -->
+                <div class="scenario-card">
+                    <div class="scenario-card-header">
+                        <h3><span class="scenario-number">3</span>Disease Diagnosis from Images</h3>
+                    </div>
+                    <div class="scenario-card-body">
+                        <div class="scenario-detail"><strong>Data:</strong> One image per patient</div>
+                        <div class="scenario-detail"><strong>Goal:</strong> Robust performance estimate</div>
+                        <div class="recommended-method">Stratified k-Fold</div>
+<pre><code class="language-python">from trustcv.splitters.iid import StratifiedKFoldMedical
+cv = StratifiedKFoldMedical(n_splits=5)
+for train, test in cv.split(X, y):
+    # Maintains class balance across folds</code></pre>
+                    </div>
+                </div>
+
+                <!-- Scenario 4 -->
+                <div class="scenario-card">
+                    <div class="scenario-card-header">
+                        <h3><span class="scenario-number">4</span>Longitudinal Patient Study</h3>
+                    </div>
+                    <div class="scenario-card-body">
+                        <div class="scenario-detail"><strong>Data:</strong> Multiple visits per patient over years</div>
+                        <div class="scenario-detail"><strong>Goal:</strong> Validate on new patients</div>
+                        <div class="recommended-method">Purged Group Time Series CV</div>
+<pre><code class="language-python">from trustcv.splitters.temporal import PurgedGroupTimeSeriesSplit
+cv = PurgedGroupTimeSeriesSplit(n_splits=5, purge_gap=30)  # 30-day gap
+for train, test in cv.split(X, y, groups=patient_ids, times=visit_dates):
+    # Respects both patient grouping and temporal order</code></pre>
+                    </div>
+                </div>
+
+                <!-- Scenario 5 -->
+                <div class="scenario-card">
+                    <div class="scenario-card-header">
+                        <h3><span class="scenario-number">5</span>Geographic Disease Spread</h3>
+                    </div>
+                    <div class="scenario-card-body">
+                        <div class="scenario-detail"><strong>Data:</strong> Cases with GPS coordinates</div>
+                        <div class="scenario-detail"><strong>Goal:</strong> Predict spread to new regions</div>
+                        <div class="recommended-method">Buffered Spatial CV</div>
+<pre><code class="language-python">from trustcv.splitters.spatial import BufferedSpatialCV
+cv = BufferedSpatialCV(n_splits=5, buffer_size=10)  # 10km buffer
+for train, test in cv.split(X, coordinates=gps_coords):
+    # Buffer prevents spatial leakage</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Critical Warnings -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">warning</span>
+                Critical Warnings
+            </h2>
+            <p class="section-subtitle">Common pitfalls and best practices to ensure valid cross-validation results.</p>
+
+            <div class="warnings-grid">
+                <!-- Never Do -->
+                <div class="warning-column never">
+                    <div class="warning-header">
+                        <span class="material-icons">cancel</span>
+                        Never Do This
+                    </div>
+                    <ul class="warning-list">
+                        <li>
+                            <span class="material-icons">close</span>
+                            <span><strong>Random splits on time series data</strong> &mdash; causes future data leakage into training</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">close</span>
+                            <span><strong>Random splits on grouped patient data</strong> &mdash; same patient ends up in both train and test</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">close</span>
+                            <span><strong>Using test set for ANY decisions</strong> &mdash; leads to overfitting to the test set</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">close</span>
+                            <span><strong>Single hold-out for small datasets</strong> &mdash; results have high variance</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">close</span>
+                            <span><strong>Ignoring class imbalance</strong> &mdash; performance biased toward majority class</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Always Do -->
+                <div class="warning-column always">
+                    <div class="warning-header">
+                        <span class="material-icons">check_circle</span>
+                        Always Do This
+                    </div>
+                    <ul class="warning-list">
+                        <li>
+                            <span class="material-icons">check</span>
+                            <span><strong>Check for data leakage</strong> after splitting</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">check</span>
+                            <span><strong>Preserve data structure</strong> (temporal, grouped, spatial)</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">check</span>
+                            <span><strong>Use stratification</strong> for imbalanced datasets</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">check</span>
+                            <span><strong>Apply nested CV</strong> for hyperparameter tuning</span>
+                        </li>
+                        <li>
+                            <span class="material-icons">check</span>
+                            <span><strong>Report confidence intervals</strong>, not just mean scores</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: Performance vs Cost -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">speed</span>
+                Performance vs Computational Cost
+            </h2>
+            <p class="section-subtitle">Compare trade-offs between variance, bias, and computational requirements.</p>
+
+            <div class="perf-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Computational Cost</th>
+                            <th>Variance</th>
+                            <th>Bias</th>
+                            <th>Use When</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Hold-Out</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+                                </div>
+                                <small style="color:var(--ki-grey);margin-left:8px;">Fastest</small>
+                            </td>
+                            <td><span class="tag-high">High</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Large datasets, quick tests</td>
+                        </tr>
+                        <tr>
+                            <td><strong>5-Fold CV</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip empty"></div><div class="pip empty"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-medium">Medium</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Standard choice</td>
+                        </tr>
+                        <tr>
+                            <td><strong>10-Fold CV</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip empty"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Need lower variance</td>
+                        </tr>
+                        <tr>
+                            <td><strong>LOOCV</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                                </div>
+                                <small style="color:var(--ki-grey);margin-left:8px;">Slowest</small>
+                            </td>
+                            <td><span class="tag-lowest">Lowest</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Small datasets</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Bootstrap</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip empty"></div><div class="pip empty"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td><span class="tag-medium">Medium</span></td>
+                            <td>Need confidence intervals</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Nested CV</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td><span class="tag-lowest">Lowest</span></td>
+                            <td>Hyperparameter tuning</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Group k-Fold</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip empty"></div><div class="pip empty"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-medium">Medium</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Grouped data</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Time Series Split</strong></td>
+                            <td>
+                                <div class="cost-bar">
+                                    <div class="pip"></div><div class="pip"></div><div class="pip empty"></div><div class="pip empty"></div><div class="pip empty"></div>
+                                </div>
+                            </td>
+                            <td><span class="tag-medium">Medium</span></td>
+                            <td><span class="tag-low">Low</span></td>
+                            <td>Temporal data</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 6: Rules of Thumb -->
+    <section class="guide-section">
+        <div class="container">
+            <h2 class="section-title">
+                <span class="material-icons">lightbulb</span>
+                Rules of Thumb
+            </h2>
+            <p class="section-subtitle">Quick reference guidelines for choosing folds, methods, and handling special cases.</p>
+
+            <div class="rules-grid">
+                <!-- Sample Size Rules -->
+                <div class="rule-card">
+                    <h3>
+                        <span class="material-icons" style="color:var(--ki-plum);">data_usage</span>
+                        Sample Size Rules
+                    </h3>
+                    <ul>
+                        <li><span class="rule-highlight">n &lt; 100</span> Use LOOCV or Bootstrap</li>
+                        <li><span class="rule-highlight">100 &lt; n &lt; 1000</span> Use 10-Fold CV</li>
+                        <li><span class="rule-highlight">n &gt; 1000</span> Use 5-Fold CV or Hold-Out</li>
+                    </ul>
+                </div>
+
+                <!-- Fold Number Selection -->
+                <div class="rule-card">
+                    <h3>
+                        <span class="material-icons" style="color:var(--ki-plum);">tune</span>
+                        Fold Number Selection
+                    </h3>
+                    <ul>
+                        <li><strong>More folds</strong> = Less bias, More variance, More computation</li>
+                        <li><strong>Fewer folds</strong> = More bias, Less variance, Less computation</li>
+                        <li><span class="rule-highlight">Sweet spot</span> 5 - 10 folds for most cases</li>
+                    </ul>
+                </div>
+
+                <!-- Special Cases -->
+                <div class="rule-card">
+                    <h3>
+                        <span class="material-icons" style="color:var(--ki-plum);">emergency</span>
+                        Special Cases
+                    </h3>
+                    <ul>
+                        <li><strong>Rare disease</strong> (prevalence &lt; 10%): Always use stratification</li>
+                        <li><strong>Multi-site data:</strong> Always use grouped CV</li>
+                        <li><strong>Time series:</strong> Never use random splits</li>
+                        <li><strong>Small test set:</strong> Consider repeated CV for stability</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>trustcv</h4>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
+                        <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('navMenu');
+            menu.classList.toggle('active');
+        }
+    </script>
+    <script>
+        // Hide scroll hint after first scroll
+        const tree = document.getElementById('decision-tree');
+        const hint = document.getElementById('scroll-hint');
+        if (tree && hint) {
+            tree.addEventListener('scroll', () => {
+                hint.style.display = 'none';
+            }, { once: true });
+        }
+        
+        // Initialize code blocks
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof setupCodeBlocks === 'function') {
+                setupCodeBlocks();
+            }
+        });
+    </script>
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

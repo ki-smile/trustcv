@@ -1,0 +1,662 @@
+{
+  "name": "trustcv",
+  "version": "1.0.7",
+  "description": "Framework-agnostic toolkit for trustworthy cross-validation in medical AI",
+  "install": "pip install trustcv",
+  "repository": "https://github.com/ki-smile/trustcv",
+  "pypi": "https://pypi.org/project/trustcv/",
+  "python_requires": ">=3.8",
+  "classes": [
+    {
+      "name": "TrustCVValidator",
+      "aliases": ["TrustCV"],
+      "import": "from trustcv import TrustCV",
+      "description": "Main orchestrator for trustworthy cross-validation with leakage detection, balance checks, and regulatory compliance.",
+      "constructor": {
+        "params": [
+          {"name": "method", "type": "str", "default": "stratified_kfold", "description": "CV method name (kfold, stratified_kfold, patient_grouped_kfold, temporal, holdout, repeated_kfold, loocv, lpocv, monte_carlo, bootstrap)"},
+          {"name": "n_splits", "type": "int", "default": 5, "description": "Number of CV folds"},
+          {"name": "random_state", "type": "int", "default": 42, "description": "Random seed for reproducibility"},
+          {"name": "shuffle", "type": "bool", "default": true, "description": "Whether to shuffle data before splitting"},
+          {"name": "check_leakage", "type": "bool", "default": true, "description": "Whether to run leakage detection"},
+          {"name": "check_balance", "type": "bool", "default": true, "description": "Whether to check class balance"},
+          {"name": "compliance", "type": "str|None", "default": null, "description": "Regulatory compliance mode: 'FDA', 'CE', or None"},
+          {"name": "metrics", "type": "list[str]|None", "default": null, "description": "Metrics to compute. Defaults based on task type."},
+          {"name": "return_confidence_intervals", "type": "bool", "default": true, "description": "Whether to compute confidence intervals"},
+          {"name": "ci_level", "type": "float", "default": 0.95, "description": "Confidence level for intervals (0 < ci_level < 1)"},
+          {"name": "ci_method", "type": "str", "default": "bootstrap", "description": "Method for CI calculation"},
+          {"name": "n_bootstrap", "type": "int", "default": 1000, "description": "Number of bootstrap samples for CI estimation"},
+          {"name": "holdout_test_size", "type": "float|int", "default": 0.2, "description": "Fraction or count for hold-out validation"},
+          {"name": "holdout_stratify", "type": "bool", "default": false, "description": "Enable stratified hold-out splitting"},
+          {"name": "repeated_kfold_repeats", "type": "int", "default": 1, "description": "Repetitions for repeated k-fold (alias: n_repeats)"},
+          {"name": "lpocv_p", "type": "int", "default": 2, "description": "Samples to leave out for LPOCV (alias: p)"},
+          {"name": "monte_carlo_iterations", "type": "int", "default": 50, "description": "Iterations for Monte Carlo CV (aliases: n_iterations, iterations)"},
+          {"name": "monte_carlo_test_size", "type": "float|int", "default": 0.2, "description": "Test size for Monte Carlo splits (alias: mc_test_size)"},
+          {"name": "bootstrap_validation_iterations", "type": "int", "default": 200, "description": "Bootstrap resamples (alias: bootstrap_iterations)"},
+          {"name": "bootstrap_validation_estimator", "type": "str", "default": "standard", "description": "Bootstrap estimator: 'standard', '.632', '.632+' (alias: bootstrap_estimator)"}
+        ]
+      },
+      "methods": [
+        {
+          "name": "validate",
+          "description": "Run cross-validation with metrics and return ValidationResult",
+          "keyword_only": true,
+          "params": [
+            {"name": "model", "type": "estimator", "required": true, "description": "Model with fit/predict interface"},
+            {"name": "X", "type": "array|DataFrame", "required": true, "description": "Feature matrix"},
+            {"name": "y", "type": "array|Series", "required": true, "description": "Target variable"},
+            {"name": "patient_ids", "type": "array|None", "default": null, "description": "Alias for groups (patient identifiers)"},
+            {"name": "groups", "type": "array|None", "default": null, "description": "Group labels for grouped splitters"},
+            {"name": "cv", "type": "BaseCrossValidator|None", "default": null, "description": "Override configured splitter"},
+            {"name": "leakage_checker", "type": "DataLeakageChecker|None", "default": null, "description": "Custom leakage checker"},
+            {"name": "sample_weight", "type": "array|None", "default": null, "description": "Per-sample weights"},
+            {"name": "metrics", "type": "list[str]|None", "default": null, "description": "Per-call metric override"},
+            {"name": "scoring", "type": "dict|None", "default": null, "description": "sklearn-style scorers (overrides metrics)"}
+          ],
+          "returns": "ValidationResult"
+        },
+        {
+          "name": "fit_validate",
+          "description": "Train on full training set, evaluate on held-out test set",
+          "keyword_only": true,
+          "params": [
+            {"name": "model", "type": "estimator", "required": true},
+            {"name": "X_train", "type": "array|DataFrame", "required": true},
+            {"name": "y_train", "type": "array|Series", "required": true},
+            {"name": "X_test", "type": "array|DataFrame", "required": true},
+            {"name": "y_test", "type": "array|Series", "required": true},
+            {"name": "patient_ids", "type": "array|None", "default": null},
+            {"name": "test_patient_ids", "type": "array|None", "default": null},
+            {"name": "groups", "type": "array|None", "default": null},
+            {"name": "test_groups", "type": "array|None", "default": null},
+            {"name": "sample_weight", "type": "array|None", "default": null},
+            {"name": "sample_weight_test", "type": "array|None", "default": null},
+            {"name": "leakage_checker", "type": "DataLeakageChecker|None", "default": null},
+            {"name": "metrics", "type": "list[str]|None", "default": null},
+            {"name": "scoring", "type": "dict|None", "default": null}
+          ],
+          "returns": "ValidationResult"
+        }
+      ]
+    },
+    {
+      "name": "UniversalCVRunner",
+      "import": "from trustcv import UniversalCVRunner",
+      "description": "Framework-agnostic CV runner supporting sklearn, PyTorch, TensorFlow, MONAI, JAX, XGBoost, LightGBM, CatBoost.",
+      "constructor": {
+        "params": [
+          {"name": "cv_splitter", "type": "Any", "required": true, "description": "Cross-validation splitter from trustcv"},
+          {"name": "framework", "type": "str", "default": "auto", "description": "Framework name or 'auto' for detection"},
+          {"name": "adapter", "type": "FrameworkAdapter|None", "default": null, "description": "Custom adapter (overrides framework)"},
+          {"name": "verbose", "type": "int", "default": 1, "description": "0=silent, 1=progress, 2=detailed"}
+        ]
+      },
+      "methods": [
+        {
+          "name": "run",
+          "description": "Run cross-validation with automatic framework detection",
+          "params": [
+            {"name": "model", "type": "Any|Callable", "required": true, "description": "Model instance or factory function"},
+            {"name": "data", "type": "tuple", "required": true, "description": "(X, y) or (X, y, groups)"},
+            {"name": "epochs", "type": "int|None", "default": null, "description": "For neural networks"},
+            {"name": "optimizer", "type": "Any|None", "default": null},
+            {"name": "loss_fn", "type": "Any|None", "default": null},
+            {"name": "metrics", "type": "list[str]|None", "default": null},
+            {"name": "callbacks", "type": "list[CVCallback]|None", "default": null},
+            {"name": "groups", "type": "array|None", "default": null}
+          ],
+          "returns": "CVResults"
+        },
+        {
+          "name": "run_with_hyperparameter_tuning",
+          "description": "Run CV with hyperparameter tuning (requires optuna)",
+          "params": [
+            {"name": "model_fn", "type": "Callable", "required": true, "description": "Function(params) -> model"},
+            {"name": "param_grid", "type": "dict", "required": true, "description": "Parameter search space"},
+            {"name": "data", "type": "Any", "required": true},
+            {"name": "scoring", "type": "str", "default": "accuracy"},
+            {"name": "n_trials", "type": "int", "default": 10}
+          ],
+          "returns": "dict"
+        }
+      ]
+    },
+    {
+      "name": "DataLeakageChecker",
+      "aliases": ["LeakageChecker"],
+      "import": "from trustcv import DataLeakageChecker",
+      "description": "Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.",
+      "constructor": {
+        "params": [
+          {"name": "verbose", "type": "bool", "default": true}
+        ]
+      },
+      "methods": [
+        {
+          "name": "check",
+          "description": "Convenience wrapper: check leakage via CV-style splits",
+          "params": [
+            {"name": "X", "type": "array|DataFrame", "required": true},
+            {"name": "y", "type": "array|Series|None", "default": null},
+            {"name": "groups", "type": "array|Series|None", "default": null},
+            {"name": "timestamps", "type": "array|Series|None", "default": null},
+            {"name": "coordinates", "type": "array|DataFrame|None", "default": null},
+            {"name": "n_splits", "type": "int", "default": 5},
+            {"name": "random_state", "type": "int|None", "default": 42}
+          ],
+          "returns": "LeakageReport"
+        },
+        {
+          "name": "check_cv_splits",
+          "description": "Check leakage between explicit train and test sets",
+          "params": [
+            {"name": "X_train", "type": "array|DataFrame", "required": true},
+            {"name": "X_test", "type": "array|DataFrame", "required": true},
+            {"name": "y_train", "type": "array|Series|None", "default": null},
+            {"name": "y_test", "type": "array|Series|None", "default": null},
+            {"name": "patient_ids_train", "type": "array|Series|None", "default": null},
+            {"name": "patient_ids_test", "type": "array|Series|None", "default": null},
+            {"name": "timestamps_train", "type": "array|Series|None", "default": null},
+            {"name": "timestamps_test", "type": "array|Series|None", "default": null},
+            {"name": "coordinates_train", "type": "array|DataFrame|None", "default": null},
+            {"name": "coordinates_test", "type": "array|DataFrame|None", "default": null},
+            {"name": "spatial_threshold", "type": "float|None", "default": null}
+          ],
+          "returns": "LeakageReport"
+        },
+        {
+          "name": "check_feature_target_leakage",
+          "description": "Check feature-target correlation for potential leakage",
+          "params": [
+            {"name": "X", "type": "array|DataFrame", "required": true},
+            {"name": "y", "type": "array|Series", "required": true},
+            {"name": "threshold", "type": "float", "default": 0.95}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "check_preprocessing_leakage",
+          "description": "Check if preprocessing was done before splitting",
+          "params": [
+            {"name": "X_original", "type": "array|DataFrame", "required": true},
+            {"name": "X_processed", "type": "array|DataFrame", "required": true},
+            {"name": "split_indices", "type": "tuple", "required": true}
+          ],
+          "returns": "bool"
+        },
+        {
+          "name": "check_near_duplicates",
+          "description": "Detect near-duplicate samples between train and test sets via cosine similarity",
+          "params": [
+            {"name": "X_train", "type": "array|DataFrame", "required": true},
+            {"name": "X_test", "type": "array|DataFrame", "required": true},
+            {"name": "similarity_threshold", "type": "float", "default": 0.99, "description": "Cosine similarity threshold for near-duplicate detection"}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "check_hierarchical_leakage",
+          "description": "Detect hierarchical group leakage where parent groups span both train and test sets",
+          "params": [
+            {"name": "groups_train", "type": "array", "required": true, "description": "Group labels for training set"},
+            {"name": "groups_test", "type": "array", "required": true, "description": "Group labels for test set"},
+            {"name": "parent_groups_train", "type": "array", "required": true, "description": "Parent group labels for training set"},
+            {"name": "parent_groups_test", "type": "array", "required": true, "description": "Parent group labels for test set"}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "comprehensive_check",
+          "description": "Run the full suite of leakage checks including CV-based splits, feature-target correlation, near-duplicates, and hierarchical leakage",
+          "params": [
+            {"name": "X", "type": "array|DataFrame", "required": true},
+            {"name": "y", "type": "array|Series", "required": true},
+            {"name": "groups", "type": "array|None", "default": null},
+            {"name": "timestamps", "type": "array|None", "default": null},
+            {"name": "coordinates", "type": "array|None", "default": null},
+            {"name": "feature_threshold", "type": "float", "default": 0.95}
+          ],
+          "returns": "dict"
+        }
+      ]
+    },
+    {
+      "name": "BalanceChecker",
+      "aliases": ["ClassBalanceChecker"],
+      "import": "from trustcv import BalanceChecker",
+      "description": "Checks class imbalance and data distribution issues, critical for medical datasets.",
+      "constructor": {
+        "params": [
+          {"name": "threshold", "type": "float", "default": 0.1, "description": "Imbalance warning threshold (10% difference)"}
+        ]
+      },
+      "methods": [
+        {
+          "name": "check_class_balance",
+          "description": "Check class distribution in dataset",
+          "params": [
+            {"name": "y", "type": "array", "required": true},
+            {"name": "groups", "type": "array|None", "default": null}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "check_cv_balance",
+          "description": "Check balance across CV folds",
+          "params": [
+            {"name": "X", "type": "array", "required": true},
+            {"name": "y", "type": "array", "required": true},
+            {"name": "cv_splitter", "type": "Any", "required": true},
+            {"name": "groups", "type": "array|None", "default": null}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "check_feature_distribution",
+          "description": "Check feature distributions for potential issues",
+          "params": [
+            {"name": "X", "type": "array", "required": true},
+            {"name": "feature_names", "type": "list[str]|None", "default": null}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "generate_report",
+          "description": "Generate human-readable balance report",
+          "params": [],
+          "returns": "str"
+        }
+      ]
+    },
+    {
+      "name": "ClinicalMetrics",
+      "import": "from trustcv import ClinicalMetrics",
+      "description": "Medical/clinical performance metrics with confidence intervals (sensitivity, specificity, PPV, NPV, NNT, NNS, likelihood ratios, diagnostic odds ratio).",
+      "constructor": {
+        "params": [
+          {"name": "confidence_level", "type": "float", "default": 0.95},
+          {"name": "prevalence", "type": "float|None", "default": null, "description": "Override dataset prevalence"}
+        ]
+      },
+      "methods": [
+        {
+          "name": "calculate_all",
+          "description": "Calculate all clinical metrics with confidence intervals",
+          "params": [
+            {"name": "y_true", "type": "array", "required": true},
+            {"name": "y_pred", "type": "array", "required": true},
+            {"name": "y_proba", "type": "array|None", "default": null},
+            {"name": "sample_weight", "type": "array|None", "default": null}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "format_report",
+          "description": "Format metrics into FDA/CE MDR clinical report",
+          "params": [
+            {"name": "metrics", "type": "dict", "required": true}
+          ],
+          "returns": "str"
+        }
+      ]
+    }
+  ],
+  "splitters": {
+    "iid": [
+      {
+        "name": "HoldOut",
+        "import": "from trustcv import HoldOut",
+        "description": "Single train/test split",
+        "params": [
+          {"name": "test_size", "type": "float|int", "default": 0.2},
+          {"name": "random_state", "type": "int|None", "default": null},
+          {"name": "stratify", "type": "array|None", "default": null}
+        ]
+      },
+      {
+        "name": "KFold",
+        "aliases": ["KFoldMedical"],
+        "import": "from trustcv import KFold",
+        "description": "Standard k-fold CV",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": false},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "StratifiedKFold",
+        "aliases": ["StratifiedKFoldMedical"],
+        "import": "from trustcv import StratifiedKFold",
+        "description": "Stratified k-fold maintaining class distribution",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": false},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "RepeatedKFold",
+        "import": "from trustcv import RepeatedKFold",
+        "description": "K-fold repeated multiple times with different randomization",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "n_repeats", "type": "int", "default": 10},
+          {"name": "random_state", "type": "int|None", "default": null},
+          {"name": "stratify", "type": "bool", "default": false}
+        ]
+      },
+      {
+        "name": "LOOCV",
+        "aliases": ["LeaveOneOut"],
+        "import": "from trustcv import LOOCV",
+        "description": "Leave-one-out CV",
+        "params": []
+      },
+      {
+        "name": "LPOCV",
+        "aliases": ["LeavePOut"],
+        "import": "from trustcv import LPOCV",
+        "description": "Leave-p-out CV",
+        "params": [
+          {"name": "p", "type": "int", "required": true}
+        ]
+      },
+      {
+        "name": "BootstrapValidation",
+        "import": "from trustcv import BootstrapValidation",
+        "description": "Bootstrap validation with .632 and .632+ estimators",
+        "params": [
+          {"name": "n_iterations", "type": "int", "default": 100},
+          {"name": "estimator", "type": "str", "default": "standard"},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "MonteCarloCV",
+        "import": "from trustcv import MonteCarloCV",
+        "description": "Monte Carlo (random sub-sampling) CV",
+        "params": [
+          {"name": "n_iterations", "type": "int", "default": 100},
+          {"name": "test_size", "type": "float|int", "default": 0.2},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "NestedCV",
+        "import": "from trustcv import NestedCV",
+        "description": "Nested CV for hyperparameter tuning",
+        "params": [
+          {"name": "outer_cv", "type": "CV", "default": "KFold(n_splits=5)"},
+          {"name": "inner_cv", "type": "CV", "default": "KFold(n_splits=3)"}
+        ]
+      }
+    ],
+    "grouped": [
+      {
+        "name": "GroupKFold",
+        "aliases": ["GroupKFoldMedical"],
+        "import": "from trustcv import GroupKFold",
+        "description": "Patient-aware k-fold ensuring all records from a patient stay together",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": true},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "StratifiedGroupKFold",
+        "import": "from trustcv import StratifiedGroupKFold",
+        "description": "Stratified group k-fold for imbalanced medical datasets",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": true},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "LeaveOneGroupOut",
+        "import": "from trustcv import LeaveOneGroupOut",
+        "description": "Each group used once as test set",
+        "params": []
+      },
+      {
+        "name": "LeavePGroupsOut",
+        "import": "from trustcv import LeavePGroupsOut",
+        "description": "Leave p groups out at a time",
+        "params": [
+          {"name": "n_groups", "type": "int", "required": true}
+        ]
+      },
+      {
+        "name": "RepeatedGroupKFold",
+        "import": "from trustcv import RepeatedGroupKFold",
+        "description": "Group k-fold repeated multiple times",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "n_repeats", "type": "int", "default": 10},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "NestedGroupedCV",
+        "import": "from trustcv import NestedGroupedCV",
+        "description": "Nested CV preserving group structure",
+        "params": [
+          {"name": "outer_cv", "type": "CV", "default": "GroupKFold(n_splits=5)"},
+          {"name": "inner_cv", "type": "CV", "default": "GroupKFold(n_splits=3)"}
+        ]
+      },
+      {
+        "name": "HierarchicalGroupKFold",
+        "import": "from trustcv import HierarchicalGroupKFold",
+        "description": "Handles nested grouping (Hospital → Patient, Study Site → Visit)",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "hierarchy_level", "type": "str", "default": "patient"},
+          {"name": "shuffle", "type": "bool", "default": true},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      }
+    ],
+    "temporal": [
+      {
+        "name": "TimeSeriesSplit",
+        "import": "from trustcv import TimeSeriesSplit",
+        "description": "Time-aware CV where training precedes test temporally",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "gap", "type": "int", "default": 0},
+          {"name": "test_size", "type": "int|float|None", "default": null},
+          {"name": "max_train_size", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "BlockedTimeSeries",
+        "aliases": ["BlockedTimeSeriesSplit"],
+        "import": "from trustcv import BlockedTimeSeries",
+        "description": "Blocked time series preserving temporal dependencies",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "block_size", "type": "int|str", "default": "day"}
+        ]
+      },
+      {
+        "name": "RollingWindowCV",
+        "aliases": ["RollingWindowSplit"],
+        "import": "from trustcv import RollingWindowCV",
+        "description": "Fixed-size training window sliding through time",
+        "params": [
+          {"name": "window_size", "type": "int", "required": true},
+          {"name": "step_size", "type": "int", "default": 1},
+          {"name": "forecast_horizon", "type": "int", "default": 1},
+          {"name": "gap", "type": "int", "default": 0}
+        ]
+      },
+      {
+        "name": "ExpandingWindowCV",
+        "aliases": ["ExpandingWindowSplit"],
+        "import": "from trustcv import ExpandingWindowCV",
+        "description": "Training set grows over time from the beginning",
+        "params": [
+          {"name": "initial_train_size", "type": "int", "default": 10},
+          {"name": "step_size", "type": "int", "default": 1},
+          {"name": "forecast_horizon", "type": "int", "default": 1},
+          {"name": "gap", "type": "int", "default": 0}
+        ]
+      },
+      {
+        "name": "PurgedKFoldCV",
+        "aliases": ["PurgedKFold"],
+        "import": "from trustcv import PurgedKFoldCV",
+        "description": "K-fold with purging and embargo for temporal leakage prevention",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "purge_gap", "type": "int", "default": 0},
+          {"name": "embargo_size", "type": "float", "default": 0.0}
+        ]
+      },
+      {
+        "name": "CombinatorialPurgedCV",
+        "aliases": ["CombinatorialPurgedKFold"],
+        "import": "from trustcv import CombinatorialPurgedCV",
+        "description": "Advanced method for financial time series with multiple combinations",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "n_test_splits", "type": "int", "default": 2},
+          {"name": "purge_gap", "type": "int", "default": 0},
+          {"name": "embargo_size", "type": "float", "default": 0.0},
+          {"name": "strict_order", "type": "bool", "default": true}
+        ]
+      },
+      {
+        "name": "PurgedGroupTimeSeriesSplit",
+        "import": "from trustcv import PurgedGroupTimeSeriesSplit",
+        "description": "Temporal ordering + group preservation + purging + embargo",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "purge_gap", "type": "int", "default": 0},
+          {"name": "embargo_size", "type": "float", "default": 0.0},
+          {"name": "group_exclusive", "type": "bool", "default": false}
+        ]
+      },
+      {
+        "name": "NestedTemporalCV",
+        "import": "from trustcv import NestedTemporalCV",
+        "description": "Nested CV preserving temporal order",
+        "params": [
+          {"name": "outer_cv", "type": "CV", "default": "ExpandingWindowCV(initial_train_size=100)"},
+          {"name": "inner_cv", "type": "CV", "default": "RollingWindowCV(window_size=50)"}
+        ]
+      }
+    ],
+    "spatial": [
+      {
+        "name": "SpatialBlockCV",
+        "aliases": ["SpatialBlockSplit"],
+        "import": "from trustcv import SpatialBlockCV",
+        "description": "Spatial block CV handling spatial autocorrelation",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "block_shape", "type": "str", "default": "grid"},
+          {"name": "block_size", "type": "float|None", "default": null},
+          {"name": "random_state", "type": "int|None", "default": null},
+          {"name": "coordinates", "type": "array|None", "default": null}
+        ]
+      },
+      {
+        "name": "BufferedSpatialCV",
+        "aliases": ["BufferedSpatialSplit"],
+        "import": "from trustcv import BufferedSpatialCV",
+        "description": "Spatial CV with buffer zones around test blocks",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "buffer_size", "type": "float", "default": 0.1},
+          {"name": "distance_metric", "type": "str", "default": "euclidean"},
+          {"name": "block_shape", "type": "str", "default": "grid"},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "SpatiotemporalBlockCV",
+        "aliases": ["SpatiotemporalBlockSplit"],
+        "import": "from trustcv import SpatiotemporalBlockCV",
+        "description": "CV for data with both spatial and temporal dimensions",
+        "params": [
+          {"name": "n_spatial_blocks", "type": "int", "default": 3},
+          {"name": "n_temporal_blocks", "type": "int", "default": 3},
+          {"name": "buffer_space", "type": "float", "default": 0},
+          {"name": "buffer_time", "type": "int", "default": 0},
+          {"name": "block_shape", "type": "str", "default": "grid"},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "EnvironmentalHealthCV",
+        "aliases": ["EnvironmentalHealthSplit"],
+        "import": "from trustcv import EnvironmentalHealthCV",
+        "description": "Spatial + temporal + environmental factors for health studies",
+        "params": [
+          {"name": "spatial_blocks", "type": "int", "default": 4},
+          {"name": "temporal_strategy", "type": "str", "default": "seasonal"},
+          {"name": "environmental_vars", "type": "list|None", "default": null},
+          {"name": "buffer_config", "type": "dict|None", "default": null}
+        ]
+      }
+    ],
+    "multilabel": [
+      {
+        "name": "MultilabelStratifiedKFold",
+        "import": "from trustcv import MultilabelStratifiedKFold",
+        "description": "Stratified k-fold for multilabel targets",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": false},
+          {"name": "random_state", "type": "int|None", "default": null}
+        ]
+      },
+      {
+        "name": "MultilabelStratifiedGroupKFold",
+        "import": "from trustcv import MultilabelStratifiedGroupKFold",
+        "description": "Group-aware multilabel stratified k-fold",
+        "params": [
+          {"name": "n_splits", "type": "int", "default": 5},
+          {"name": "shuffle", "type": "bool", "default": true},
+          {"name": "random_state", "type": "int|None", "default": null},
+          {"name": "alpha", "type": "float", "default": 1.0},
+          {"name": "beta", "type": "float", "default": 1.0},
+          {"name": "eps", "type": "float", "default": 1e-9}
+        ]
+      }
+    ]
+  },
+  "datasets": [
+    {"name": "load_heart_disease", "import": "from trustcv import load_heart_disease", "description": "UCI Heart Disease dataset"},
+    {"name": "load_diabetic_readmission", "import": "from trustcv import load_diabetic_readmission", "description": "Diabetic readmission dataset"},
+    {"name": "load_cancer_imaging", "import": "from trustcv import load_cancer_imaging", "description": "Cancer imaging features dataset"},
+    {"name": "generate_synthetic_ehr", "import": "from trustcv import generate_synthetic_ehr", "description": "Generate synthetic EHR data"},
+    {"name": "generate_temporal_patient_data", "import": "from trustcv import generate_temporal_patient_data", "description": "Generate temporal patient data"}
+  ],
+  "examples": [
+    {
+      "title": "Basic stratified k-fold",
+      "code": "from trustcv import TrustCV\nfrom sklearn.ensemble import RandomForestClassifier\n\nvalidator = TrustCV(method='stratified_kfold', n_splits=5)\nresults = validator.validate(model=RandomForestClassifier(), X=X, y=y)\nprint(results.summary())"
+    },
+    {
+      "title": "Patient-grouped CV",
+      "code": "validator = TrustCV(method='patient_grouped_kfold', n_splits=5)\nresults = validator.validate(model=model, X=X, y=y, groups=patient_ids)"
+    },
+    {
+      "title": "Leakage detection",
+      "code": "from trustcv import DataLeakageChecker\n\nchecker = DataLeakageChecker()\nreport = checker.check(X, y, groups=patient_ids, timestamps=dates)\nif report.has_leakage:\n    print(f'{report.severity}: {report.leakage_types}')"
+    },
+    {
+      "title": "Clinical metrics",
+      "code": "from trustcv import ClinicalMetrics\n\ncm = ClinicalMetrics(confidence_level=0.95)\nmetrics = cm.calculate_all(y_true, y_pred, y_proba=probs)\nprint(cm.format_report(metrics))"
+    },
+    {
+      "title": "PyTorch with UniversalCVRunner",
+      "code": "from trustcv import UniversalCVRunner, StratifiedKFold\n\nrunner = UniversalCVRunner(cv_splitter=StratifiedKFold(n_splits=5))\nresults = runner.run(\n    model=lambda: MyModel(),\n    data=(X_tensor, y_tensor),\n    epochs=50,\n    optimizer=torch.optim.Adam,\n    loss_fn=torch.nn.CrossEntropyLoss(),\n)"
+    }
+  ]
+}

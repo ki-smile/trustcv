@@ -2,6 +2,19 @@
  * Enhanced Interactive Tutorials and Quiz System
  */
 
+// Theme-aware Plotly layout helper
+function getTutorialPlotlyLayout() {
+    var c = (typeof getThemeColors === 'function') ? getThemeColors() : null;
+    if (!c) return {};
+    return {
+        paper_bgcolor: c.paperBg,
+        plot_bgcolor: c.plotBg,
+        font: { color: c.text },
+        xaxis: { color: c.axisColor, gridcolor: c.gridColor, zerolinecolor: c.gridColor },
+        yaxis: { color: c.axisColor, gridcolor: c.gridColor, zerolinecolor: c.gridColor }
+    };
+}
+
 // Demo management
 let currentDemo = 'data-leakage';
 
@@ -188,7 +201,7 @@ function createLeakageVisualization(method, aucValue) {
         }]
     };
     
-    Plotly.newPlot('leakage-plot', [trace1], layout, {responsive: true});
+    Plotly.newPlot('leakage-plot', [trace1], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 // CV Comparison Demo
@@ -274,7 +287,7 @@ function createCVComparisonVisualization(results, method) {
         xaxis: { tickangle: -45 }
     };
     
-    Plotly.newPlot('cv-comparison-plot', [trace], layout, {responsive: true});
+    Plotly.newPlot('cv-comparison-plot', [trace], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateCVExplanation(method, results) {
@@ -364,7 +377,7 @@ function createTemporalVisualization(method, horizon) {
         showlegend: true
     };
     
-    Plotly.newPlot('temporal-demo-plot', [trace1, trace2], layout, {responsive: true});
+    Plotly.newPlot('temporal-demo-plot', [trace1, trace2], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateTemporalExplanation(method, horizon) {
@@ -431,7 +444,7 @@ function createPatientVisualization(method) {
         showlegend: true
     };
     
-    Plotly.newPlot('patient-demo-plot', traces, layout, {responsive: true});
+    Plotly.newPlot('patient-demo-plot', traces, Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updatePatientExplanation(method) {
@@ -984,6 +997,50 @@ function generateLearningRecommendations(leakage, method, clinical, imaging, tem
 
 function restartQuiz() {
     resetQuiz();
+    document.getElementById('quiz-review').style.display = 'none';
+}
+
+function toggleReview() {
+    const reviewEl = document.getElementById('quiz-review');
+    if (reviewEl.style.display === 'none') {
+        populateReview();
+        reviewEl.style.display = 'block';
+        reviewEl.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        reviewEl.style.display = 'none';
+    }
+}
+
+function populateReview() {
+    const container = document.getElementById('review-container');
+    container.innerHTML = '';
+    
+    quizData.forEach((question, index) => {
+        const userAnswer = userAnswers[index];
+        const isCorrect = userAnswer === question.correct;
+        
+        const reviewItem = document.createElement('div');
+        reviewItem.className = `review-item ${isCorrect ? 'correct' : 'incorrect'}`;
+        
+        reviewItem.innerHTML = `
+            <div class="review-question">${index + 1}. ${question.question}</div>
+            <div class="review-answer your-answer">
+                <strong>Your Answer:</strong> ${userAnswer !== undefined ? question.options[userAnswer] : 'No answer'}
+                ${isCorrect ? '✅' : '❌'}
+            </div>
+            ${!isCorrect ? `
+            <div class="review-answer correct-answer">
+                <strong>Correct Answer:</strong> ${question.options[question.correct]}
+            </div>
+            ` : ''}
+            <div class="review-explanation">
+                <strong>Explanation:</strong> ${question.explanation}
+                <div style="margin-top: 8px;"><em>💡 Clinical Insight: ${question.insight}</em></div>
+            </div>
+        `;
+        
+        container.appendChild(reviewItem);
+    });
 }
 
 // Start Quiz Function (missing from original)
@@ -1092,7 +1149,7 @@ function createImagingVisualization(strategy, performance) {
         }]
     };
     
-    Plotly.newPlot('imaging-demo-plot', [trace1, trace2], layout, {responsive: true});
+    Plotly.newPlot('imaging-demo-plot', [trace1, trace2], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateImagingExplanation(strategy, performance, handleImbalance) {
@@ -1211,7 +1268,7 @@ function createGenomicsVisualization(approach, results) {
         }]
     };
     
-    Plotly.newPlot('genomics-demo-plot', [trace1], layout, {responsive: true});
+    Plotly.newPlot('genomics-demo-plot', [trace1], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateGenomicsExplanation(approach, results, featureSelection) {
@@ -1329,7 +1386,7 @@ function createDrugVisualization(method, results) {
         barmode: 'group'
     };
     
-    Plotly.newPlot('drug-discovery-plot', [trace1, trace2], layout, {responsive: true});
+    Plotly.newPlot('drug-discovery-plot', [trace1, trace2], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateDrugExplanation(method, results, threshold) {
@@ -1455,7 +1512,7 @@ function createEpiVisualization(cvType, results) {
         }]
     };
     
-    Plotly.newPlot('epidemiology-plot', [trace1], layout, {responsive: true});
+    Plotly.newPlot('epidemiology-plot', [trace1], Object.assign({}, getTutorialPlotlyLayout(), layout), {responsive: true});
 }
 
 function updateEpiExplanation(cvType, results, window) {

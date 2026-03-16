@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,6 +12,12 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/tutorials.css">
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -21,15 +27,84 @@
                 <span class="brand-logo">trustcv</span>
                 <span class="brand-tagline">MIT License</span>
             </div>
-            <ul class="nav-menu">
+            <ul class="nav-menu" id="navMenu">
                 <li><a href="../index.html">Home</a></li>
-                <li><a href="../demonstrations.html">Demonstrations</a></li>
-                <li><a href="../quiz.html">Interactive Quiz</a></li>
-                <li><a href="../notebooks.html">Notebooks</a></li>
-                <li><a href="../methods-comparison.html">Methods Guide</a></li>
-                <li><a href="API_REFERENCE.html">Documentation</a></li>
+                <li><a href="../getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="../demonstrations.html">
+                            <span class="material-icons" style="font-size: 18px;">play_circle</span>
+                            Demonstrations
+                        </a>
+                        <a href="../quiz.html">
+                            <span class="material-icons" style="font-size: 18px;">quiz</span>
+                            Interactive Quiz
+                        </a>
+                        <a href="../notebooks.html">
+                            <span class="material-icons" style="font-size: 18px;">menu_book</span>
+                            Notebooks
+                        </a>
+                        <a href="../tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="../methods-comparison.html">
+                            <span class="material-icons" style="font-size: 18px;">table_chart</span>
+                            Methods Guide
+                        </a>
+                        <a href="../cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="../frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="../data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="../best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <a href="../ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="API_REFERENCE.html">
+                            <span class="material-icons" style="font-size: 18px;">api</span>
+                            API Documentation
+                        </a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="../regulatory-cv-tutorial.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Guidelines Tutorial
+                        </a>
+                        <a href="../regulatory-report.html">
+                            <span class="material-icons" style="font-size: 18px;">description</span>
+                            Report Generator
+                        </a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
+                </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
                 </a></li>
             </ul>
         </div>
@@ -162,8 +237,9 @@ https://github.com/ki-smile/trustcv</code></pre>
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="../getting-started.html">Getting Started</a></li>
                         <li><a href="API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="LICENSE.html">MIT License</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
                         <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -172,12 +248,13 @@ https://github.com/ki-smile/trustcv</code></pre>
                     <ul>
                         <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
                         <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
                 </div>
             </div>
         </div>
@@ -202,5 +279,6 @@ https://github.com/ki-smile/trustcv`;
             });
         }
     </script>
+    <script src="../js/theme.js"></script>
 </body>
 </html>

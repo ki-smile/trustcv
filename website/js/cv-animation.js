@@ -14,18 +14,23 @@ class TrustCVAnimation {
         this.canvas.width = 800;
         this.canvas.height = 500;
         
-        // Colors matching KI theme
+        // Colors matching KI theme - theme-aware
+        var tc = (typeof getThemeColors === 'function') ? getThemeColors() : {
+            plum: '#8B1538', test: '#E74C3C', train: '#3498DB',
+            surface: '#F5F5F5', text: '#2C3E50', border: '#34495E',
+            inactive: '#95A5A6', grey: '#95A5A6'
+        };
         this.colors = {
-            primary: '#8B1538',    // KI Plum
-            secondary: '#E9423E',  // KI Red
+            primary: tc.plum,
+            secondary: tc.test,
             success: '#4CAF50',
             error: '#F44336',
             warning: '#FF9800',
-            train: '#3498DB',
-            test: '#E74C3C',
-            neutral: '#95A5A6',
-            background: '#F5F5F5',
-            text: '#2C3E50'
+            train: tc.train,
+            test: tc.test,
+            neutral: tc.grey,
+            background: tc.surface,
+            text: tc.text
         };
         
         this.initializePatients();
@@ -101,7 +106,7 @@ class TrustCVAnimation {
         } else if (patient.inTraining === false) {
             this.ctx.fillStyle = this.colors.test + '30';
         } else {
-            this.ctx.fillStyle = '#FFFFFF';
+            this.ctx.fillStyle = this.colors.background;
         }
         
         this.ctx.fillRect(patient.x, patient.y, patient.width, patient.height);
@@ -416,7 +421,7 @@ class TrustCVAnimation {
                     const y = 200;
                     
                     // Patient box
-                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillStyle = this.colors.background;
                     this.ctx.fillRect(x - 30, y, 60, 40);
                     this.ctx.strokeStyle = this.colors.neutral;
                     this.ctx.strokeRect(x - 30, y, 60, 40);
@@ -463,7 +468,7 @@ class TrustCVAnimation {
                     const isTraining = i < 5;
                     
                     // Patient box
-                    this.ctx.fillStyle = isTraining ? this.colors.train + '40' : '#FFFFFF';
+                    this.ctx.fillStyle = isTraining ? this.colors.train + '40' : this.colors.background;
                     this.ctx.fillRect(x - 30, y, 60, 40);
                     this.ctx.strokeStyle = isTraining ? this.colors.train : this.colors.neutral;
                     this.ctx.lineWidth = isTraining ? 2 : 1;
@@ -624,6 +629,15 @@ class TrustCVAnimation {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('cv-animation-canvas');
+    if (canvas) {
+        window.cvAnimation = new TrustCVAnimation('cv-animation-canvas');
+        window.cvAnimation.reset();
+    }
+});
+
+// Re-initialize on theme change so colors update
+window.addEventListener('themechange', function() {
+    var canvas = document.getElementById('cv-animation-canvas');
     if (canvas) {
         window.cvAnimation = new TrustCVAnimation('cv-animation-canvas');
         window.cvAnimation.reset();

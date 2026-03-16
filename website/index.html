@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,18 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/tutorials.css">
-    
+
+    <!-- Prism.js for syntax highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+
+    <!-- Theme initialization (prevents flash) -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+
     <!-- Plotly for interactive visualizations -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
@@ -28,7 +39,7 @@
                 <span class="material-icons">menu</span>
             </button>
             <ul class="nav-menu" id="navMenu">
-                <li><a href="#methods">Methods</a></li>
+                <li><a href="getting-started.html">Install</a></li>
                 <li class="nav-dropdown">
                     <a href="#">Learn</a>
                     <div class="dropdown-menu">
@@ -44,6 +55,10 @@
                             <span class="material-icons" style="font-size: 18px;">menu_book</span>
                             Notebooks
                         </a>
+                        <a href="tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
                     </div>
                 </li>
                 <li class="nav-dropdown">
@@ -53,14 +68,27 @@
                             <span class="material-icons" style="font-size: 18px;">table_chart</span>
                             Methods Guide
                         </a>
+                        <a href="cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <a href="ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
                         <a href="docs/API_REFERENCE.html">
                             <span class="material-icons" style="font-size: 18px;">api</span>
                             API Documentation
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="docs/CV_SELECTION_GUIDE.md">
-                            <span class="material-icons" style="font-size: 18px;">help</span>
-                            Selection Guide
                         </a>
                     </div>
                 </li>
@@ -75,11 +103,18 @@
                             <span class="material-icons" style="font-size: 18px;">description</span>
                             Report Generator
                         </a>
-                        
                     </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
                 </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
+                </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
                 </a></li>
             </ul>
         </div>
@@ -88,25 +123,56 @@
     <!-- Hero Section -->
     <section class="hero">
         <div class="hero-content">
-            <h1 class="hero-title">Master Cross-Validation for Medical ML</h1>
+            <div class="hero-badges">
+                <img src="https://img.shields.io/pypi/v/trustcv?color=%23870052" alt="PyPI version">
+                <img src="https://img.shields.io/pypi/pyversions/trustcv?color=%23FF876F" alt="Python versions">
+                <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License">
+                <img src="https://img.shields.io/badge/CV%20methods-29-blue" alt="29 CV methods">
+            </div>
+            <h1 class="hero-title">Trustworthy Cross-Validation for Medical ML</h1>
             <p class="hero-subtitle">
-                Learn, implement, and validate machine learning models with medical data best practices.
-                Interactive tutorials, safety checks, and regulatory compliance built-in.
+                Framework-agnostic toolkit with 29 CV methods, automatic data leakage detection,
+                clinical metrics, and regulatory compliance support.
                 <br><em>Developed at SMAILE, Karolinska Institutet's core facility for AI.</em>
             </p>
+            <div class="install-command" onclick="copyInstall()" title="Click to copy">
+                <span>$ pip install trustcv</span>
+                <span class="material-icons copy-icon">content_copy</span>
+            </div>
             <div class="hero-actions">
-                <button class="btn-primary" onclick="window.location.href='demonstrations.html'">
-                    <span class="material-icons">play_arrow</span>
-                    Start Demonstrations
-                </button>
-                <button class="btn-secondary" onclick="window.location.href='#quick-start'">
+                <button class="btn-primary" onclick="window.location.href='getting-started.html'">
                     <span class="material-icons">rocket_launch</span>
-                    Quick Start Guide
+                    Get Started
+                </button>
+                <button class="btn-secondary" onclick="window.location.href='demonstrations.html'">
+                    <span class="material-icons">play_arrow</span>
+                    Demonstrations
                 </button>
             </div>
         </div>
         <div class="hero-visualization">
             <div id="cv-demo-plot"></div>
+        </div>
+    </section>
+
+    <!-- Podcast Deep Dive -->
+    <section class="podcast-section">
+        <div class="container">
+            <h2>🎙️ Podcast: The Reproducibility Crisis in Medical AI</h2>
+            <div class="podcast-container">
+                <p class="podcast-description">
+                    Deep dive into how <strong>trustcv</strong> solves "data leakage" and why standard 
+                    validation methods fail in clinical settings. (Generated with AI)
+                </p>
+                <audio controls class="podcast-player">
+                    <source src="trustcv.mp3" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                <div class="podcast-meta">
+                    <span><span class="material-icons" style="font-size:16px;">timer</span> ~18 min</span>
+                    <span><span class="material-icons" style="font-size:16px;">topic</span> Data Leakage, CV Methods, Clinical Safety</span>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -288,19 +354,24 @@
     <section id="quick-start" class="quick-start">
         <div class="container">
             <h2>Quick Start</h2>
+            <p class="section-subtitle">Install from <a href="https://pypi.org/project/trustcv/" target="_blank" style="color:var(--ki-plum);font-weight:500;">PyPI</a> and validate your first model in minutes</p>
             <div class="code-example">
-                <pre><code class="python">from trustcv import TrustCVValidator
-from trustcv.splitters import GroupKFold
+                <pre><code class="language-bash"># Install from PyPI
+pip install trustcv</code></pre>
+            </div>
+            <div class="code-example">
+                <pre><code class="language-python">from trustcv import TrustCVValidator
 from sklearn.ensemble import RandomForestClassifier
 
 # Initialize with medical-specific settings
 validator = TrustCVValidator(
-    cv=GroupKFold(n_splits=5),  # Patient-grouped cross-validation
+    method='group_kfold',       # Patient-grouped cross-validation
+    n_splits=5,
     check_leakage=True          # Automatic data leakage detection
 )
 
 # Validate your model with patient grouping
-results = validator.fit_validate(
+results = validator.validate(
     model=RandomForestClassifier(),
     X=X_features,
     y=y_labels,
@@ -310,14 +381,32 @@ results = validator.fit_validate(
 # Get comprehensive results with clinical metrics
 print(results.summary())</code></pre>
             </div>
+            <div class="install-extras" style="margin-bottom: var(--spacing-lg);">
+                <div class="install-extra-item">
+                    <code>pip install trustcv[pytorch]</code>
+                    <span class="extra-desc">PyTorch support</span>
+                </div>
+                <div class="install-extra-item">
+                    <code>pip install trustcv[tensorflow]</code>
+                    <span class="extra-desc">TensorFlow/Keras</span>
+                </div>
+                <div class="install-extra-item">
+                    <code>pip install trustcv[monai]</code>
+                    <span class="extra-desc">Medical imaging</span>
+                </div>
+                <div class="install-extra-item">
+                    <code>pip install trustcv[all]</code>
+                    <span class="extra-desc">All frameworks</span>
+                </div>
+            </div>
             <div class="quick-actions">
-                <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/01_CV_Basics.ipynb" 
-                   class="btn-colab">
+                <a href="https://colab.research.google.com/github/ki-smile/trustcv/blob/main/notebooks/01_IID_Methods_Showcase.ipynb"
+                   class="btn-colab" target="_blank">
                     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab">
                 </a>
-                <button class="btn-secondary" onclick="copyCode()">
-                    <span class="material-icons">content_copy</span> Copy Code
-                </button>
+                <a href="getting-started.html" class="btn-secondary" style="text-decoration:none;">
+                    <span class="material-icons">arrow_forward</span> Full Getting Started Guide
+                </a>
             </div>
         </div>
     </section>
@@ -422,8 +511,9 @@ print(results.summary())</code></pre>
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
                         <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="docs/LICENSE.html">MIT License</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
                         <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -432,17 +522,28 @@ print(results.summary())</code></pre>
                     <ul>
                         <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
                         <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
-                        <li><a href="LICENSE">MIT License</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
                 <div class="copyright">
-                    <p>&copy; 2024 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
                 </div>
             </div>
         </div>
     </footer>
+
+    <!-- Prism.js for syntax highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+    <!-- Theme (must load before visualizations) -->
+    <script src="js/theme.js"></script>
+
+    <!-- Tooltips -->
+    <script src="js/tooltips.js"></script>
 
     <!-- JavaScript Files -->
     <script src="js/main.js"></script>
@@ -452,7 +553,16 @@ print(results.summary())</code></pre>
     <script src="js/cv-grouped.js"></script>
     <script src="js/cv-spatial.js"></script>
     <script src="js/tutorials.js"></script>
-    
+
+    <script>
+        function copyInstall() {
+            navigator.clipboard.writeText('pip install trustcv').then(function() {
+                var el = document.querySelector('.install-command .copy-icon');
+                el.textContent = 'check';
+                setTimeout(function() { el.textContent = 'content_copy'; }, 2000);
+            });
+        }
+    </script>
     <script>
         // Mobile menu toggle
         function toggleMobileMenu() {

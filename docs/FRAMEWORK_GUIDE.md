@@ -593,17 +593,8 @@ from trustcv import DataLeakageChecker
 checker = DataLeakageChecker()
 
 for fold_idx, (train_idx, test_idx) in enumerate(cv.split(X, y, groups)):
-    # Check patient leakage
-    has_patient_leak = checker.check_patient_leakage(
-        train_idx, test_idx, patient_ids
-    )
-    
-    # Check temporal leakage
-    has_temporal_leak = checker.check_temporal_leakage(
-        train_idx, test_idx, timestamps
-    )
-    
-    if has_patient_leak or has_temporal_leak:
+    report = checker.check(X, y, groups=patient_ids, timestamps=timestamps)
+    if report.has_leakage:
         raise ValueError(f"Data leakage detected in fold {fold_idx}!")
 ```
 

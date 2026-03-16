@@ -3,27 +3,70 @@
  * Main JavaScript file for website interactions
  */
 
-// KI Color Palette
-const colors = {
-    darkPlum: '#4F0433',
-    plum: '#870052',
-    orange: '#FF876F',
-    lightOrange: '#FEEEEB',
-    lightBlue: '#EDF4F4',
-    grey: '#6B6B6B'
-};
+// KI Color Palette - dynamic for theme support
+function getColors() {
+    if (typeof getThemeColors === 'function') return getThemeColors();
+    // Fallback if theme.js hasn't loaded
+    return {
+        plum: '#870052', darkPlum: '#4F0433', orange: '#FF876F',
+        lightBlue: '#EDF4F4', lightOrange: '#FEEEEB', grey: '#6B6B6B',
+        text: '#000000', textMuted: '#666666', background: '#FEEEEB',
+        plotBg: '#FFFFFF', paperBg: '#EDF4F4', train: '#3498DB', test: '#E74C3C',
+        inactive: '#BDC3C7', gridColor: 'rgba(0,0,0,0.06)', axisColor: '#666666',
+        titleColor: '#4F0433', annotationColor: '#666666', border: '#EDDBE4',
+        surface: '#FFFFFF', cardBg: '#EDF4F4'
+    };
+}
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     initHeroVisualization();
     initCVVisualization();
     setupMethodSelector();
+    setupCodeBlocks();
 });
+
+/**
+ * Add "Copy" buttons to all code blocks
+ */
+function setupCodeBlocks() {
+    const codeBlocks = document.querySelectorAll('pre');
+    
+    codeBlocks.forEach((block) => {
+        // Only add if it's a code block and not already processed
+        if (block.querySelector('code') && !block.querySelector('.copy-button')) {
+            const button = document.createElement('button');
+            button.className = 'copy-button';
+            button.innerHTML = '<span class="material-icons">content_copy</span>';
+            button.title = 'Copy to clipboard';
+            
+            button.addEventListener('click', async () => {
+                const code = block.querySelector('code').innerText;
+                try {
+                    await navigator.clipboard.writeText(code);
+                    button.innerHTML = '<span class="material-icons">check</span>';
+                    button.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        button.innerHTML = '<span class="material-icons">content_copy</span>';
+                        button.classList.remove('copied');
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy!', err);
+                }
+            });
+            
+            block.style.position = 'relative';
+            block.appendChild(button);
+        }
+    });
+}
 
 /**
  * Hero Section - Animated CV Demo
  */
 function initHeroVisualization() {
+    var colors = getColors();
     const data = generateSampleData(100);
     
     const trace1 = {
@@ -41,12 +84,12 @@ function initHeroVisualization() {
     
     const layout = {
         title: 'Cross-Validation in Action',
-        xaxis: { title: 'Feature 1' },
-        yaxis: { title: 'Feature 2' },
+        xaxis: { title: 'Feature 1', color: colors.axisColor, gridcolor: colors.gridColor },
+        yaxis: { title: 'Feature 2', color: colors.axisColor, gridcolor: colors.gridColor },
         showlegend: true,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white',
-        font: { family: 'Roboto, sans-serif' }
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { family: 'Roboto, sans-serif', color: colors.text }
     };
     
     Plotly.newPlot('cv-demo-plot', [trace1], layout, {responsive: true});
@@ -82,11 +125,12 @@ function animateFolds() {
     let currentFold = 0;
     
     setInterval(() => {
+        var colors = getColors();
         const data = generateSampleData(100);
         const foldSize = Math.floor(data.x.length / nSplits);
         const testStart = currentFold * foldSize;
         const testEnd = testStart + foldSize;
-        
+
         const colors_array = data.x.map((_, idx) => {
             if (idx >= testStart && idx < testEnd) {
                 return colors.orange;  // Test fold
@@ -121,10 +165,14 @@ function updateVisualization() {
     const method = document.getElementById('cv-method').value;
     const nSplits = document.getElementById('n-splits').value;
     
-    document.getElementById('splits-label').textContent = `${nSplits} splits`;
+    const splitsLabel = document.getElementById('splits-label');
+    if (splitsLabel) {
+        splitsLabel.textContent = `${nSplits} splits`;
+    }
     
     // Clear previous visualization
     const vizContainer = document.getElementById('cv-visualization');
+    if (!vizContainer) return;
     vizContainer.innerHTML = '';
     
     // Create visualization based on method
@@ -233,6 +281,7 @@ function updateVisualization() {
  * Visualize K-Fold CV
  */
 function visualizeKFold(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
     const nSamples = 50;
     
@@ -293,8 +342,9 @@ function visualizeKFold(nSplits) {
  * Visualize Stratified K-Fold
  */
 function visualizeStratified(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Create interactive plot showing class preservation
     const data = [];
     
@@ -313,10 +363,11 @@ function visualizeStratified(nSplits) {
     const layout = {
         title: 'Stratified K-Fold: Class Distribution Preserved',
         barmode: 'group',
-        xaxis: { title: 'Class' },
-        yaxis: { title: 'Number of Samples' },
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        xaxis: { title: 'Class', color: colors.axisColor, gridcolor: colors.gridColor },
+        yaxis: { title: 'Number of Samples', color: colors.axisColor, gridcolor: colors.gridColor },
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -341,8 +392,9 @@ function visualizeStratified(nSplits) {
  * Visualize Grouped K-Fold
  */
 function visualizeGrouped(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Create patient grouping visualization
     const patients = generatePatientData();
     
@@ -371,10 +423,11 @@ function visualizeGrouped(nSplits) {
     const layout = {
         title: 'Patient-Grouped K-Fold: No Patient Appears in Multiple Folds',
         barmode: 'stack',
-        xaxis: { title: 'Patient ID' },
-        yaxis: { title: 'Number of Records' },
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        xaxis: { title: 'Patient ID', color: colors.axisColor, gridcolor: colors.gridColor },
+        yaxis: { title: 'Number of Records', color: colors.axisColor, gridcolor: colors.gridColor },
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, traces, layout, {responsive: true});
@@ -399,8 +452,9 @@ function visualizeGrouped(nSplits) {
  * Visualize Temporal Split
  */
 function visualizeTemporal(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Create time series visualization
     const dates = [];
     const values = [];
@@ -452,12 +506,13 @@ function visualizeTemporal(nSplits) {
     
     const layout = {
         title: 'Time Series Split: Respects Temporal Order',
-        xaxis: { title: 'Time' },
-        yaxis: { title: 'Measurement Value' },
+        xaxis: { title: 'Time', color: colors.axisColor, gridcolor: colors.gridColor },
+        yaxis: { title: 'Measurement Value', color: colors.axisColor, gridcolor: colors.gridColor },
         shapes: shapes,
         annotations: annotations,
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, [trace], layout, {responsive: true});
@@ -824,8 +879,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // I.I.D. Methods
 function visualizeHoldOut() {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Create simple train/test split visualization
     const data = [
         {x: ['Training Set (80%)'], y: [80], type: 'bar', marker: {color: colors.plum}},
@@ -835,9 +891,10 @@ function visualizeHoldOut() {
     const layout = {
         title: 'Hold-Out Validation (Train-Test Split)',
         barmode: 'stack',
-        yaxis: {title: 'Percentage of Data'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        yaxis: {title: 'Percentage of Data', color: colors.axisColor, gridcolor: colors.gridColor},
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -858,8 +915,9 @@ function visualizeHoldOut() {
 }
 
 function visualizeRepeatedKFold(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Show multiple repetitions
     const repeats = 3;
     const traces = [];
@@ -876,10 +934,11 @@ function visualizeRepeatedKFold(nSplits) {
     
     const layout = {
         title: 'Repeated K-Fold: Multiple Runs with Different Randomization',
-        xaxis: {title: 'Fold'},
-        yaxis: {title: 'Accuracy (%)'},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        xaxis: {title: 'Fold', color: colors.axisColor, gridcolor: colors.gridColor},
+        yaxis: {title: 'Accuracy (%)', color: colors.axisColor, gridcolor: colors.gridColor},
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, traces, layout, {responsive: true});
@@ -899,8 +958,9 @@ function visualizeRepeatedKFold(nSplits) {
 }
 
 function visualizeLOOCV() {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Show leave-one-out concept
     const n = 10; // Small dataset for visualization
     const foldDiv = document.createElement('div');
@@ -961,8 +1021,9 @@ function visualizeLPOCV() {
 }
 
 function visualizeBootstrap() {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Show bootstrap sampling concept
     const data = [{
         labels: ['In-Bag', 'Out-of-Bag'],
@@ -975,7 +1036,8 @@ function visualizeBootstrap() {
     
     const layout = {
         title: 'Bootstrap Sampling: ~63.2% In-Bag, ~36.8% OOB',
-        paper_bgcolor: colors.lightBlue
+        paper_bgcolor: colors.paperBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -1243,8 +1305,9 @@ function visualizeNestedGrouped() {
 
 // Spatial Methods
 function visualizeSpatialBlock(nSplits) {
+    var colors = getColors();
     const container = document.getElementById('cv-visualization');
-    
+
     // Create spatial grid visualization
     const gridSize = Math.ceil(Math.sqrt(nSplits));
     const data = [];
@@ -1268,10 +1331,11 @@ function visualizeSpatialBlock(nSplits) {
     
     const layout = {
         title: 'Spatial Block Cross-Validation',
-        xaxis: {title: 'Longitude', showgrid: false},
-        yaxis: {title: 'Latitude', showgrid: false},
-        paper_bgcolor: colors.lightBlue,
-        plot_bgcolor: 'white'
+        xaxis: {title: 'Longitude', showgrid: false, color: colors.axisColor},
+        yaxis: {title: 'Latitude', showgrid: false, color: colors.axisColor},
+        paper_bgcolor: colors.paperBg,
+        plot_bgcolor: colors.plotBg,
+        font: { color: colors.text }
     };
     
     Plotly.newPlot(container, data, layout, {responsive: true});
@@ -1377,9 +1441,10 @@ style.textContent = `
     .method-description {
         margin-top: 30px;
         padding: 20px;
-        background: white;
+        background: var(--card-bg);
         border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--md-sys-elevation-1);
+        border: 1px solid var(--border-color);
     }
     
     .method-description h3 {
@@ -1398,11 +1463,12 @@ style.textContent = `
     }
     
     .method-card {
-        background: white;
+        background: var(--card-bg);
         padding: 20px;
         border-radius: 12px;
         margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: var(--md-sys-elevation-1);
+        border: 1px solid var(--border-color);
     }
     
     .method-card h4 {
@@ -1419,3 +1485,65 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Re-render visualizations when theme changes
+window.addEventListener('themechange', function() {
+    if (typeof updateVisualization === 'function') {
+        try { updateVisualization(); } catch(e) {}
+    }
+    if (typeof initHeroVisualization === 'function') {
+        try { initHeroVisualization(); } catch(e) {}
+    }
+});
+
+/**
+ * Mobile Navigation Support
+ */
+function toggleMobileMenu() {
+    const menu = document.getElementById('navMenu');
+    if (menu) {
+        menu.classList.toggle('active');
+    }
+}
+
+// Global click handler for mobile dropdowns and closing menu
+document.addEventListener('click', function(e) {
+    const target = e.target;
+    
+    // Handle dropdown toggles on mobile
+    if (window.innerWidth <= 768) {
+        const dropdownLink = target.closest('.nav-dropdown > a');
+        if (dropdownLink) {
+            e.preventDefault();
+            const parent = dropdownLink.parentElement;
+            
+            // Toggle current dropdown
+            const isActive = parent.classList.contains('active');
+            
+            // Close all dropdowns first
+            document.querySelectorAll('.nav-dropdown.active').forEach(d => {
+                d.classList.remove('active');
+            });
+            
+            // If it wasn't active, make it active
+            if (!isActive) {
+                parent.classList.add('active');
+            }
+            return;
+        }
+    }
+    
+    // Close menu when clicking outside
+    const menu = document.getElementById('navMenu');
+    const toggle = document.querySelector('.nav-toggle');
+    
+    if (menu && menu.classList.contains('active')) {
+        if (!menu.contains(target) && (!toggle || !toggle.contains(target))) {
+            menu.classList.remove('active');
+            // Also close all active dropdowns
+            document.querySelectorAll('.nav-dropdown.active').forEach(d => {
+                d.classList.remove('active');
+            });
+        }
+    }
+});

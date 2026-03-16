@@ -28,7 +28,7 @@ Main Features:
 For more information: https://github.com/ki-smile/trustcv
 """
 
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 __author__ = "SMAILE Team, Karolinska Institutet"
 __institution__ = "SMAILE - Stockholm Medical AI and Learning Environments, Karolinska Institutet"
 __website__ = "https://smile.ki.se"
@@ -41,6 +41,7 @@ from .core import (
     CVCallback,
     CVResults,
     EarlyStopping,
+    LeakageDetectionCallback,
     ModelCheckpoint,
     ProgressLogger,
     UniversalCVRunner,
@@ -134,6 +135,7 @@ __all__ = [
     "ModelCheckpoint",
     "ProgressLogger",
     "ClassDistributionLogger",
+    "LeakageDetectionCallback",
     # I.I.D. methods
     "HoldOut",
     "KFoldMedical",

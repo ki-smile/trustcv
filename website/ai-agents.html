@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Support - trustcv</title>
+
+    <!-- Material Design 3 -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/tutorials.css">
+
+    <!-- Prism Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+    <!-- Theme init (prevents flash) -->
+    <script>
+        const saved = localStorage.getItem('trustcv-theme');
+        if (saved) document.documentElement.setAttribute('data-theme', saved);
+    </script>
+
+    <style>
+        /* ── Page-specific styles ── */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .agent-card {
+            border-radius: 16px;
+            padding: 28px 24px;
+            box-shadow: var(--md-sys-elevation-1);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .agent-card:hover {
+            box-shadow: var(--md-sys-elevation-2);
+            transform: translateY(-2px);
+        }
+        .agent-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--ki-dark-plum);
+        }
+        .agent-card .agent-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .agent-card p {
+            color: var(--ki-grey);
+            line-height: 1.6;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        .agent-card .file-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-family: 'Roboto Mono', monospace;
+            background: var(--surface-variant);
+            color: var(--ki-dark-plum);
+            border: 1px solid var(--border-color);
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .agent-card .file-badge:hover {
+            background: var(--ki-dark-plum);
+            color: #fff;
+        }
+        .agent-card .file-badge .material-icons {
+            font-size: 14px;
+        }
+
+        /* File listing table */
+        .files-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+        }
+        .files-table th {
+            background: var(--surface-variant);
+            padding: 14px 20px;
+            text-align: left;
+            font-weight: 500;
+            color: var(--ki-dark-plum);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .files-table td {
+            padding: 14px 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--ki-grey);
+            font-size: 0.95rem;
+            vertical-align: top;
+        }
+        .files-table tr:hover td {
+            background: var(--surface-variant);
+        }
+        .files-table code {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.88rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(135, 0, 82, 0.08);
+            color: var(--ki-dark-plum);
+        }
+
+        /* How it works section */
+        .how-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .how-step {
+            border-radius: 16px;
+            padding: 24px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--md-sys-elevation-1);
+            text-align: center;
+        }
+        .how-step .step-number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--ki-dark-plum);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .how-step h4 {
+            color: var(--ki-dark-plum);
+            margin-bottom: 8px;
+        }
+        .how-step p {
+            color: var(--ki-grey);
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        /* Standard section */
+        .standard-card {
+            border-radius: 16px;
+            padding: 32px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--md-sys-elevation-1);
+            margin-top: 24px;
+        }
+        .standard-card h3 {
+            color: var(--ki-dark-plum);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .standard-card p {
+            color: var(--ki-grey);
+            line-height: 1.6;
+        }
+        .standard-card pre {
+            margin-top: 16px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html" style="text-decoration:none;display:flex;align-items:baseline;gap:8px;">
+                    <span class="brand-logo">trustcv</span>
+                    <span class="brand-tagline">AI Agent Support</span>
+                </a>
+            </div>
+            <button class="nav-toggle" onclick="toggleMobileMenu()">
+                <span class="material-icons">menu</span>
+            </button>
+            <ul class="nav-menu" id="navMenu">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
+                <li class="nav-dropdown">
+                    <a href="#">Learn</a>
+                    <div class="dropdown-menu">
+                        <a href="demonstrations.html"><span class="material-icons" style="font-size:18px;">play_circle</span> Demonstrations</a>
+                        <a href="quiz.html"><span class="material-icons" style="font-size:18px;">quiz</span> Interactive Quiz</a>
+                        <a href="notebooks.html"><span class="material-icons" style="font-size:18px;">menu_book</span> Notebooks</a>
+                        <a href="tutorials.html"><span class="material-icons" style="font-size:18px;">school</span> Tutorials</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Resources</a>
+                    <div class="dropdown-menu">
+                        <a href="methods-comparison.html"><span class="material-icons" style="font-size:18px;">table_chart</span> Methods Guide</a>
+                        <a href="cv-selection-guide.html"><span class="material-icons" style="font-size:18px;">help</span> Selection Guide</a>
+                        <a href="frameworks.html"><span class="material-icons" style="font-size:18px;">integration_instructions</span> Framework Integration</a>
+                        <a href="data-leakage.html"><span class="material-icons" style="font-size:18px;">shield</span> Data Leakage Detection</a>
+                        <a href="best-practices.html"><span class="material-icons" style="font-size:18px;">verified</span> Best Practices</a>
+                        <a href="ai-agents.html" class="active"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
+                        <a href="docs/API_REFERENCE.html"><span class="material-icons" style="font-size:18px;">api</span> API Documentation</a>
+                    </div>
+                </li>
+                <li class="nav-dropdown">
+                    <a href="#">Regulatory</a>
+                    <div class="dropdown-menu">
+                        <a href="regulatory-cv-tutorial.html"><span class="material-icons" style="font-size:18px;">school</span> Guidelines Tutorial</a>
+                        <a href="regulatory-report.html"><span class="material-icons" style="font-size:18px;">description</span> Report Generator</a>
+                    </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
+                </li>
+                <li><a href="https://github.com/ki-smile/trustcv" class="nav-github"><span class="material-icons">code</span> GitHub</a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">PyPI</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1 class="page-title">AI Agent Support</h1>
+            <p class="page-subtitle">
+                Machine-readable documentation for AI coding agents &mdash; Claude Code, GitHub Copilot, Cursor, Gemini CLI, and more.
+                trustcv provides structured files so any AI assistant can understand the API and write correct code.
+            </p>
+            <div class="header-badges">
+                <span class="badge">llms.txt</span>
+                <span class="badge">Copilot</span>
+                <span class="badge">Cursor</span>
+                <span class="badge">Claude Code</span>
+                <span class="badge">API Schema</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 1: Overview                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="overview">
+        <div class="container">
+            <h2><span class="material-icons">smart_toy</span> Why AI Agent Documentation?</h2>
+            <p class="section-sub">
+                AI coding agents work best when they have structured, machine-readable documentation.
+                trustcv ships documentation files that major AI agents automatically discover and use,
+                so they can write correct cross-validation code for medical ML projects.
+            </p>
+
+            <div class="how-grid">
+                <div class="how-step">
+                    <div class="step-number">1</div>
+                    <h4>Agent Discovers Files</h4>
+                    <p>AI agents fetch <code>llms.txt</code> or read repo-specific config files like <code>.cursorrules</code> or <code>CLAUDE.md</code>.</p>
+                </div>
+                <div class="how-step">
+                    <div class="step-number">2</div>
+                    <h4>Understands the API</h4>
+                    <p>The agent learns trustcv's classes, methods, parameters, and best practices from the structured documentation.</p>
+                </div>
+                <div class="how-step">
+                    <div class="step-number">3</div>
+                    <h4>Writes Correct Code</h4>
+                    <p>With full API knowledge, the agent generates valid, leakage-free cross-validation code using the right splitters and methods.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 2: Supported Agents                                -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="agents">
+        <div class="container">
+            <h2><span class="material-icons">hub</span> Supported AI Agents</h2>
+            <p class="section-sub">trustcv provides documentation files for all major AI coding agents.</p>
+
+            <div class="agent-grid">
+
+                <!-- llms.txt -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;">
+                            <span class="material-icons">public</span>
+                        </span>
+                        llms.txt (Universal)
+                    </h3>
+                    <p>
+                        The <a href="https://llmstxt.org/" target="_blank">llms.txt standard</a> provides a single Markdown file any LLM or agent can fetch to understand a project.
+                        Includes API reference, code examples, and common patterns.
+                    </p>
+                    <a href="llms.txt" class="file-badge" target="_blank"><span class="material-icons">description</span> llms.txt</a>
+                    <a href="llms-full.txt" class="file-badge" target="_blank"><span class="material-icons">description</span> llms-full.txt</a>
+                </div>
+
+                <!-- Claude Code -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#D97706,#F59E0B);color:#fff;">
+                            <span class="material-icons">terminal</span>
+                        </span>
+                        Claude Code
+                    </h3>
+                    <p>
+                        Claude Code reads <code>CLAUDE.md</code> at the repo root for project-specific instructions &mdash;
+                        architecture, commands, conventions, and key APIs.
+                    </p>
+                    <a href="https://github.com/ki-smile/trustcv/blob/main/CLAUDE.md" class="file-badge" target="_blank"><span class="material-icons">description</span> CLAUDE.md</a>
+                </div>
+
+                <!-- GitHub Copilot -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#2b3137,#6e7681);color:#fff;">
+                            <span class="material-icons">code</span>
+                        </span>
+                        GitHub Copilot
+                    </h3>
+                    <p>
+                        GitHub Copilot reads <code>.github/copilot-instructions.md</code> for repo-specific context,
+                        providing architecture overview, key APIs, and coding conventions.
+                    </p>
+                    <a href="https://github.com/ki-smile/trustcv/blob/main/.github/copilot-instructions.md" class="file-badge" target="_blank"><span class="material-icons">description</span> copilot-instructions.md</a>
+                </div>
+
+                <!-- Cursor -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;">
+                            <span class="material-icons">edit_note</span>
+                        </span>
+                        Cursor IDE
+                    </h3>
+                    <p>
+                        Cursor reads <code>.cursorrules</code> at the repo root for project-specific instructions,
+                        covering architecture, commands, and API patterns.
+                    </p>
+                    <a href="https://github.com/ki-smile/trustcv/blob/main/.cursorrules" class="file-badge" target="_blank"><span class="material-icons">description</span> .cursorrules</a>
+                </div>
+
+                <!-- API Schema -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#059669,#34D399);color:#fff;">
+                            <span class="material-icons">data_object</span>
+                        </span>
+                        API Schema (JSON)
+                    </h3>
+                    <p>
+                        A structured JSON schema with every class, method signature, parameter type, default value, and usage example.
+                        Any AI agent can parse this programmatically.
+                    </p>
+                    <a href="api-schema.json" class="file-badge" target="_blank"><span class="material-icons">data_object</span> api-schema.json</a>
+                </div>
+
+                <!-- Any LLM -->
+                <div class="agent-card">
+                    <h3>
+                        <span class="agent-icon" style="background:linear-gradient(135deg,#DC2626,#F87171);color:#fff;">
+                            <span class="material-icons">auto_awesome</span>
+                        </span>
+                        Other Agents
+                    </h3>
+                    <p>
+                        Windsurf, Aider, Gemini CLI, OpenAI Codex, and others can use <code>llms.txt</code> or <code>api-schema.json</code>
+                        as context for trustcv-aware code generation.
+                    </p>
+                    <a href="llms.txt" class="file-badge" target="_blank"><span class="material-icons">description</span> llms.txt</a>
+                    <a href="api-schema.json" class="file-badge" target="_blank"><span class="material-icons">data_object</span> api-schema.json</a>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 3: Files Reference                                 -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="files">
+        <div class="container">
+            <h2><span class="material-icons">folder_open</span> Documentation Files</h2>
+            <p class="section-sub">Complete list of AI agent documentation files included in trustcv.</p>
+
+            <table class="files-table">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Target Agent</th>
+                        <th>Format</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><a href="llms.txt" target="_blank"><code>llms.txt</code></a></td>
+                        <td>All LLMs &amp; agents</td>
+                        <td>Markdown</td>
+                        <td>Concise API reference with examples and common patterns (~5 KB)</td>
+                    </tr>
+                    <tr>
+                        <td><a href="llms-full.txt" target="_blank"><code>llms-full.txt</code></a></td>
+                        <td>All LLMs &amp; agents</td>
+                        <td>Markdown</td>
+                        <td>Extended reference with all 29 CV methods, full signatures, and 7 examples (~20 KB)</td>
+                    </tr>
+                    <tr>
+                        <td><a href="api-schema.json" target="_blank"><code>api-schema.json</code></a></td>
+                        <td>Programmatic agents</td>
+                        <td>JSON</td>
+                        <td>Structured API schema &mdash; classes, methods, params, types, defaults</td>
+                    </tr>
+                    <tr>
+                        <td><code>CLAUDE.md</code></td>
+                        <td>Claude Code</td>
+                        <td>Markdown</td>
+                        <td>Project instructions for Claude Code (repo root)</td>
+                    </tr>
+                    <tr>
+                        <td><code>.github/copilot-instructions.md</code></td>
+                        <td>GitHub Copilot</td>
+                        <td>Markdown</td>
+                        <td>Repo-specific context for GitHub Copilot</td>
+                    </tr>
+                    <tr>
+                        <td><code>.cursorrules</code></td>
+                        <td>Cursor IDE</td>
+                        <td>Text</td>
+                        <td>Project-specific instructions for Cursor</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 4: llms.txt Standard                               -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="llms-txt">
+        <div class="container">
+            <h2><span class="material-icons">article</span> The llms.txt Standard</h2>
+            <p class="section-sub">
+                <a href="https://llmstxt.org/" target="_blank">llms.txt</a> is an emerging standard for providing LLM-readable
+                documentation at a well-known URL. Any agent can fetch it to understand the project.
+            </p>
+
+            <div class="standard-card">
+                <h3><span class="material-icons">link</span> How to Use</h3>
+                <p>Point your AI agent to the trustcv llms.txt file:</p>
+                <pre><code class="language-bash"># Fetch the concise reference
+curl https://ki-smile.github.io/trustcv/llms.txt
+
+# Fetch the full reference (all 29 methods, complete signatures)
+curl https://ki-smile.github.io/trustcv/llms-full.txt
+
+# Fetch the structured JSON schema
+curl https://ki-smile.github.io/trustcv/api-schema.json</code></pre>
+            </div>
+
+            <div class="standard-card" style="margin-top:16px;">
+                <h3><span class="material-icons">psychology</span> Using with AI Agents</h3>
+                <p>Pass the documentation as context to any LLM:</p>
+                <pre><code class="language-python"># Example: give an LLM trustcv context
+import httpx
+
+llms_txt = httpx.get("https://ki-smile.github.io/trustcv/llms.txt").text
+
+prompt = f"""Using the trustcv library documented below, write code to:
+1. Check for data leakage in my dataset
+2. Run patient-grouped 5-fold CV with a RandomForest
+3. Report clinical metrics with 95% CIs
+
+Documentation:
+{llms_txt}
+"""</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 5: API Schema                                      -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="api-schema">
+        <div class="container">
+            <h2><span class="material-icons">data_object</span> Structured API Schema</h2>
+            <p class="section-sub">
+                The <code>api-schema.json</code> file provides a machine-parseable JSON schema of the entire trustcv API.
+                Agents can load this to get exact class names, method signatures, parameter types, and defaults.
+            </p>
+
+            <div class="standard-card">
+                <h3><span class="material-icons">schema</span> Schema Structure</h3>
+                <pre><code class="language-json">{
+  "name": "trustcv",
+  "version": "1.0.6",
+  "classes": [
+    {
+      "name": "TrustCVValidator",
+      "aliases": ["TrustCV"],
+      "import": "from trustcv import TrustCV",
+      "constructor": {
+        "params": [
+          {"name": "method", "type": "str", "default": "stratified_kfold"},
+          {"name": "n_splits", "type": "int", "default": 5},
+          ...
+        ]
+      },
+      "methods": [
+        {"name": "validate", "params": [...], "returns": "ValidationResult"},
+        {"name": "fit_validate", "params": [...], "returns": "ValidationResult"}
+      ]
+    }
+  ],
+  "splitters": {
+    "iid": [...],
+    "grouped": [...],
+    "temporal": [...],
+    "spatial": [...],
+    "multilabel": [...]
+  },
+  "examples": [...]
+}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Section 6: Quick Setup per Agent                           -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <section class="bp-section" id="setup">
+        <div class="container">
+            <h2><span class="material-icons">settings</span> Setup by Agent</h2>
+            <p class="section-sub">How each AI agent picks up trustcv's documentation.</p>
+
+            <div class="agent-grid" style="grid-template-columns: 1fr 1fr;">
+
+                <div class="standard-card" style="margin-top:0;">
+                    <h3><span class="material-icons">terminal</span> Claude Code</h3>
+                    <p>Automatic &mdash; Claude Code reads <code>CLAUDE.md</code> from the repo root when you open the project.
+                    No setup required.</p>
+                    <pre><code class="language-bash"># Just clone and start working
+git clone https://github.com/ki-smile/trustcv.git
+cd trustcv
+# Claude Code automatically reads CLAUDE.md</code></pre>
+                </div>
+
+                <div class="standard-card" style="margin-top:0;">
+                    <h3><span class="material-icons">code</span> GitHub Copilot</h3>
+                    <p>Automatic &mdash; Copilot reads <code>.github/copilot-instructions.md</code> when working in the repo.</p>
+                    <pre><code class="language-bash"># Already included in the repository
+# .github/copilot-instructions.md
+# Copilot picks this up automatically</code></pre>
+                </div>
+
+                <div class="standard-card" style="margin-top:0;">
+                    <h3><span class="material-icons">edit_note</span> Cursor IDE</h3>
+                    <p>Automatic &mdash; Cursor reads <code>.cursorrules</code> from the repo root.</p>
+                    <pre><code class="language-bash"># Already included in the repository
+# .cursorrules
+# Cursor picks this up automatically</code></pre>
+                </div>
+
+                <div class="standard-card" style="margin-top:0;">
+                    <h3><span class="material-icons">auto_awesome</span> Other Agents</h3>
+                    <p>Pass the llms.txt URL as context or use the API schema:</p>
+                    <pre><code class="language-bash"># Provide as context to any agent
+# URL: https://ki-smile.github.io/trustcv/llms.txt
+# URL: https://ki-smile.github.io/trustcv/api-schema.json</code></pre>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="text-align:center;padding:40px 20px;color:var(--ki-grey);font-size:0.9rem;border-top:1px solid var(--border-color);">
+        <p>
+            <strong>trustcv</strong> &mdash; Trustworthy Cross-Validation Toolkit<br>
+            Developed at <a href="https://smile.ki.se" target="_blank" style="color:var(--ki-dark-plum);">SMAILE, Karolinska Institutet</a>
+        </p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/theme.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,17 +28,18 @@
         }
         
         .generator-form {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: var(--spacing-xl);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-1);
             margin-bottom: var(--spacing-xl);
+            border: 1px solid var(--border-color);
         }
         
         .form-section {
             margin-bottom: var(--spacing-xl);
             padding-bottom: var(--spacing-xl);
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            border-bottom: 1px solid var(--border-color);
         }
         
         .form-section:last-child {
@@ -60,7 +61,7 @@
         .form-group label {
             display: block;
             margin-bottom: var(--spacing-xs);
-            color: var(--md-sys-color-on-surface);
+            color: var(--ki-dark-plum);
             font-weight: 500;
         }
         
@@ -69,10 +70,12 @@
         .form-group textarea {
             width: 100%;
             padding: 12px;
-            border: 1px solid var(--md-sys-color-outline);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
             font-family: inherit;
             font-size: 14px;
+            background: var(--md-sys-color-background);
+            color: var(--ki-dark-plum);
         }
         
         .form-group textarea {
@@ -91,10 +94,11 @@
             align-items: center;
             gap: var(--spacing-sm);
             margin-bottom: var(--spacing-sm);
+            color: var(--ki-dark-plum);
         }
         
         .generate-button {
-            background: var(--ki-plum);
+            background: var(--ki-brand-plum);
             color: white;
             border: none;
             padding: 14px 32px;
@@ -110,17 +114,19 @@
         }
         
         .generate-button:hover {
-            background: var(--ki-dark-plum);
+            background: var(--ki-brand-dark-plum);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(79, 4, 51, 0.3);
+            box-shadow: var(--md-sys-elevation-2);
         }
         
         .report-preview {
-            background: white;
+            background: var(--card-bg);
             border-radius: 12px;
             padding: var(--spacing-xl);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: var(--md-sys-elevation-3);
+            border: 1px solid var(--border-color);
             display: none;
+            color: var(--ki-dark-plum);
         }
         
         .report-preview.active {
@@ -141,7 +147,7 @@
         }
         
         .report-meta {
-            color: var(--md-sys-color-on-surface-variant);
+            color: var(--ki-grey);
             font-size: 14px;
         }
         
@@ -153,7 +159,7 @@
             color: var(--ki-plum);
             font-size: 18px;
             margin-bottom: var(--spacing-md);
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: var(--spacing-sm);
         }
         
@@ -167,7 +173,8 @@
         .report-table td {
             padding: 12px;
             text-align: left;
-            border: 1px solid var(--md-sys-color-outline-variant);
+            border: 1px solid var(--border-color);
+            color: var(--ki-dark-plum);
         }
         
         .report-table th {
@@ -188,6 +195,7 @@
             padding: var(--spacing-md);
             border-radius: 8px;
             text-align: center;
+            border: 1px solid var(--border-color);
         }
         
         .metric-value {
@@ -198,6 +206,8 @@
         
         .metric-label {
             font-size: 12px;
+            color: var(--ki-grey);
+        }
             color: var(--md-sys-color-on-surface-variant);
             margin-top: var(--spacing-xs);
         }
@@ -213,7 +223,7 @@
             padding: 10px 24px;
             border-radius: 24px;
             border: 2px solid var(--ki-plum);
-            background: white;
+            background: var(--card-bg);
             color: var(--ki-plum);
             font-weight: 500;
             cursor: pointer;
@@ -251,7 +261,28 @@
         .warning-box strong {
             color: #E65100;
         }
+
+        /* Dark theme */
+        [data-theme="dark"] .generator-form { background: var(--card-bg); box-shadow: var(--md-sys-elevation-2); }
+        [data-theme="dark"] .report-preview { background: var(--card-bg); border-color: var(--border-color); }
+        [data-theme="dark"] .report-content { color: var(--ki-dark-plum); }
+        [data-theme="dark"] .form-section h3 { color: var(--ki-plum); }
+        [data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+            background: var(--md-sys-color-background); color: var(--ki-dark-plum); border-color: var(--border-color);
+        }
+        [data-theme="dark"] .report-section { border-color: var(--border-color); }
+        [data-theme="dark"] .report-section h2 { color: var(--ki-plum); }
+        [data-theme="dark"] table { border-color: var(--border-color); }
+        [data-theme="dark"] th { background: var(--section-dark); color: var(--ki-dark-plum); }
+        [data-theme="dark"] td { border-color: var(--border-color); color: var(--ki-dark-plum); }
+        [data-theme="dark"] .warning-box { background: var(--status-warning-bg); }
     </style>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('trustcv-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -266,6 +297,7 @@
             </button>
             <ul class="nav-menu" id="navMenu">
                 <li><a href="index.html">Home</a></li>
+                <li><a href="getting-started.html">Install</a></li>
                 <li class="nav-dropdown">
                     <a href="#">Learn</a>
                     <div class="dropdown-menu">
@@ -281,6 +313,10 @@
                             <span class="material-icons" style="font-size: 18px;">menu_book</span>
                             Notebooks
                         </a>
+                        <a href="tutorials.html">
+                            <span class="material-icons" style="font-size: 18px;">school</span>
+                            Tutorials
+                        </a>
                     </div>
                 </li>
                 <li class="nav-dropdown">
@@ -290,14 +326,27 @@
                             <span class="material-icons" style="font-size: 18px;">table_chart</span>
                             Methods Guide
                         </a>
+                        <a href="cv-selection-guide.html">
+                            <span class="material-icons" style="font-size: 18px;">help</span>
+                            Selection Guide
+                        </a>
+                        <a href="frameworks.html">
+                            <span class="material-icons" style="font-size: 18px;">integration_instructions</span>
+                            Framework Integration
+                        </a>
+                        <a href="data-leakage.html">
+                            <span class="material-icons" style="font-size: 18px;">shield</span>
+                            Data Leakage Detection
+                        </a>
+                        <a href="best-practices.html">
+                            <span class="material-icons" style="font-size: 18px;">verified</span>
+                            Best Practices
+                        </a>
+                        <a href="ai-agents.html"><span class="material-icons" style="font-size:18px;">smart_toy</span> AI Agent Support</a>
+                        <div class="dropdown-divider"></div>
                         <a href="docs/API_REFERENCE.html">
                             <span class="material-icons" style="font-size: 18px;">api</span>
                             API Documentation
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="docs/CV_SELECTION_GUIDE.md">
-                            <span class="material-icons" style="font-size: 18px;">help</span>
-                            Selection Guide
                         </a>
                     </div>
                 </li>
@@ -312,11 +361,18 @@
                             <span class="material-icons" style="font-size: 18px;">description</span>
                             Report Generator
                         </a>
-                        
                     </div>
+                </li>
+                <li>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+                        <span class="material-icons" id="theme-icon">light_mode</span>
+                    </button>
                 </li>
                 <li><a href="https://github.com/ki-smile/trustcv" class="nav-github">
                     <span class="material-icons">code</span> GitHub
+                </a></li>
+                <li><a href="https://pypi.org/project/trustcv/" class="nav-pypi" target="_blank">
+                    PyPI
                 </a></li>
             </ul>
         </div>
@@ -328,15 +384,15 @@
             <p><strong>DEMONSTRATION ONLY:</strong> This is an educational example showing the structure of FDA/CE validation reports</p>
             <p style="font-size: 14px; margin-top: 10px; opacity: 0.9;">⚠️ For actual regulatory submissions, consult with regulatory professionals and use validated software</p>
             <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px;">
-                <span class="compliance-badge" style="background: #FF9800;">
+                <span class="compliance-badge" style="background: var(--ki-orange); color: var(--ki-brand-dark-plum);">
                     <span class="material-icons" style="font-size: 16px;">school</span>
                     Example Only
                 </span>
-                <span class="compliance-badge" style="background: #FF9800;">
+                <span class="compliance-badge" style="background: var(--ki-orange); color: var(--ki-brand-dark-plum);">
                     <span class="material-icons" style="font-size: 16px;">info</span>
                     Educational Purpose
                 </span>
-                <span class="compliance-badge" style="background: #FF9800;">
+                <span class="compliance-badge" style="background: var(--ki-orange); color: var(--ki-brand-dark-plum);">
                     <span class="material-icons" style="font-size: 16px;">warning</span>
                     Not for Clinical Use
                 </span>
@@ -344,8 +400,8 @@
         </div>
 
         <form class="generator-form" id="reportForm">
-            <div style="background: #FFF3E0; border-left: 4px solid #FF9800; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-                <strong style="color: #E65100;">📚 Educational Example:</strong> 
+            <div style="background: var(--status-warning-bg); border-left: 4px solid var(--status-warning-border); padding: 15px; margin-bottom: 20px; border-radius: 4px; color: var(--status-warning-text);">
+                <strong style="color: var(--status-warning-text);">📚 Educational Example:</strong> 
                 The pre-filled data below represents a fictional medical device for demonstration purposes. 
                 This template shows the typical structure and content required in regulatory validation reports.
             </div>
@@ -581,8 +637,8 @@ Stratified Patient-Level K-Fold was selected because:
                             </tr>
                         </table>
                     </div>
-                    <div style="margin-top: 12px; padding: 12px; background: #E3F2FD; border-radius: 4px; border-left: 3px solid #2196F3;">
-                        <span style="font-size: 13px; color: #1565C0;">
+                    <div style="margin-top: 12px; padding: 12px; background: var(--md-sys-color-surface-variant); border-radius: 4px; border-left: 3px solid var(--ki-plum);">
+                        <span style="font-size: 13px; color: var(--ki-dark-plum);">
                             <strong>Note:</strong> Additional standards may apply based on your device classification and target markets
                         </span>
                     </div>
@@ -597,8 +653,8 @@ Stratified Patient-Level K-Fold was selected because:
 
         <!-- Report Preview -->
         <div class="report-preview" id="reportPreview">
-            <div style="background: #FFEBEE; border: 2px solid #F44336; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
-                <strong style="color: #C62828;">⚠️ EXAMPLE REPORT - NOT FOR CLINICAL USE</strong><br>
+            <div style="background: var(--status-error-bg); border: 2px solid var(--status-error-border); padding: 15px; margin-bottom: 20px; border-radius: 4px; color: var(--status-error-text);">
+                <strong style="color: var(--status-error-text);">⚠️ EXAMPLE REPORT - NOT FOR CLINICAL USE</strong><br>
                 This is a demonstration of report structure only. Real regulatory reports require validated data and professional review.
             </div>
             
@@ -624,23 +680,35 @@ Stratified Patient-Level K-Fold was selected because:
             <div class="footer-content">
                 <div class="footer-section">
                     <h4>trustcv</h4>
-                    <p>Trustworthy Cross-Validation Toolkit</p>
+                    <p>Developed at <strong>SMAILE</strong>, Karolinska Institutet</p>
                 </div>
                 <div class="footer-section">
                     <h4>Resources</h4>
                     <ul>
+                        <li><a href="getting-started.html">Getting Started</a></li>
                         <li><a href="docs/API_REFERENCE.html">API Reference</a></li>
-                        <li><a href="LICENSE.html">MIT License</a></li>
-                        <li><a href="https://github.com/ki-smile/trustcv">GitHub</a></li>
+                        <li><a href="https://pypi.org/project/trustcv/" target="_blank">PyPI</a></li>
+                        <li><a href="https://github.com/ki-smile/trustcv">GitHub Repository</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="https://ki.se" target="_blank">Karolinska Institutet</a></li>
+                        <li><a href="https://smile.ki.se" target="_blank">SMAILE</a></li>
+                        <li><a href="docs/LICENSE.html">MIT License</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2024 trustcv. Licensed under MIT License.</p>
+                <div class="copyright">
+                    <p>&copy; 2025 SMAILE, Karolinska Institutet. Licensed under MIT License.</p>
+                </div>
             </div>
         </div>
     </footer>
 
+    <script src="js/theme.js"></script>
     <script src="js/regulatory-report.js"></script>
 </body>
 </html>

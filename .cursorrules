@@ -1,0 +1,84 @@
+# trustcv — Cursor IDE Rules
+
+## Project
+**trustcv** (v1.0.7) — Framework-agnostic toolkit for trustworthy cross-validation in safety-critical/medical AI.
+Developed at SMAILE, Karolinska Institutet. Python 3.8+.
+
+- PyPI: https://pypi.org/project/trustcv/
+- GitHub: https://github.com/ki-smile/trustcv
+
+## Architecture
+
+```
+trustcv/
+├── core/           # CVResults, CVSplitter, FrameworkAdapter, UniversalCVRunner
+├── splitters/      # 29 CV methods: iid, grouped, temporal, spatial (+multilabel)
+├── checkers/       # DataLeakageChecker (8 leakage types), BalanceChecker
+├── metrics/        # ClinicalMetrics with confidence intervals
+├── frameworks/     # Adapters: pytorch, tensorflow, monai, jax (lazy-imported)
+├── reporting/      # RegulatoryReport for FDA/CE MDR documentation
+├── datasets/       # Medical dataset loaders and synthetic generators
+├── visualization/  # Plotting utilities
+└── validators.py   # TrustCVValidator (alias: TrustCV), MedicalValidator
+```
+
+**Key flow**: TrustCVValidator → splitters → leakage/balance checks → CV execution (UniversalCVRunner) → clinical metrics → regulatory reports.
+
+All splitters follow the scikit-learn interface: `split(X, y, groups)` yielding `(train_idx, test_idx)`.
+
+## Commands
+
+```bash
+pip install -e .            # editable install
+pip install -e .[dev]       # with dev deps
+pytest tests/               # run all tests
+black trustcv/ --line-length 100
+isort trustcv/ --profile black
+flake8 trustcv/
+mypy trustcv/
+```
+
+## Conventions
+
+- **Line length**: 100 (black)
+- **Import sorting**: isort with black profile
+- **Commits**: conventional commits (feat:, fix:, docs:, test:, refactor:)
+- **Version**: synchronized in pyproject.toml, setup.py, and trustcv/__init__.py
+- Canonical aliases: `KFold` (preferred) vs `KFoldMedical` (deprecated), etc.
+
+## Key APIs
+
+```python
+# Main validator
+from trustcv import TrustCV
+validator = TrustCV(method='stratified_kfold', n_splits=5)
+results = validator.validate(model=model, X=X, y=y, groups=patient_ids)
+
+# Leakage detection
+from trustcv import DataLeakageChecker
+checker = DataLeakageChecker()
+report = checker.check(X, y, groups=patient_ids)
+
+# Universal runner (multi-framework)
+from trustcv import UniversalCVRunner, StratifiedKFold
+runner = UniversalCVRunner(cv_splitter=StratifiedKFold(n_splits=5))
+results = runner.run(model=model, data=(X, y))
+
+# Leakage detection callback (auto-checks each fold)
+from trustcv.core.callbacks import LeakageDetectionCallback
+leakage_cb = LeakageDetectionCallback(data=(X, y), groups=patient_ids)
+results = runner.run(model=model, data=(X, y), callbacks=[leakage_cb])
+```
+
+## Splitter Categories
+- **IID** (9): HoldOut, KFold, StratifiedKFold, RepeatedKFold, LOOCV, LPOCV, BootstrapValidation, MonteCarloCV, NestedCV
+- **Grouped** (7): GroupKFold, StratifiedGroupKFold, LeaveOneGroupOut, LeavePGroupsOut, RepeatedGroupKFold, NestedGroupedCV, HierarchicalGroupKFold
+- **Temporal** (7): TimeSeriesSplit, BlockedTimeSeries, RollingWindowCV, ExpandingWindowCV, PurgedKFoldCV, CombinatorialPurgedCV, PurgedGroupTimeSeriesSplit, NestedTemporalCV
+- **Spatial** (4): SpatialBlockCV, BufferedSpatialCV, SpatiotemporalBlockCV, EnvironmentalHealthCV
+- **Multilabel** (2): MultilabelStratifiedKFold, MultilabelStratifiedGroupKFold
+
+## Important Notes
+- Always use `groups=patient_ids` when patients have multiple samples
+- Framework adapters are lazy-imported; core works with sklearn alone
+- `validate()` uses keyword-only arguments
+- Old names (KFoldMedical, etc.) still work but emit deprecation warnings

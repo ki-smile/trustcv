@@ -476,6 +476,165 @@ class ClassDistributionLogger(CVCallback):
         print(f"  Val class distribution:   {val_summary}")
 
 
+class LeakageDetectionCallback(CVCallback):
+    """
+    Automatic data leakage detection callback for UniversalCVRunner.
+
+    Checks each fold for data leakage issues (duplicate samples, group
+    overlap, near-duplicates) and reports a summary at the end of
+    cross-validation.
+
+    Parameters
+    ----------
+    data : tuple
+        Full dataset as (X, y) or (X, y, groups)
+    groups : array-like, optional
+        Group identifiers (e.g., patient IDs)
+    timestamps : array-like, optional
+        Temporal information
+    coordinates : array-like, optional
+        Spatial coordinates
+    verbose : int
+        Verbosity level (0=silent, 1=summary, 2=per-fold)
+    """
+
+    def __init__(
+        self,
+        data,
+        groups=None,
+        timestamps=None,
+        coordinates=None,
+        verbose: int = 1,
+    ):
+        self.data = data
+        self.X = data[0]
+        self.y = data[1] if len(data) > 1 else None
+        self.groups = groups
+        self.timestamps = timestamps
+        self.coordinates = coordinates
+        self.verbose = verbose
+        self.fold_reports: List[Any] = []
+        self.summary_report: Optional[Dict[str, Any]] = None
+
+    def _get_checker(self):
+        """Lazy-import DataLeakageChecker to avoid circular deps."""
+        from ..checkers.leakage import DataLeakageChecker
+
+        return DataLeakageChecker(verbose=False)
+
+    def _safe_slice(self, arr, idx):
+        """Slice an array-like by indices, returning None if arr is None."""
+        if arr is None:
+            return None
+        arr = np.asarray(arr)
+        return arr[idx]
+
+    def on_fold_start(
+        self,
+        fold_idx: int,
+        train_idx: np.ndarray,
+        val_idx: np.ndarray,
+    ) -> None:
+        """Run leakage checks on the current fold split."""
+        checker = self._get_checker()
+
+        X_train = self.X[train_idx]
+        X_val = self.X[val_idx]
+        y_train = (
+            self._safe_slice(self.y, train_idx)
+            if self.y is not None
+            else None
+        )
+        y_val = (
+            self._safe_slice(self.y, val_idx)
+            if self.y is not None
+            else None
+        )
+
+        report = checker.check_cv_splits(
+            X_train=X_train,
+            X_test=X_val,
+            y_train=y_train,
+            y_test=y_val,
+            patient_ids_train=self._safe_slice(
+                self.groups, train_idx
+            ),
+            patient_ids_test=self._safe_slice(
+                self.groups, val_idx
+            ),
+            timestamps_train=self._safe_slice(
+                self.timestamps, train_idx
+            ),
+            timestamps_test=self._safe_slice(
+                self.timestamps, val_idx
+            ),
+            coordinates_train=self._safe_slice(
+                self.coordinates, train_idx
+            ),
+            coordinates_test=self._safe_slice(
+                self.coordinates, val_idx
+            ),
+        )
+
+        self.fold_reports.append(report)
+
+        if self.verbose >= 2 and report.has_leakage:
+            print(
+                f"  [LeakageDetection] Fold {fold_idx}: "
+                f"leakage detected — severity={report.severity}, "
+                f"types={report.leakage_types}"
+            )
+
+    def on_cv_end(self, all_results: List[Dict[str, Any]]) -> None:
+        """Aggregate fold reports and print a summary."""
+        folds_with_leakage = [
+            i
+            for i, r in enumerate(self.fold_reports)
+            if r.has_leakage
+        ]
+        all_types: set = set()
+        severity_order = [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "critical",
+        ]
+        worst_severity = "none"
+
+        for report in self.fold_reports:
+            if report.has_leakage:
+                all_types.update(report.leakage_types)
+                if severity_order.index(
+                    report.severity
+                ) > severity_order.index(worst_severity):
+                    worst_severity = report.severity
+
+        self.summary_report = {
+            "folds_with_leakage": folds_with_leakage,
+            "n_folds_with_leakage": len(folds_with_leakage),
+            "n_folds_total": len(self.fold_reports),
+            "worst_severity": worst_severity,
+            "all_leakage_types": sorted(all_types),
+        }
+
+        if self.verbose >= 1:
+            n_leak = len(folds_with_leakage)
+            n_total = len(self.fold_reports)
+            if n_leak == 0:
+                print(
+                    "[LeakageDetection] No data leakage "
+                    f"detected across {n_total} folds."
+                )
+            else:
+                print(
+                    f"[LeakageDetection] Leakage found in "
+                    f"{n_leak}/{n_total} folds | "
+                    f"worst severity: {worst_severity} | "
+                    f"types: {sorted(all_types)}"
+                )
+
+
 class RegulatoryComplianceLogger(CVCallback):
     """
     Specialized logger for regulatory compliance
