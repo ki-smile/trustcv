@@ -488,6 +488,7 @@ class TrustCVValidator:
         bootstrap_estimator: Optional[str] = None,
         test_size: Optional[Union[float, int]] = None,
         stratify: Optional[bool] = None,
+        hierarchy_level: str = "patient",
     ):
         """
         Initialize TrustCV Validator
@@ -497,7 +498,8 @@ class TrustCVValidator:
         method : str
             Cross-validation method ('kfold', 'stratified_kfold',
             'patient_grouped_kfold', 'temporal', 'holdout',
-            'repeated_kfold', 'loocv', 'lpocv', 'monte_carlo', 'bootstrap')
+            'repeated_kfold', 'repeated_group_kfold', 'hierarchical_group_kfold',
+            'loocv', 'lpocv', 'monte_carlo', 'bootstrap')
         n_splits : int
             Number of CV folds
         random_state : int
@@ -515,7 +517,8 @@ class TrustCVValidator:
         holdout_stratify : bool
             If True, enables stratified hold-out splitting (uses ``y`` labels)
         repeated_kfold_repeats : int
-            Number of repetitions when ``method='repeated_kfold'`` (alias: ``n_repeats``)
+            Number of repetitions when ``method='repeated_kfold'`` or
+            ``method='repeated_group_kfold'`` (alias: ``n_repeats``)
         repeated_kfold_stratify : bool
             Whether to use stratified repeats (alias: ``stratify`` when ``method='repeated_kfold'``)
         lpocv_p : int
@@ -532,6 +535,8 @@ class TrustCVValidator:
             Alias for ``holdout_test_size`` (and, when using Monte Carlo splits, ``monte_carlo_test_size``)
         stratify : bool, optional
             Alias for ``holdout_stratify`` to toggle stratified hold-out splitting
+        hierarchy_level : str, default="patient"
+            Group hierarchy level used when ``method='hierarchical_group_kfold'``.
         """
         # Accept multiple naming styles (canonical and sklearn-style)
         self.method = self._normalize_method(method)
@@ -594,6 +599,7 @@ class TrustCVValidator:
             if bootstrap_estimator is not None
             else bootstrap_validation_estimator
         )
+        self.hierarchy_level = str(hierarchy_level or "patient")
 
         self._cv_splitter = None
         self._setup_splitter()
@@ -1166,6 +1172,7 @@ class TrustCVValidator:
         _TCVMLStratifiedGroupKFold = None
         _TCVMultiLabelGroupSplitter = None
         _TCVStratifiedGroupKFold = None
+        _TCVHierarchicalGroupKFold = None
         try:
             from .splitters import MultilabelStratifiedGroupKFold as _TCVMLStratifiedGroupKFold
         except Exception:
@@ -1178,7 +1185,11 @@ class TrustCVValidator:
             from .splitters import StratifiedGroupKFold as _TCVStratifiedGroupKFold
         except Exception:
             pass
-        _TCVHoldOut = _TCVRepeatedKFold = _TCVLOOCV = _TCVLPOCV = _TCVMonteCarloCV = (
+        try:
+            from .splitters import HierarchicalGroupKFold as _TCVHierarchicalGroupKFold
+        except Exception:
+            pass
+        _TCVHoldOut = _TCVRepeatedKFold = _TCVRepeatedGroupKFold = _TCVLOOCV = _TCVLPOCV = _TCVMonteCarloCV = (
             _TCVBootstrapValidation
         ) = None
         try:
@@ -1188,6 +1199,7 @@ class TrustCVValidator:
             from .splitters import HoldOut as _TCVHoldOut
             from .splitters import MonteCarloCV as _TCVMonteCarloCV
             from .splitters import RepeatedKFold as _TCVRepeatedKFold
+            from .splitters import RepeatedGroupKFold as _TCVRepeatedGroupKFold
         except Exception:
             pass
 
@@ -1248,6 +1260,17 @@ class TrustCVValidator:
             self._cv_splitter = _TCVStratifiedGroupKFold(
                 n_splits=self.n_splits, shuffle=True, random_state=self.random_state
             )
+        elif method_key == "hierarchical_group_kfold":
+            if _TCVHierarchicalGroupKFold is None:
+                raise ValueError(
+                    "HierarchicalGroupKFold splitter is unavailable. Ensure trustcv.splitters is accessible."
+                )
+            self._cv_splitter = _TCVHierarchicalGroupKFold(
+                n_splits=self.n_splits,
+                hierarchy_level=self.hierarchy_level,
+                shuffle=self.shuffle,
+                random_state=self.random_state,
+            )
         elif method_key == "temporal":
             self._cv_splitter = TimeSeriesSplit(n_splits=self.n_splits)
         elif method_key == "holdout":
@@ -1271,6 +1294,16 @@ class TrustCVValidator:
                 n_repeats=self.repeated_kfold_repeats,
                 random_state=self.random_state,
                 stratify=self.repeated_kfold_stratify,
+            )
+        elif method_key == "repeated_group_kfold":
+            if _TCVRepeatedGroupKFold is None:
+                raise ValueError(
+                    "RepeatedGroupKFold splitter is unavailable. Ensure trustcv.splitters is installed."
+                )
+            self._cv_splitter = _TCVRepeatedGroupKFold(
+                n_splits=self.n_splits,
+                n_repeats=self.repeated_kfold_repeats,
+                random_state=self.random_state,
             )
         elif method_key == "loocv":
             if _TCVLOOCV is None:
@@ -1329,6 +1362,24 @@ class TrustCVValidator:
                 self.method = "patient_grouped_kfold"
                 return
 
+            if namelow in (
+                "hierarchicalgroupkfold",
+                "hierarchical_groupkfold",
+                "hierarchical_group_kfold",
+            ):
+                if _TCVHierarchicalGroupKFold is None:
+                    raise ValueError(
+                        "HierarchicalGroupKFold splitter is unavailable. Ensure trustcv.splitters is accessible."
+                    )
+                self._cv_splitter = _TCVHierarchicalGroupKFold(
+                    n_splits=self.n_splits,
+                    hierarchy_level=self.hierarchy_level,
+                    shuffle=self.shuffle,
+                    random_state=self.random_state,
+                )
+                self.method = "hierarchical_group_kfold"
+                return
+
             if namelow in ("multilabelgroupkfold", "multilabelgroupsplitter", "multilabelgroupcv"):
                 if _TCVMultiLabelGroupSplitter is None:
                     raise ValueError(
@@ -1361,11 +1412,26 @@ class TrustCVValidator:
                 self.method = "temporal"
                 return
 
+            if namelow in ("repeatedgroupkfold", "repeated_groupkfold", "repeated_group_kfold"):
+                if _TCVRepeatedGroupKFold is None:
+                    raise ValueError(
+                        "RepeatedGroupKFold splitter is unavailable. Ensure trustcv.splitters is installed."
+                    )
+                self._cv_splitter = _TCVRepeatedGroupKFold(
+                    n_splits=self.n_splits,
+                    n_repeats=self.repeated_kfold_repeats,
+                    random_state=self.random_state,
+                )
+                self.method = "repeated_group_kfold"
+                return
+
             raise ValueError(
                 f"Unknown method: {self.method}. "
                 f"Use one of: 'kfold', 'stratified_kfold', 'patient_grouped_kfold', 'stratified_grouped_kfold', "
-                f"'temporal', 'holdout', 'repeated_kfold', 'loocv', 'lpocv', 'monte_carlo', 'bootstrap' "
-                f"(also accepts 'KFold', 'StratifiedKFold', 'GroupKFold', 'StratifiedGroupKFold', 'TimeSeriesSplit')."
+                f"'temporal', 'holdout', 'repeated_kfold', 'repeated_group_kfold', 'hierarchical_group_kfold', "
+                f"'loocv', 'lpocv', 'monte_carlo', 'bootstrap' "
+                f"(also accepts 'KFold', 'StratifiedKFold', 'GroupKFold', 'StratifiedGroupKFold', "
+                f"'RepeatedGroupKFold', 'HierarchicalGroupKFold', 'TimeSeriesSplit')."
             )
 
     def _choose_multilabel_splitter(
@@ -1446,6 +1512,12 @@ class TrustCVValidator:
             "repeatedkfold": "repeated_kfold",
             "repeated_kfold": "repeated_kfold",
             "repeated-kfold": "repeated_kfold",
+            "repeatedgroupkfold": "repeated_group_kfold",
+            "repeated_groupkfold": "repeated_group_kfold",
+            "repeated_group_kfold": "repeated_group_kfold",
+            "hierarchicalgroupkfold": "hierarchical_group_kfold",
+            "hierarchical_groupkfold": "hierarchical_group_kfold",
+            "hierarchical_group_kfold": "hierarchical_group_kfold",
             "loocv": "loocv",
             "leaveoneout": "loocv",
             "leave_one_out": "loocv",

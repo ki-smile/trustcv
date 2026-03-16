@@ -17,6 +17,7 @@ from trustcv.splitters.grouped import (
     LeaveOneGroupOut, RepeatedGroupKFold,
     NestedGroupedCV
 )
+from trustcv import TrustCV
 
 
 class TestGroupedMethods:
@@ -178,6 +179,46 @@ class TestGroupedMethods:
         if len(first_repeat_tests) > 0 and len(second_repeat_tests) > 0:
             assert first_repeat_tests != second_repeat_tests, \
                 "Repeats should produce different splits"
+
+    def test_trustcv_accepts_repeated_group_kfold_alias(self):
+        """TrustCV(method='RepeatedGroupKFold') should map to grouped repeated CV."""
+        validator = TrustCV(
+            method="RepeatedGroupKFold",
+            n_splits=3,
+            n_repeats=2,
+            random_state=42,
+            check_leakage=True,
+            check_balance=True,
+            metrics=["accuracy"],
+        )
+        result = validator.validate(
+            model=RandomForestClassifier(n_estimators=20, random_state=42),
+            X=self.X_small,
+            y=self.y_small,
+            groups=self.groups_small,
+        )
+        assert validator.method == "repeated_group_kfold"
+        assert len(result.fold_details) == 6
+
+    def test_trustcv_accepts_hierarchical_group_kfold_alias(self):
+        """TrustCV(method='HierarchicalGroupKFold') should map to hierarchical grouped CV."""
+        validator = TrustCV(
+            method="HierarchicalGroupKFold",
+            n_splits=3,
+            random_state=42,
+            check_leakage=True,
+            check_balance=True,
+            metrics=["accuracy"],
+            hierarchy_level="patient",
+        )
+        result = validator.validate(
+            model=RandomForestClassifier(n_estimators=20, random_state=42),
+            X=self.X_small,
+            y=self.y_small,
+            groups=self.groups_small,
+        )
+        assert validator.method == "hierarchical_group_kfold"
+        assert len(result.fold_details) == 3
     
     def test_nested_grouped_cv(self):
         """Test Nested Grouped CV"""
