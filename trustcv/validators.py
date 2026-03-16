@@ -703,15 +703,27 @@ class TrustCVValidator:
             except Exception:
                 pass
         recommendations: List[str] = []
-        if leakage_checker is not None:
+        # Auto-create leakage checker when check_leakage=True
+        effective_checker = leakage_checker
+        if effective_checker is None and self.check_leakage:
             try:
-                leak_report = leakage_checker.check(X=X_arr, y=y_arr, groups=split_groups)
-                leakage_check_map["has_leakage"] = not getattr(leak_report, "has_leakage", True)
+                from .checkers.leakage import DataLeakageChecker as _DLC
+                effective_checker = _DLC(verbose=False)
+            except Exception:
+                effective_checker = None
+        if effective_checker is not None:
+            try:
+                leak_report = effective_checker.check(
+                    X=X_arr, y=y_arr, groups=split_groups
+                )
+                leakage_check_map["has_leakage"] = not getattr(
+                    leak_report, "has_leakage", True
+                )
                 recs = getattr(leak_report, "recommendations", [])
                 if recs:
                     recommendations.extend(recs)
             except Exception:
-                leakage_check_map = {"has_leakage": True}
+                leakage_check_map["has_leakage"] = True
 
         # build detailed scores dict (arrays per metric)
         scores_dict = {

@@ -1,6 +1,6 @@
 {
   "name": "trustcv",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Framework-agnostic toolkit for trustworthy cross-validation in medical AI",
   "install": "pip install trustcv",
   "repository": "https://github.com/ki-smile/trustcv",
@@ -125,7 +125,7 @@
       "name": "DataLeakageChecker",
       "aliases": ["LeakageChecker"],
       "import": "from trustcv import DataLeakageChecker",
-      "description": "Detects 6 types of data leakage: patient-level, duplicate samples, temporal, feature statistics, spatial proximity, label distribution.",
+      "description": "Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.",
       "constructor": {
         "params": [
           {"name": "verbose", "type": "bool", "default": true}
@@ -185,8 +185,29 @@
           "returns": "bool"
         },
         {
+          "name": "check_near_duplicates",
+          "description": "Detect near-duplicate samples between train and test sets via cosine similarity",
+          "params": [
+            {"name": "X_train", "type": "array|DataFrame", "required": true},
+            {"name": "X_test", "type": "array|DataFrame", "required": true},
+            {"name": "similarity_threshold", "type": "float", "default": 0.99, "description": "Cosine similarity threshold for near-duplicate detection"}
+          ],
+          "returns": "dict"
+        },
+        {
+          "name": "check_hierarchical_leakage",
+          "description": "Detect hierarchical group leakage where parent groups span both train and test sets",
+          "params": [
+            {"name": "groups_train", "type": "array", "required": true, "description": "Group labels for training set"},
+            {"name": "groups_test", "type": "array", "required": true, "description": "Group labels for test set"},
+            {"name": "parent_groups_train", "type": "array", "required": true, "description": "Parent group labels for training set"},
+            {"name": "parent_groups_test", "type": "array", "required": true, "description": "Parent group labels for test set"}
+          ],
+          "returns": "dict"
+        },
+        {
           "name": "comprehensive_check",
-          "description": "Run all available leakage checks",
+          "description": "Run the full suite of leakage checks including CV-based splits, feature-target correlation, near-duplicates, and hierarchical leakage",
           "params": [
             {"name": "X", "type": "array|DataFrame", "required": true},
             {"name": "y", "type": "array|Series", "required": true},

@@ -1,6 +1,6 @@
 # trustcv
 
-> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.6)
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.7)
 > Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
 > GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
 
@@ -82,7 +82,7 @@ results = runner.run(
 ```
 
 ### DataLeakageChecker
-Detects 6 types of data leakage: patient-level, duplicate samples, temporal, feature statistics, spatial proximity, label distribution.
+Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.
 
 ```python
 from trustcv import DataLeakageChecker
@@ -99,6 +99,13 @@ report = checker.check_cv_splits(X_train, X_test, y_train, y_test,
 
 # Feature-target correlation check
 result = checker.check_feature_target_leakage(X, y, threshold=0.95)
+
+# Near-duplicate detection
+result = checker.check_near_duplicates(X_train, X_test, similarity_threshold=0.99)
+
+# Hierarchical group leakage detection
+result = checker.check_hierarchical_leakage(
+    groups_train, groups_test, parent_groups_train, parent_groups_test)
 
 # Comprehensive check
 result = checker.comprehensive_check(X, y, groups=groups, timestamps=ts)
@@ -230,3 +237,4 @@ results = validator.validate(model=model, X=X, y=y)
 5. **Framework adapters are lazy-imported** — you only need PyTorch/TF installed if you use those frameworks.
 6. **`validate()` uses keyword-only args** — call as `validator.validate(model=m, X=X, y=y)`, not positional.
 7. **Default CI method is bootstrap** with 1000 samples. Set `return_confidence_intervals=False` to skip.
+8. **DataLeakageChecker now auto-runs** in TrustCVValidator when `check_leakage=True` (default). No need to pass it explicitly.

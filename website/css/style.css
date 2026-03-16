@@ -168,24 +168,50 @@
     background-color: var(--ki-brand-plum);
 }
 
-[data-theme="light"] .nav-menu a {
+[data-theme="light"] .nav-menu > li > a {
     color: rgba(255, 255, 255, 0.9);
 }
 
-[data-theme="light"] .nav-menu a:hover,
-[data-theme="light"] .nav-menu a.active {
+[data-theme="light"] .nav-menu > li > a:hover,
+[data-theme="light"] .nav-menu > li > a.active {
     color: #FFFFFF;
 }
 
-/* Dropdown Theme Overrides */
+/* Dropdown Theme Overrides - Ensure visibility in light mode */
 .dropdown-menu {
     background: var(--dropdown-bg);
     border: 1px solid var(--border-color);
     box-shadow: var(--md-sys-elevation-3);
 }
 
-.dropdown-menu a:hover {
+[data-theme="light"] .dropdown-menu a {
+    color: var(--ki-plum);
+}
+
+[data-theme="light"] .dropdown-menu a:hover {
     background: var(--md-sys-color-surface-variant);
+    color: var(--ki-brand-dark-plum);
+}
+
+/* Mobile Menu Overrides for Light Mode */
+@media (max-width: 768px) {
+    [data-theme="light"] .nav-menu {
+        background: var(--md-sys-color-surface);
+    }
+    
+    [data-theme="light"] .nav-menu a {
+        color: var(--ki-plum);
+        border-bottom: 1px solid var(--md-sys-color-surface-variant);
+    }
+    
+    [data-theme="light"] .nav-menu a:hover {
+        background: var(--md-sys-color-surface-variant);
+        color: var(--ki-brand-dark-plum);
+    }
+
+    [data-theme="light"] .nav-toggle {
+        color: white;
+    }
 }
 
 /* Card Theme Overrides */

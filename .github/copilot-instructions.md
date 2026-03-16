@@ -1,7 +1,7 @@
 # trustcv — GitHub Copilot Instructions
 
 ## Project
-**trustcv** (v1.0.6) — Framework-agnostic toolkit for trustworthy cross-validation in safety-critical/medical AI settings. Developed at SMAILE, Karolinska Institutet. Python 3.8+.
+**trustcv** (v1.0.7) — Framework-agnostic toolkit for trustworthy cross-validation in safety-critical/medical AI settings. Developed at SMAILE, Karolinska Institutet. Python 3.8+.
 
 - PyPI: https://pypi.org/project/trustcv/
 - GitHub: https://github.com/ki-smile/trustcv
@@ -12,7 +12,7 @@
 trustcv/
 ├── core/           # CVResults, CVSplitter, FrameworkAdapter, UniversalCVRunner
 ├── splitters/      # 29 CV methods: iid, grouped, temporal, spatial (+multilabel)
-├── checkers/       # DataLeakageChecker (6 leakage types), BalanceChecker
+├── checkers/       # DataLeakageChecker (8 leakage types), BalanceChecker
 ├── metrics/        # ClinicalMetrics with confidence intervals
 ├── frameworks/     # Adapters: pytorch, tensorflow, monai, jax (lazy-imported)
 ├── reporting/      # RegulatoryReport for FDA/CE MDR documentation
@@ -86,6 +86,10 @@ from trustcv import DataLeakageChecker
 checker = DataLeakageChecker()
 report = checker.check(X, y, groups=patient_ids, timestamps=dates)
 # report.has_leakage, report.severity, report.leakage_types, report.recommendations
+
+# LeakageDetectionCallback — auto-checks each fold during CV
+from trustcv.core.callbacks import LeakageDetectionCallback
+leakage_cb = LeakageDetectionCallback(data=(X, y), groups=patient_ids)
 ```
 
 ### Splitter Categories

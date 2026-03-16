@@ -11,6 +11,7 @@ from .callbacks import (
     ClassDistributionLogger,
     CVCallback,
     EarlyStopping,
+    LeakageDetectionCallback,
     ModelCheckpoint,
     ProgressLogger,
 )
@@ -25,5 +26,6 @@ __all__ = [
     "ModelCheckpoint",
     "ProgressLogger",
     "ClassDistributionLogger",
+    "LeakageDetectionCallback",
     "UniversalCVRunner",
 ]

@@ -1,6 +1,6 @@
 # trustcv — Full API Reference
 
-> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.6)
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.7)
 > Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
 > GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
 
@@ -238,13 +238,17 @@ ProgressLogger(verbose=1)
 
 # ClassDistributionLogger
 ClassDistributionLogger()
+
+# LeakageDetectionCallback — automatic leakage detection per fold
+from trustcv.core.callbacks import LeakageDetectionCallback
+LeakageDetectionCallback(data=(X, y), groups=None, timestamps=None, coordinates=None, verbose=1)
 ```
 
 ---
 
 ## DataLeakageChecker
 
-Detects 6 types of data leakage: patient-level, duplicate samples, temporal, feature statistics, spatial proximity, label distribution.
+Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.
 
 ```python
 from trustcv import DataLeakageChecker
@@ -257,6 +261,8 @@ DataLeakageChecker(verbose: bool = True)
 ```
 
 ### check() — Convenience wrapper
+
+Runs all applicable leakage checks via CV-style splits. Spatial threshold is auto-computed from coordinate distances when not provided.
 
 ```python
 report = checker.check(
@@ -271,6 +277,8 @@ report = checker.check(
 ```
 
 ### check_cv_splits() — Explicit train/test
+
+Checks leakage between explicit train and test sets. Temporal leakage reports overlap_fraction. Feature statistics uses KS-test to compare distributions. Label distribution uses chi-squared test.
 
 ```python
 report = checker.check_cv_splits(
@@ -303,7 +311,34 @@ has_leakage = checker.check_preprocessing_leakage(
 ) -> bool
 ```
 
+### check_near_duplicates()
+
+Detects near-duplicate samples between train and test sets using cosine similarity.
+
+```python
+result = checker.check_near_duplicates(
+    X_train: array | DataFrame,
+    X_test: array | DataFrame,
+    similarity_threshold: float = 0.99,
+) -> Dict  # {'has_near_duplicates', 'n_near_duplicates', 'max_similarity', 'near_duplicate_pairs'}
+```
+
+### check_hierarchical_leakage()
+
+Detects hierarchical group leakage where parent groups span both train and test sets (e.g., same hospital in both).
+
+```python
+result = checker.check_hierarchical_leakage(
+    groups_train: array,
+    groups_test: array,
+    parent_groups_train: array,
+    parent_groups_test: array,
+) -> Dict  # {'has_leakage', 'leaked_parent_groups', 'n_leaked_groups', 'severity'}
+```
+
 ### comprehensive_check()
+
+Runs the full suite of leakage checks including CV-based splits, feature-target correlation, near-duplicates, and hierarchical leakage.
 
 ```python
 result = checker.comprehensive_check(
