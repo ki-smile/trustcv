@@ -7,6 +7,7 @@ regulatory compliance.
 """
 
 import warnings
+import time
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
@@ -176,6 +177,8 @@ class UniversalCVRunner:
         Returns:
             CVResults object with scores and models
         """
+        run_start = time.perf_counter()
+
         def _is_regression_target(y_true):
             arr = y_true.to_numpy() if hasattr(y_true, "to_numpy") else np.asarray(y_true)
             if arr.ndim > 1 and arr.shape[1] == 1:
@@ -497,6 +500,8 @@ class UniversalCVRunner:
             if hasattr(callback, "on_cv_end"):
                 callback.on_cv_end(all_scores)
 
+        elapsed_seconds = float(time.perf_counter() - run_start)
+
         # Create results object
         results = CVResults(
             scores=all_scores,
@@ -507,8 +512,10 @@ class UniversalCVRunner:
             metadata={
                 "framework": self.framework,
                 "n_splits": n_splits,
+                "n_folds_used": fold_idx,
                 "cv_method": self.cv_splitter.__class__.__name__,
                 "fold_sizes": fold_sizes,
+                "runtime_seconds": elapsed_seconds,
             },
         )
 

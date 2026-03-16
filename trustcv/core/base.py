@@ -190,6 +190,24 @@ class CVResults:
         import numpy as _np
 
         lines = ["Cross-Validation Results Summary:"]
+        n_folds = self.metadata.get("n_folds_used", self.metadata.get("n_splits"))
+        if n_folds is None:
+            n_folds = len(self.scores or [])
+        try:
+            n_folds_int = int(n_folds)
+            if n_folds_int > 0:
+                lines.append(f"  Folds: {n_folds_int}")
+        except Exception:
+            pass
+
+        runtime_seconds = self.metadata.get("runtime_seconds")
+        try:
+            runtime_val = float(runtime_seconds)
+            if _np.isfinite(runtime_val):
+                lines.append(f"  Time: {runtime_val:.2f}s")
+        except Exception:
+            pass
+
         primary = self.metadata.get("primary_metric", "score")
         m, s = self._metric_stats(primary)
         if _np.isfinite(m):
