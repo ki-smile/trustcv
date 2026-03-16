@@ -148,10 +148,36 @@ class ValidationResult:
 
         def _show(fig):
             try:
-                fig.show()
+                import os
+                import plotly.io as pio  # type: ignore
+
+                renderer = None
+                try:
+                    from IPython import get_ipython  # type: ignore
+
+                    ip = get_ipython()
+                    in_kernel = ip is not None and getattr(ip, "kernel", None) is not None
+                except Exception:
+                    in_kernel = False
+
+                if in_kernel:
+                    # VS Code kernels are more reliable with the explicit vscode renderer.
+                    renderer = "vscode" if os.environ.get("VSCODE_PID") else "notebook_connected"
+
+                if renderer:
+                    fig.show(renderer=renderer)
+                else:
+                    fig.show()
+                return
             except Exception:
-                fig.write_html("trustcv_dashboard.html")
-                print("Saved → trustcv_dashboard.html")
+                try:
+                    from IPython.display import HTML, display  # type: ignore
+
+                    display(HTML(fig.to_html(full_html=False, include_plotlyjs=True)))
+                    return
+                except Exception:
+                    fig.write_html("trustcv_dashboard.html")
+                    print("Saved → trustcv_dashboard.html")
 
         # ── data extraction ─────────────────────────────────────────────
         metrics = [m.replace("test_", "") for m in self.mean_scores
