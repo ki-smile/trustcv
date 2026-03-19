@@ -162,6 +162,26 @@ class TestDashboardFigureStructure:
         assert hm.zmin is not None and hm.zmin >= 0
         assert hm.zmax is not None and hm.zmax <= 101
 
+    def test_uses_colab_renderer_in_colab(self, results):
+        import plotly.graph_objects as go
+
+        captured_kwargs = []
+
+        def capturing_show(fig_self, *a, **kw):
+            captured_kwargs.append(kw)
+
+        fake_ip = MagicMock()
+        fake_ip.kernel = object()
+
+        with patch.dict("sys.modules", {"google.colab": MagicMock()}):
+            with patch("IPython.get_ipython", return_value=fake_ip):
+                with patch.object(go.Figure, "show", capturing_show):
+                    results.dashboard()
+
+        assert captured_kwargs, "dashboard() must attempt to render figures"
+        assert all(kw.get("renderer") == "colab" for kw in captured_kwargs), \
+            "dashboard() must use Plotly's colab renderer inside Google Colab"
+
 
 # ── 5. Leakage status reflected correctly ─────────────────────────────────
 class TestLeakageDisplay:

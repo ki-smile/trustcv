@@ -149,6 +149,7 @@ class ValidationResult:
         def _show(fig):
             try:
                 import os
+                import sys
                 import plotly.io as pio  # type: ignore
 
                 renderer = None
@@ -160,12 +161,20 @@ class ValidationResult:
                 except Exception:
                     in_kernel = False
 
-                if in_kernel:
+                in_colab = "google.colab" in sys.modules
+
+                if in_colab and "colab" in pio.renderers:
+                    renderer = "colab"
+                elif in_kernel:
                     # VS Code kernels are more reliable with the explicit vscode renderer.
                     renderer = "vscode" if os.environ.get("VSCODE_PID") else "notebook_connected"
 
                 if renderer:
                     fig.show(renderer=renderer)
+                elif in_colab:
+                    from IPython.display import HTML, display  # type: ignore
+
+                    display(HTML(fig.to_html(full_html=False, include_plotlyjs=True)))
                 else:
                     fig.show()
                 return
