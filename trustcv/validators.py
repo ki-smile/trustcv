@@ -122,6 +122,7 @@ class ValidationResult:
         """
         try:
             import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
             import importlib.metadata
         except ImportError:
             print("plotly is required for dashboard(). "
@@ -137,63 +138,7 @@ class ValidationResult:
                     font=dict(color="white", size=12),
                     align="left", height=30)
 
-        def _layout(subtitle, height=380):
-            return dict(
-                title=dict(
-                    text=f"<b>{title}</b>  ·  {subtitle}",
-                    font=dict(size=14, color="#2C2C2A"), x=0.01),
-                paper_bgcolor=BG, plot_bgcolor=CARD, font=FONT,
-                height=height, margin=dict(l=60, r=40, t=55, b=50),
-            )
-
-        def _show(fig):
-            try:
-                import os
-                import sys
-                import plotly.io as pio  # type: ignore
-
-                renderer = None
-                try:
-                    from IPython import get_ipython  # type: ignore
-
-                    ip = get_ipython()
-                    in_kernel = ip is not None and getattr(ip, "kernel", None) is not None
-                except Exception:
-                    in_kernel = False
-
-                in_colab = "google.colab" in sys.modules
-
-                if in_colab and "colab" in pio.renderers:
-                    renderer = "colab"
-                elif in_kernel:
-                    # VS Code kernels are more reliable with the explicit vscode renderer.
-                    renderer = "vscode" if os.environ.get("VSCODE_PID") else "notebook_connected"
-
-                if renderer:
-                    fig.show(renderer=renderer)
-                elif in_colab:
-                    from IPython.display import HTML, display  # type: ignore
-
-                    display(HTML(fig.to_html(full_html=False, include_plotlyjs=True)))
-                else:
-                    fig.show()
-                return
-            except Exception:
-                try:
-                    from IPython.display import HTML, display  # type: ignore
-
-                    display(HTML(fig.to_html(full_html=False, include_plotlyjs=True)))
-                    return
-                except Exception:
-                    fig.write_html("trustcv_dashboard.html")
-                    print("Saved → trustcv_dashboard.html")
-
         # ── data extraction ─────────────────────────────────────────────
-        metrics = [m.replace("test_", "") for m in self.mean_scores
-                   if m.replace("test_", "") not in
-                   [x.replace("test_","") for x in
-                    list(self.mean_scores.keys())[:list(self.mean_scores.keys()).index(m)]]]
-        # deduplicate preserving order
         seen_m, metrics = set(), []
         for m in self.mean_scores:
             k = m.replace("test_", "")
@@ -218,9 +163,27 @@ class ValidationResult:
         leakage_ok = all(self.leakage_check[k] for k in lk_keys) if lk_keys else True
         balance_ok = self.leakage_check.get("balanced_classes", True)
 
-        # ── FIGURE 1 — Bar chart: mean ± CI ────────────────────────────
-        ymin = max(80, min(m*100 for m in means) - 8)
-        fig1 = go.Figure(go.Bar(
+        # Create subplots
+        fig = make_subplots(
+            rows=3, cols=2,
+            specs=[
+                [{"type": "xy"}, {"type": "xy"}],
+                [{"type": "xy"}, {"type": "xy"}],
+                [{"type": "domain"}, {"type": "domain"}]
+            ],
+            subplot_titles=[
+                "Performance metrics — mean ± 95% CI",
+                "Per-fold metrics  (dashed = mean)",
+                "95% bootstrap confidence intervals",
+                "Metric × Fold heatmap",
+                "Data integrity checks",
+                "Run summary"
+            ]
+        )
+
+        # ── 1. Bar chart: mean ± CI ────────────────────────────────────
+        ymin = max(0, min(m*100 for m in means) - 8)
+        fig.add_trace(go.Bar(
             x=m_disp,
             y=[m*100 for m in means],
             error_y=dict(
@@ -238,23 +201,14 @@ class ValidationResult:
                 "95% CI: %{customdata}<extra></extra>"),
             customdata=[f"{l*100:.1f}% – {h*100:.1f}%"
                         for l,h in zip(ci_lo,ci_hi)],
-        ))
-        fig1.update_layout(
-            **_layout("Performance metrics — mean ± 95% CI", 400),
-            yaxis=dict(title="Score (%)", range=[ymin, 103],
-                       gridcolor=LINE, zeroline=False),
-            xaxis=dict(gridcolor="rgba(0,0,0,0)"),
-            showlegend=False,
-        )
-        _show(fig1)
+        ), row=1, col=1)
 
-        # ── FIGURE 2 — Per-fold line chart ──────────────────────────────
-        fig2 = go.Figure()
+        # ── 2. Per-fold line chart ──────────────────────────────────────
         symbols = ["circle","square","diamond","cross","triangle-up",
                    "star","pentagon"]
         for i, (m, md) in enumerate(zip(metrics, m_disp)):
             vals = [f["metrics"].get(m, 0)*100 for f in self.fold_details]
-            fig2.add_trace(go.Scatter(
+            fig.add_trace(go.Scatter(
                 x=flabels, y=vals,
                 mode="lines+markers", name=md,
                 line=dict(color=C[i % len(C)], width=2),
@@ -263,39 +217,26 @@ class ValidationResult:
                             line=dict(width=1.5, color="white")),
                 showlegend=True,
                 hovertemplate=f"<b>{md}</b> — %{{x}}: %{{y:.2f}}%<extra></extra>",
-            ))
+            ), row=1, col=2)
             # dashed mean reference line
-            fig2.add_hline(
+            fig.add_hline(
                 y=self.mean_scores.get(m, 0)*100,
                 line_dash="dot", line_color=C[i % len(C)],
                 line_width=1, opacity=0.35,
+                row=1, col=2
             )
-        fig2.update_layout(
-            **_layout("Per-fold metrics  (dashed = mean)", 420),
-            yaxis=dict(title="Score (%)",
-                       range=[max(75, min(
-                           f["metrics"].get(m,0)*100
-                           for f in self.fold_details for m in metrics)-5), 103],
-                       gridcolor=LINE, zeroline=False),
-            xaxis=dict(gridcolor="rgba(0,0,0,0)"),
-            legend=dict(orientation="h", y=-0.20, x=0,
-                        font=dict(size=11)),
-            showlegend=True,
-        )
-        _show(fig2)
 
-        # ── FIGURE 3 — Horizontal CI range chart ────────────────────────
-        fig3 = go.Figure()
-        x_min = max(80, min(l*100 for l in ci_lo) - 3)
+        # ── 3. Horizontal CI range chart ────────────────────────────────
+        x_min = max(0, min(l*100 for l in ci_lo) - 3)
         for i, (m, md, lo, hi, mv) in enumerate(
                 zip(metrics, m_disp, ci_lo, ci_hi, means)):
-            fig3.add_trace(go.Scatter(
+            fig.add_trace(go.Scatter(
                 x=[lo*100, hi*100], y=[md, md],
                 mode="lines",
                 line=dict(color=C[i % len(C)], width=12),
                 opacity=0.25, showlegend=False, hoverinfo="skip",
-            ))
-            fig3.add_trace(go.Scatter(
+            ), row=2, col=1)
+            fig.add_trace(go.Scatter(
                 x=[mv*100], y=[md],
                 mode="markers+text",
                 marker=dict(color=C[i % len(C)], size=13,
@@ -307,37 +248,22 @@ class ValidationResult:
                 hovertemplate=(
                     f"<b>{md}</b><br>Mean: {mv*100:.1f}%<br>"
                     f"95% CI: {lo*100:.1f}% – {hi*100:.1f}%<extra></extra>"),
-            ))
-        fig3.update_layout(
-            **_layout("95% bootstrap confidence intervals", 340),
-            xaxis=dict(title="Score (%)", range=[x_min, 102],
-                       gridcolor=LINE, zeroline=False),
-            yaxis=dict(gridcolor="rgba(0,0,0,0)", autorange="reversed"),
-            showlegend=False,
-        )
-        _show(fig3)
+            ), row=2, col=1)
 
-        # ── FIGURE 4 — Heatmap ──────────────────────────────────────────
+        # ── 4. Heatmap ──────────────────────────────────────────
         z = [[self.fold_details[j]["metrics"].get(m, 0)*100
               for j in range(n_folds)] for m in metrics]
-        fig4 = go.Figure(go.Heatmap(
+        fig.add_trace(go.Heatmap(
             z=z, x=flabels, y=m_disp,
             colorscale=[[0,"#EEF4FB"],[0.5,"#85B7EB"],[1,"#0C447C"]],
             zmin=85, zmax=100,
             texttemplate="%{z:.1f}%",
             textfont=dict(size=12, color="#2C2C2A"),
-            showscale=False,                      # ← FIX: no blue bar
+            showscale=False,
             hovertemplate="<b>%{y}</b> — %{x}<br>%{z:.2f}%<extra></extra>",
-        ))
-        fig4.update_layout(
-            **_layout("Metric × Fold heatmap", 320),
-            xaxis=dict(side="top", gridcolor="rgba(0,0,0,0)"),
-            yaxis=dict(gridcolor="rgba(0,0,0,0)"),
-            showlegend=False,
-        )
-        _show(fig4)
+        ), row=2, col=2)
 
-        # ── FIGURE 5 — Integrity checks table ───────────────────────────
+        # ── 5. Integrity checks table ───────────────────────────
         def _status(passed):
             if passed is None: return "N/A — IID"
             return "PASSED ✓" if passed else "FAILED ✗"
@@ -362,10 +288,8 @@ class ValidationResult:
         check_names   = [r[0] for r in rows]
         status_texts  = [_status(r[1]) for r in rows]
         status_colors = [_color(r[1]) for r in rows]
-        row_fills     = [["#F8F8F6" if i%2==0 else "#FFFFFF"]
-                         for i in range(len(rows))]
 
-        fig5 = go.Figure(go.Table(
+        fig.add_trace(go.Table(
             header=dict(
                 values=["<b>Check</b>", "<b>Status</b>"],
                 fill_color="#378ADD",
@@ -383,20 +307,15 @@ class ValidationResult:
                 font=dict(
                     color=[
                         ["#2C2C2A"]*len(rows),
-                        status_colors,            # ← green/red per row
+                        status_colors,
                     ],
                     size=12,
                 ),
                 align="left", height=28,
             ),
-        ))
-        fig5.update_layout(
-            **_layout("Data integrity checks", 60 + len(rows)*30),
-            showlegend=False,
-        )
-        _show(fig5)
+        ), row=3, col=1)
 
-        # ── FIGURE 6 — Run summary table ────────────────────────────────
+        # ── 6. Run summary table ────────────────────────────────
         try:
             ver = importlib.metadata.version("trustcv")
         except Exception:
@@ -418,7 +337,7 @@ class ValidationResult:
         s_keys   = [r[0] for r in summary_rows]
         s_vals   = [r[1] for r in summary_rows]
 
-        fig6 = go.Figure(go.Table(
+        fig.add_trace(go.Table(
             header=dict(
                 values=["<b>Field</b>", "<b>Value</b>"],
                 fill_color="#378ADD",
@@ -433,12 +352,76 @@ class ValidationResult:
                 font=dict(color="#2C2C2A", size=12),
                 align="left", height=28,
             ),
-        ))
-        fig6.update_layout(
-            **_layout("Run summary", 60 + len(summary_rows)*30),
-            showlegend=False,
+        ), row=3, col=2)
+
+        # ── layout & render ─────────────────────────────────────────────
+        fig.update_layout(
+            title=dict(
+                text=f"<b>{title}</b>  ·  Cross-Validation Dashboard",
+                font=dict(size=16, color="#2C2C2A"), x=0.01
+            ),
+            paper_bgcolor=BG, plot_bgcolor=CARD, font=FONT,
+            height=1200, margin=dict(l=60, r=40, t=100, b=50),
+            showlegend=True,
+            legend=dict(orientation="h", y=-0.05, x=0, font=dict(size=11)),
         )
-        _show(fig6)
+
+        fig.update_yaxes(title_text="Score (%)", range=[ymin, 103], gridcolor=LINE, zeroline=False, row=1, col=1)
+        fig.update_xaxes(gridcolor="rgba(0,0,0,0)", row=1, col=1)
+        
+        y_vals_all = [f["metrics"].get(m,0)*100 for f in self.fold_details for m in metrics]
+        ymin_line = max(0, min(y_vals_all) - 5) if y_vals_all else 0
+        fig.update_yaxes(title_text="Score (%)", range=[ymin_line, 103], gridcolor=LINE, zeroline=False, row=1, col=2)
+        fig.update_xaxes(gridcolor="rgba(0,0,0,0)", row=1, col=2)
+        
+        fig.update_xaxes(title_text="Score (%)", range=[x_min, 102], gridcolor=LINE, zeroline=False, row=2, col=1)
+        fig.update_yaxes(gridcolor="rgba(0,0,0,0)", autorange="reversed", row=2, col=1)
+        
+        fig.update_xaxes(side="top", gridcolor="rgba(0,0,0,0)", row=2, col=2)
+        fig.update_yaxes(gridcolor="rgba(0,0,0,0)", row=2, col=2)
+
+        def _show(fig_obj):
+            try:
+                import os
+                import sys
+                import plotly.io as pio  # type: ignore
+
+                renderer = None
+                try:
+                    from IPython import get_ipython  # type: ignore
+
+                    ip = get_ipython()
+                    in_kernel = ip is not None and getattr(ip, "kernel", None) is not None
+                except Exception:
+                    in_kernel = False
+
+                in_colab = "google.colab" in sys.modules
+
+                if in_colab and "colab" in pio.renderers:
+                    renderer = "colab"
+                elif in_kernel:
+                    renderer = "vscode" if os.environ.get("VSCODE_PID") else "notebook_connected"
+
+                if renderer:
+                    fig_obj.show(renderer=renderer)
+                elif in_colab:
+                    from IPython.display import HTML, display  # type: ignore
+
+                    display(HTML(fig_obj.to_html(full_html=False, include_plotlyjs=True)))
+                else:
+                    fig_obj.show()
+                return
+            except Exception:
+                try:
+                    from IPython.display import HTML, display  # type: ignore
+
+                    display(HTML(fig_obj.to_html(full_html=False, include_plotlyjs=True)))
+                    return
+                except Exception:
+                    fig_obj.write_html("trustcv_dashboard.html")
+                    print("Saved → trustcv_dashboard.html")
+
+        _show(fig)
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON export"""

@@ -407,7 +407,7 @@ class RepeatedGroupKFold:
 
         for repeat_idx in range(self.n_repeats):
             # Use different random state for each repeat
-            repeat_seed = None if self.random_state is None else rng.randint(0, 2**32 - 1)
+            repeat_seed = None if self.random_state is None else rng.randint(0, 2**31 - 1)
 
             gkf = GroupKFoldMedical(n_splits=self.n_splits, shuffle=True, random_state=repeat_seed)
 
