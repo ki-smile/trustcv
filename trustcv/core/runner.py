@@ -6,6 +6,7 @@ different ML frameworks while maintaining best practices and
 regulatory compliance.
 """
 
+import inspect
 import warnings
 import time
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -158,6 +159,9 @@ class UniversalCVRunner:
         metrics: Optional[List[str]] = None,
         callbacks: Optional[List[CVCallback]] = None,
         groups: Optional[np.ndarray] = None,
+        split_kwargs: Optional[Dict[str, Any]] = None,
+        fit_kwargs: Optional[Dict[str, Any]] = None,
+        evaluate_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> CVResults:
         """
@@ -172,12 +176,56 @@ class UniversalCVRunner:
             metrics: List of metrics to compute
             callbacks: List of callbacks
             groups: Group labels for grouped CV
-            **kwargs: Additional framework-specific parameters
+            split_kwargs: Metadata passed only to the CV splitter, such as
+                coordinates, timestamps, or environmental_data
+            fit_kwargs: Arguments passed only to model fitting/training, such
+                as sample_weight
+            evaluate_kwargs: Optional evaluation-only arguments. These are
+                passed when the selected adapter's evaluate method supports
+                the provided keywords; otherwise they are reserved for adapter
+                support and ignored.
+            **kwargs: Backward-compatible legacy arguments. Known splitter
+                metadata is routed only to splitting; other legacy arguments
+                are routed to splitting and fitting when explicit dictionaries
+                are not provided.
+
+        Example:
+            >>> from sklearn.ensemble import RandomForestClassifier
+            >>> from trustcv.splitters import SpatialBlockCV
+            >>> runner = UniversalCVRunner(cv_splitter=SpatialBlockCV(n_splits=5))
+            >>> results = runner.run(
+            ...     model=RandomForestClassifier(),
+            ...     data=(X, y),
+            ...     metrics=["roc_auc", "accuracy"],
+            ...     split_kwargs={"coordinates": coordinates},
+            ... )
 
         Returns:
             CVResults object with scores and models
         """
         run_start = time.perf_counter()
+        split_kwargs_provided = split_kwargs is not None
+        fit_kwargs_provided = fit_kwargs is not None
+
+        split_kwargs = {} if split_kwargs is None else dict(split_kwargs)
+        fit_kwargs = {} if fit_kwargs is None else dict(fit_kwargs)
+        evaluate_kwargs = {} if evaluate_kwargs is None else dict(evaluate_kwargs)
+
+        splitter_only_legacy_keys = {
+            "coordinates",
+            "timestamps",
+            "environmental_data",
+            "environmental_covariates",
+            "hierarchy",
+        }
+        for key, value in kwargs.items():
+            if key in splitter_only_legacy_keys:
+                split_kwargs.setdefault(key, value)
+                continue
+            if not split_kwargs_provided:
+                split_kwargs.setdefault(key, value)
+            if not fit_kwargs_provided:
+                fit_kwargs.setdefault(key, value)
 
         def _is_regression_target(y_true):
             arr = y_true.to_numpy() if hasattr(y_true, "to_numpy") else np.asarray(y_true)
@@ -188,6 +236,36 @@ class UniversalCVRunner:
             if np.issubdtype(arr.dtype, np.floating):
                 return True
             return np.unique(arr).size > 20
+
+        def _supported_evaluate_kwargs(base_kwargs):
+            if not evaluate_kwargs:
+                return {}
+            try:
+                signature = inspect.signature(self.adapter.evaluate)
+            except (TypeError, ValueError):
+                return {}
+            parameters = signature.parameters
+            if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in parameters.values()):
+                return dict(evaluate_kwargs)
+            return {
+                key: value
+                for key, value in evaluate_kwargs.items()
+                if key in parameters and key not in base_kwargs
+            }
+
+        def _evaluate_adapter(fold_model, val_data, loss_fn=None, metrics=None):
+            if self.framework in ["pytorch", "monai"]:
+                base_kwargs = {"loss_fn": loss_fn, "metrics": metrics}
+            elif self.framework == "jax":
+                base_kwargs = {"state": loss_fn, "metrics": metrics}
+            else:
+                base_kwargs = {"metrics": metrics}
+
+            eval_call_kwargs = {
+                **base_kwargs,
+                **_supported_evaluate_kwargs(base_kwargs),
+            }
+            return self.adapter.evaluate(fold_model, val_data, **eval_call_kwargs)
 
         # Combine default and user callbacks
         all_callbacks = self.default_callbacks + (callbacks or [])
@@ -296,13 +374,13 @@ class UniversalCVRunner:
                 split_source,
                 y=y_for_split,
                 groups=groups,
-                **kwargs,
+                **split_kwargs,
             )
         else:
             split_iter = self.cv_splitter.split(
                 split_source,
                 groups=groups,
-                **kwargs,
+                **split_kwargs,
             )
 
         for split_indices in split_iter:
@@ -368,11 +446,11 @@ class UniversalCVRunner:
 
                     # Train epoch
                     train_metrics = self.adapter.train_epoch(
-                        fold_model, train_data, optimizer, loss_fn, **kwargs
+                        fold_model, train_data, optimizer, loss_fn, **fit_kwargs
                     )
 
                     # Evaluate
-                    val_metrics = self.adapter.evaluate(fold_model, val_data, loss_fn, metrics)
+                    val_metrics = _evaluate_adapter(fold_model, val_data, loss_fn, metrics)
 
                     # Combine metrics
                     epoch_logs = {**train_metrics, **val_metrics}
@@ -391,12 +469,12 @@ class UniversalCVRunner:
                         break
 
                 # Final evaluation
-                final_metrics = self.adapter.evaluate(fold_model, val_data, loss_fn, metrics)
+                final_metrics = _evaluate_adapter(fold_model, val_data, loss_fn, metrics)
 
             else:
                 # Traditional ML training (single fit)
-                train_metrics = self.adapter.train_epoch(fold_model, train_data, **kwargs)
-                final_metrics = self.adapter.evaluate(fold_model, val_data, metrics=metrics)
+                train_metrics = self.adapter.train_epoch(fold_model, train_data, **fit_kwargs)
+                final_metrics = _evaluate_adapter(fold_model, val_data, metrics=metrics)
 
             # Ensure predictions/probabilities are captured for downstream use
             predictions = final_metrics.get("predictions")
