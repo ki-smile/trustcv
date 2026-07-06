@@ -8,6 +8,8 @@
 __pycache__/
 build/
 dist/
+outputs/
+notebooks/outputs/
 env/
 venv/
 *.egg-info/

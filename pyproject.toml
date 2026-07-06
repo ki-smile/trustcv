@@ -10,12 +10,11 @@ readme = "README.md"
 authors = [
     {name = "SMAILE (Stockholm Medical AI and Learning Environments), Karolinska Institutet"}
 ]
-license = { text = "MIT" }
+license = "MIT"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Healthcare Industry",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
