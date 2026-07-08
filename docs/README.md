@@ -85,6 +85,34 @@ See [Data Leakage Detection](DATA_LEAKAGE_DETECTION.md) for details.
 
 ---
 
+## Metric Feasibility Warnings for LOGO and Small Validation Folds
+
+Group-exclusive validation methods such as `LeaveOneGroupOut` are often the right choice for patient- or site-level generalization. However, a held-out group can be very small or contain only one outcome class. In those folds, fold-wise ROC-AUC may be undefined, and sensitivity or specificity can be unstable.
+
+TrustCV warns in group-based workflows when requested AUC, sensitivity, or specificity metrics meet these risky fold conditions. The result object keeps a structured diagnostic table:
+
+```python
+from sklearn.linear_model import LogisticRegression
+from trustcv import UniversalCVRunner, LeaveOneGroupOut
+from trustcv.metrics import oob_clinical_metrics
+
+runner = UniversalCVRunner(LeaveOneGroupOut(), framework="sklearn")
+results = runner.run(
+    LogisticRegression(),
+    data=(X, y),
+    groups=patient_ids,
+    metrics=["roc_auc", "sensitivity", "specificity"],
+)
+
+results.diagnostics["metric_feasibility"]
+results.metric_feasibility_warnings
+pooled = oob_clinical_metrics(results, y)
+```
+
+Fold-wise AUC averages AUC values computed separately inside each validation fold. Pooled out-of-fold AUC first concatenates all held-out predictions, then computes one global AUC. TrustCV does not switch aggregation silently; the warning recommends pooled out-of-fold aggregation while preserving the user's requested metric workflow.
+
+---
+
 ## Quick Links
 
 - **Installation**: `pip install trustcv`

@@ -46,7 +46,7 @@ from .core import (
     ProgressLogger,
     UniversalCVRunner,
 )
-from .metrics import ClinicalMetrics
+from .metrics import ClinicalMetrics, check_fold_metric_feasibility
 
 # Import all splitters
 from .splitters import (  # I.I.D. methods; Grouped methods; Temporal methods; Spatial methods
@@ -125,6 +125,7 @@ __all__ = [
     "DataLeakageChecker",
     "BalanceChecker",
     "ClinicalMetrics",
+    "check_fold_metric_feasibility",
     "NestedTemporalCV",
     "NestedGroupedCV",
     # Framework-agnostic components

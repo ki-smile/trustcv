@@ -26,6 +26,12 @@ from .medical_metrics import specificity as specificity_score
 from .medical_metrics import (
     youden_index,
 )
+from .diagnostics import (
+    POOLED_OOF_RECOMMENDATION,
+    check_fold_metric_feasibility,
+    emit_metric_feasibility_warning,
+    metric_names_need_class_feasibility,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..core.base import CVResults
@@ -119,4 +125,8 @@ __all__ = [
     "net_benefit",
     "clinical_utility_score",
     "oob_clinical_metrics",
+    "POOLED_OOF_RECOMMENDATION",
+    "check_fold_metric_feasibility",
+    "emit_metric_feasibility_warning",
+    "metric_names_need_class_feasibility",
 ]

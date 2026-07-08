@@ -17,6 +17,10 @@ from sklearn.metrics import f1_score, mean_squared_error, mean_absolute_error, r
 
 from .base import CVResults, FrameworkAdapter, SklearnAdapter
 from .callbacks import CVCallback, ProgressLogger
+from ..metrics.diagnostics import (
+    check_fold_metric_feasibility,
+    emit_metric_feasibility_warning,
+)
 
 
 class UniversalCVRunner:
@@ -162,6 +166,9 @@ class UniversalCVRunner:
         split_kwargs: Optional[Dict[str, Any]] = None,
         fit_kwargs: Optional[Dict[str, Any]] = None,
         evaluate_kwargs: Optional[Dict[str, Any]] = None,
+        warn_metric_feasibility: bool = True,
+        recommend_pooled_oof: bool = True,
+        min_test_samples: int = 5,
         **kwargs,
     ) -> CVResults:
         """
@@ -184,6 +191,9 @@ class UniversalCVRunner:
                 passed when the selected adapter's evaluate method supports
                 the provided keywords; otherwise they are reserved for adapter
                 support and ignored.
+            warn_metric_feasibility: If True, warn when group-based validation folds are too small or single-class for fold-wise AUC, sensitivity, or specificity.
+            recommend_pooled_oof: If True, include pooled out-of-fold metric aggregation guidance in diagnostics.
+            min_test_samples: Minimum held-out fold size considered stable for fold-wise classification metrics.
             **kwargs: Backward-compatible legacy arguments. Known splitter
                 metadata is routed only to splitting; other legacy arguments
                 are routed to splitting and fitting when explicit dictionaries
@@ -580,6 +590,36 @@ class UniversalCVRunner:
 
         elapsed_seconds = float(time.perf_counter() - run_start)
 
+        cv_method_name = self.cv_splitter.__class__.__name__
+        diagnostics = {}
+        if y_for_split is not None and all_indices:
+            metric_names = list(metrics or [])
+            if not metric_names:
+                metric_names = sorted(
+                    {
+                        key
+                        for fold_scores in all_scores
+                        if isinstance(fold_scores, dict)
+                        for key in fold_scores.keys()
+                    }
+                )
+            test_indices_by_fold = [test_idx for _, test_idx in all_indices]
+            metric_feasibility = check_fold_metric_feasibility(
+                y_for_split,
+                test_indices_by_fold,
+                metric_names=metric_names,
+                min_test_samples=min_test_samples,
+            )
+            if not recommend_pooled_oof:
+                metric_feasibility["recommendation"] = ""
+                for row in metric_feasibility.get("folds", []):
+                    row["recommendation"] = ""
+            diagnostics["metric_feasibility"] = metric_feasibility
+
+            grouped_workflow = groups is not None or "group" in cv_method_name.lower()
+            if warn_metric_feasibility and grouped_workflow:
+                emit_metric_feasibility_warning(metric_feasibility, stacklevel=2)
+
         # Create results object
         results = CVResults(
             scores=all_scores,
@@ -591,10 +631,11 @@ class UniversalCVRunner:
                 "framework": self.framework,
                 "n_splits": n_splits,
                 "n_folds_used": fold_idx,
-                "cv_method": self.cv_splitter.__class__.__name__,
+                "cv_method": cv_method_name,
                 "fold_sizes": fold_sizes,
                 "runtime_seconds": elapsed_seconds,
             },
+            diagnostics=diagnostics,
         )
 
         if epochs is not None:

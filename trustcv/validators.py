@@ -9,7 +9,7 @@ Main validation classes with medical-specific features
 
 import json
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -30,6 +30,10 @@ from sklearn.model_selection import BaseCrossValidator, cross_validate, Stratifi
 from sklearn.utils.validation import check_array
 
 from .splitters import KFoldMedical
+from .metrics.diagnostics import (
+    check_fold_metric_feasibility,
+    emit_metric_feasibility_warning,
+)
 
 
 @dataclass
@@ -43,9 +47,15 @@ class ValidationResult:
     fold_details: List[Dict]
     leakage_check: Dict[str, bool]
     recommendations: List[str]
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
     ci_method: str = ""
     ci_level: float = 0.95
 
+    @property
+    def metric_feasibility_warnings(self) -> List[str]:
+        """Warnings from fold-level metric feasibility diagnostics, if available."""
+        diag = self.diagnostics.get("metric_feasibility", {}) if self.diagnostics else {}
+        return list(diag.get("warnings", []))
     def summary(self) -> str:
         """Generate summary report"""
         summary = "=== Trustworthy Cross-Validation Results ===\n\n"
@@ -481,6 +491,7 @@ class TrustCVValidator:
         test_size: Optional[Union[float, int]] = None,
         stratify: Optional[bool] = None,
         hierarchy_level: str = "patient",
+        warn_metric_feasibility: bool = True,
     ):
         """
         Initialize TrustCV Validator
@@ -592,6 +603,7 @@ class TrustCVValidator:
             else bootstrap_validation_estimator
         )
         self.hierarchy_level = str(hierarchy_level or "patient")
+        self.warn_metric_feasibility = bool(warn_metric_feasibility)
 
         self._cv_splitter = None
         self._setup_splitter()
@@ -766,12 +778,14 @@ class TrustCVValidator:
             # otherwise, keep whatever metric_list is (possibly overridden for multilabel)
         per_metric_scores: Dict[str, List[float]] = {m: [] for m in metric_list}
         fold_details: List[Dict[str, Any]] = []
+        test_indices_by_fold: List[np.ndarray] = []
         per_label_prevalence: List[np.ndarray] = []
 
         # iterate folds
         # Most trustcv/sklearn splitters accept (X, y, groups)
         split_groups = group_labels
         for k, (tr, te) in enumerate(splitter.split(X_for_split, y_arr, split_groups), 1):
+            test_indices_by_fold.append(np.asarray(te, dtype=int))
             # train/val slices
             if isinstance(X_arr, Mapping):
                 X_tr = {k2: v[tr] for k2, v in X_arr.items()}
@@ -1045,6 +1059,18 @@ class TrustCVValidator:
             except Exception:
                 leakage_check_map["has_leakage"] = True
 
+        diagnostics: Dict[str, Any] = {}
+        if test_indices_by_fold:
+            metric_feasibility = check_fold_metric_feasibility(
+                y_arr,
+                test_indices_by_fold,
+                metric_names=metric_list,
+            )
+            diagnostics["metric_feasibility"] = metric_feasibility
+            splitter_name = splitter.__class__.__name__
+            grouped_workflow = split_groups is not None or "group" in splitter_name.lower()
+            if self.warn_metric_feasibility and grouped_workflow:
+                emit_metric_feasibility_warning(metric_feasibility, stacklevel=2)
         # build detailed scores dict (arrays per metric)
         scores_dict = {
             m: np.asarray(v, dtype=float) for m, v in per_metric_scores.items() if len(v) > 0
@@ -1062,6 +1088,7 @@ class TrustCVValidator:
             fold_details=fold_details,
             leakage_check=leakage_check_map,
             recommendations=recommendations,
+            diagnostics=diagnostics,
         )
         # Store last result for downstream consumers (e.g., reporting)
         try:
@@ -1647,6 +1674,13 @@ class TrustCVValidator:
         if any(tag in model_name for tag in ("keras", "tensorflow", "pytorch", "torch")):
             n_jobs = 1
 
+
+        precomputed_splits = None
+        try:
+            precomputed_splits = list(self._cv_splitter.split(X, y, groups))
+        except Exception:
+            precomputed_splits = None
+
         cv_results = cross_validate(
             model,
             X,
@@ -1708,6 +1742,19 @@ class TrustCVValidator:
         if "score" in cv_results_normalized and "accuracy" not in cv_results_normalized:
             cv_results_normalized["accuracy"] = cv_results_normalized["score"]
 
+        diagnostics = {}
+        if precomputed_splits is not None:
+            metric_names = list(scoring.keys()) if isinstance(scoring, dict) else list(mean_scores.keys())
+            metric_feasibility = check_fold_metric_feasibility(
+                y,
+                [test_idx for _, test_idx in precomputed_splits],
+                metric_names=metric_names,
+            )
+            diagnostics["metric_feasibility"] = metric_feasibility
+            grouped_workflow = groups is not None or "group" in self._cv_splitter.__class__.__name__.lower()
+            if self.warn_metric_feasibility and grouped_workflow:
+                emit_metric_feasibility_warning(metric_feasibility, stacklevel=2)
+
         # Create result object
         ci_label = self._ci_method_label() if confidence_intervals else ""
 
@@ -1721,8 +1768,8 @@ class TrustCVValidator:
             fold_details=fold_details,
             leakage_check=leakage_check,
             recommendations=recommendations,
+            diagnostics=diagnostics,
         )
-
         # Generate compliance report if needed
         if self.compliance:
             self._generate_compliance_report(result, model, X, y)

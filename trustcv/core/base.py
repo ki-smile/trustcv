@@ -33,6 +33,7 @@ class CVResults:
     probabilities: Optional[List[np.ndarray]] = None
     indices: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
 
     # ----- helpers -----
     def _to_float_list(self, value) -> List[float]:
@@ -121,6 +122,12 @@ class CVResults:
         return mean, std
 
     # ----- public API -----
+    @property
+    def metric_feasibility_warnings(self) -> List[str]:
+        """Warnings from fold-level metric feasibility diagnostics, if available."""
+        diag = self.diagnostics.get("metric_feasibility", {}) if self.diagnostics else {}
+        return list(diag.get("warnings", []))
+
     @property
     def fold_details(self) -> List[Dict[str, Any]]:
         """
