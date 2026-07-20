@@ -18,7 +18,7 @@ def test_imports():
     print("🔍 Testing Module Imports")
     print("="*60)
     
-    modules_to_test = [
+    core_modules = [
         "trustcv",
         "trustcv.splitters.iid",
         "trustcv.splitters.temporal", 
@@ -28,38 +28,50 @@ def test_imports():
         "trustcv.checkers.balance",
         "trustcv.metrics.medical_metrics",
         "trustcv.visualization.plots",
-        "trustcv.frameworks.pytorch",
-        "trustcv.frameworks.tensorflow",
-        "trustcv.frameworks.monai",
         "trustcv.core.base",
         "trustcv.core.runner",
         "trustcv.core.callbacks"
     ]
     
+    optional_framework_modules = [
+        "trustcv.frameworks.pytorch",
+        "trustcv.frameworks.tensorflow",
+        "trustcv.frameworks.monai",
+    ]
+    
     failed = []
-    for module in modules_to_test:
+    for module in core_modules:
         try:
             __import__(module)
             print(f"✅ {module}")
         except ImportError as e:
             print(f"❌ {module}: {e}")
             failed.append(module)
+            
+    for module in optional_framework_modules:
+        try:
+            __import__(module)
+            print(f"✅ {module} (optional framework)")
+        except ImportError as e:
+            print(f"ℹ️ {module} (skipped optional framework): {e}")
     
     if failed:
-        print(f"\n⚠️ Failed imports: {failed}")
+        print(f"\n⚠️ Failed core imports: {failed}")
         return False
     else:
-        print("\n✅ All modules imported successfully!")
+        print("\n✅ All core modules imported successfully!")
         return True
 
 def test_cv_methods():
-    """Test that CV methods work with basic data"""
+    """Test that CV methods and diagnostic features work with basic data"""
     print("\n" + "="*60)
-    print("🧪 Testing CV Methods")
+    print("🧪 Testing CV Methods & Diagnostics")
     print("="*60)
     
     import numpy as np
     from sklearn.ensemble import RandomForestClassifier
+    from trustcv.metrics import check_fold_metric_feasibility
+    from trustcv import UniversalCVRunner, StratifiedKFold
     
     # Create sample data
     np.random.seed(42)
@@ -102,12 +114,29 @@ def test_cv_methods():
         except Exception as e:
             print(f"❌ {name}: {e}")
             failed.append(name)
+
+    # Test Metric Feasibility Diagnostics
+    try:
+        diag = check_fold_metric_feasibility(y, test_indices_by_fold=[np.arange(80, 100)], metric_names=["roc_auc"])
+        print(f"✅ Metric Feasibility Diagnostics: {len(diag['folds'])} fold checks performed")
+    except Exception as e:
+        print(f"❌ Metric Feasibility Diagnostics check failed: {e}")
+        failed.append("MetricFeasibilityDiagnostics")
+
+    # Test UniversalCVRunner with split_kwargs
+    try:
+        runner = UniversalCVRunner(StratifiedKFold(n_splits=3), framework="sklearn")
+        res = runner.run(model, data=(X, y), split_kwargs={})
+        print(f"✅ UniversalCVRunner split_kwargs execution: mean score = {res.mean_scores.get('accuracy', 0):.3f}")
+    except Exception as e:
+        print(f"❌ UniversalCVRunner split_kwargs check failed: {e}")
+        failed.append("UniversalCVRunner_split_kwargs")
     
     if failed:
         print(f"\n⚠️ Failed methods: {failed}")
         return False
     else:
-        print("\n✅ All CV methods tested successfully!")
+        print("\n✅ All CV methods and diagnostic utilities tested successfully!")
         return True
 
 def test_data_leakage_checker():

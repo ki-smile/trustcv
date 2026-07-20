@@ -1,6 +1,6 @@
 # TrustCV Documentation
 
-**Version 1.0.0** | Framework-Agnostic Cross-Validation for Medical AI
+**Version 1.0.7** | Framework-Agnostic Cross-Validation for Medical AI
 
 This directory contains comprehensive documentation for TrustCV, a toolkit implementing 29 cross-validation methods with automatic data leakage detection.
 
@@ -20,7 +20,7 @@ This directory contains comprehensive documentation for TrustCV, a toolkit imple
 
 | Document | Description |
 |----------|-------------|
-| [Data Leakage Detection](DATA_LEAKAGE_DETECTION.md) | Understanding and detecting 6 types of data leakage |
+| [Data Leakage Detection](DATA_LEAKAGE_DETECTION.md) | Understanding and detecting 8 types of data leakage |
 | [Leakage Detection Implementation](LEAKAGE_DETECTION_IMPLEMENTATION.md) | Technical details of detection algorithms |
 | [Practical CV Guide](PRACTICAL_CV_GUIDE.md) | Real-world CV scenarios and solutions |
 
@@ -28,7 +28,7 @@ This directory contains comprehensive documentation for TrustCV, a toolkit imple
 
 | Document | Description |
 |----------|-------------|
-| [Framework Integration Guide](FRAMEWORK_GUIDE.md) | Using TrustCV with PyTorch, TensorFlow, MONAI |
+| [Framework Integration Guide](FRAMEWORK_GUIDE.md) | Using TrustCV with PyTorch, TensorFlow, MONAI, JAX |
 | [Regulatory CV Guidelines](REGULATORY_CV_GUIDELINES.md) | Mapping to FDA/CE MDR documentation requirements |
 | [ML Toolbox Comparison](ML_TOOLBOX_CV_COMPARISON.md) | TrustCV vs scikit-learn and other libraries |
 
@@ -72,14 +72,16 @@ For geographic or imaging data:
 
 ## Data Leakage Detection
 
-TrustCV automatically detects 6 types of data leakage:
+TrustCV automatically detects **8 types of data leakage**:
 
 1. **Patient Leakage** - Same patient in train and test sets
 2. **Temporal Leakage** - Future data used to predict past
 3. **Spatial Leakage** - Nearby samples in train and test
 4. **Preprocessing Leakage** - Global statistics computed before split
 5. **Duplicate Detection** - Exact duplicate samples across sets
-6. **Feature-Target Leakage** - Features correlated with target
+6. **Near-Duplicate Detection** - Cosine similarity near-duplicates across sets
+7. **Hierarchical Group Leakage** - Parent-level group overlap across splits
+8. **Feature-Target Leakage** - Features correlated with target
 
 See [Data Leakage Detection](DATA_LEAKAGE_DETECTION.md) for details.
 
@@ -113,11 +115,25 @@ Fold-wise AUC averages AUC values computed separately inside each validation fol
 
 ---
 
-## Quick Links
+## Quick Links & Interactive Notebooks
 
 - **Installation**: `pip install trustcv`
 - **Repository**: [github.com/ki-smile/trustcv](https://github.com/ki-smile/trustcv)
-- **Notebooks**: See `notebooks/` directory for interactive tutorials
+- **Interactive Tutorials**: 14 Jupyter notebooks in the `notebooks/` directory:
+  - `01_IID_Methods_Showcase.ipynb`
+  - `02_Advanced_Workflow_UniversalRunner.ipynb`
+  - `03_TrustCVValidator_Showcase.ipynb`
+  - `04_TrustCVValidator_IID_Comparison.ipynb`
+  - `05_CrossValidation_Comparison.ipynb`
+  - `06_TrustCV_DeepLearning_Showcase_with_Glossary.ipynb`
+  - `07_trustcv_grouped_cv_medical.ipynb`
+  - `08_TrustCV_Structured_Scenarios_S3.ipynb`
+  - `09_RealData_UCI_HAR_Grouped_Leakage_NestedCV.ipynb`
+  - `10_Advanced_Workflow_oob_clinical_metrics.ipynb`
+  - `11_Spatial_Synthetic_EnvironmentalHealth_TrustCV_SplitKwargs.ipynb`
+  - `12_PhysioNet2019_Sepsis_RealClinicalData_TrustCV_cloud_TEMPORAL.ipynb`
+  - `13_LeakageChecker_Injection_Boundary_Validation.ipynb`
+  - `14_LOGO_metric_feasibility_warning.ipynb`
 - **Examples**: See `examples/` directory for complete scripts
 
 ---

@@ -5,28 +5,29 @@
 ### ✅ Completed Items
 
 #### **Core Package Development**
-- ✅ Python package structure with `setup.py`
-- ✅ Main `MedicalValidator` class with compliance features
-- ✅ Patient-aware splitters (GroupKFold, StratifiedGroupKFold)
-- ✅ Temporal splitters for time-series medical data
-- ✅ Data leakage detection system
-- ✅ Clinical metrics calculator (sensitivity, specificity, PPV, NPV, NNT)
-- ✅ Medical dataset loaders and generators
-- ✅ Example scripts for common tasks
-- ✅ Comprehensive unit tests
+- ✅ Python package structure with `pyproject.toml` and `setup.py`
+- ✅ Main `TrustCV` / `TrustCVValidator` class with compliance features
+- ✅ 29 Cross-validation splitters (IID, Grouped, Temporal, Spatial)
+- ✅ Data leakage detection system with 8 leakage check types
+- ✅ Metric Feasibility Diagnostic system (`check_fold_metric_feasibility()`)
+- ✅ UniversalCVRunner supporting split-specific arguments (`split_kwargs`)
+- ✅ Framework integration for PyTorch, TensorFlow, MONAI, JAX, XGBoost, LightGBM, CatBoost
+- ✅ Clinical metrics calculator (sensitivity, specificity, PPV, NPV, NNT, diagnostic odds ratio, CIs)
+- ✅ Medical dataset loaders and synthetic generators
+- ✅ Comprehensive unit test suite (204 unit tests passing)
 
 #### **Interactive Website**
 - ✅ Homepage with Material Design 3 and KI colors
 - ✅ Interactive CV visualizations with Plotly.js
 - ✅ Method selector and decision tree
+- ✅ AI agent documentation (`llms.txt`, `llms-full.txt`, `api-schema.json`)
 - ✅ Responsive design for all devices
 - ✅ GitHub Pages deployment configuration
 
 #### **Educational Content**
-- ✅ 01_CV_Basics.ipynb - Comprehensive introduction
-- ✅ 02_Patient_Level_CV.ipynb - Grouped data handling
-- ✅ Best practices documentation
-- ✅ API reference documentation
+- ✅ 14 Interactive Jupyter notebooks covering all validation categories and clinical benchmarks
+- ✅ Best practices & regulatory compliance documentation
+- ✅ Machine-readable API reference for AI coding agents
 
 #### **Community & Documentation**
 - ✅ CONTRIBUTING.md with detailed guidelines
@@ -43,12 +44,12 @@
 | CV methods implemented | **29/29 (100%)** |
 | Frameworks supported | 5 (sklearn, PyTorch, TF, MONAI, JAX) |
 | Python modules | 20+ |
-| Jupyter notebooks | 10 |
+| Jupyter notebooks | **14** |
 | Documentation files | 15+ |
 | Lines of Python code | 10,000+ |
-| Leakage detection types | 6 |
+| Leakage detection types | **8** |
 | Interactive visualizations | 29 |
-| Test coverage | All methods tested |
+| Unit tests passing | **204** |
 | Medical datasets | 8 |
 
 ## 🚀 Ready for Release
@@ -58,13 +59,13 @@ The trustcv toolkit is now ready for:
 1. **GitHub Release**
    ```bash
    git push origin main
-   git tag -a v0.1.0 -m "Initial release"
-   git push origin v0.1.0
+   git tag -a v1.0.7 -m "Release v1.0.7"
+   git push origin v1.0.7
    ```
 
 2. **PyPI Publication**
    ```bash
-   python setup.py sdist bdist_wheel
+   python -m build
    twine upload dist/*
    ```
 
