@@ -1,5 +1,6 @@
 ﻿"""Confidence intervals for cross-validation estimates."""
 
+import warnings
 from typing import Any, Dict, Iterable, Optional, Tuple
 
 import numpy as np
@@ -170,18 +171,39 @@ def _oof_bootstrap_interval(
     n_bootstrap: int,
     level: float,
     rng: np.random.Generator,
-) -> Tuple[Tuple[float, float], Dict[str, int]]:
+) -> Tuple[Tuple[float, float], Dict[str, Any]]:
+    """Bootstrap a metric over pooled out-of-fold predictions.
+
+    Ungrouped classification resamples are stratified within each class so
+    every replicate retains the full target label set. Grouped classification
+    keeps whole-group cluster resampling; undefined replicates are skipped,
+    their fraction is returned in the diagnostics, and a ``UserWarning`` is
+    emitted when more than 10% of the requested replicates are skipped.
+    Regression uses ordinary row or cluster bootstrap resampling.
+    """
     estimates = []
     skipped = 0
     n_samples = y_true.shape[0]
+    n_resamples = max(int(n_bootstrap), 1)
     labels = None if regression else np.unique(y_true)
     pos_label = None if labels is None or labels.size == 0 else labels[-1]
     unique_groups = np.unique(groups) if cluster and groups is not None else None
-    for _ in range(max(int(n_bootstrap), 1)):
+    for _ in range(n_resamples):
         if unique_groups is not None:
             sampled_groups = rng.choice(unique_groups, size=unique_groups.size, replace=True)
             sample_indices = np.concatenate(
                 [np.flatnonzero(groups == group) for group in sampled_groups]
+            )
+        elif not regression:
+            sample_indices = np.concatenate(
+                [
+                    rng.choice(
+                        np.flatnonzero(y_true == label),
+                        size=np.count_nonzero(y_true == label),
+                        replace=True,
+                    )
+                    for label in labels
+                ]
             )
         else:
             sample_indices = rng.integers(0, n_samples, size=n_samples)
@@ -207,10 +229,23 @@ def _oof_bootstrap_interval(
             estimates.append(estimate)
         else:
             skipped += 1
+    skipped_fraction = skipped / n_resamples
+    details = {
+        "skipped_resamples": skipped,
+        "skipped_fraction": skipped_fraction,
+    }
+    if unique_groups is not None and skipped_fraction > 0.10:
+        warnings.warn(
+            "OOF cluster bootstrap skipped more than 10% of resamples because "
+            "the metric was undefined for their sampled class composition "
+            f"({skipped}/{n_resamples}, {skipped_fraction:.1%}).",
+            UserWarning,
+            stacklevel=2,
+        )
     if not estimates:
-        return (float("nan"), float("nan")), {"skipped_resamples": skipped}
+        return (float("nan"), float("nan")), details
     alpha = 1.0 - level
     low, high = np.percentile(
         np.asarray(estimates), [alpha / 2 * 100, (1 - alpha / 2) * 100]
     )
-    return (float(low), float(high)), {"skipped_resamples": skipped}
+    return (float(low), float(high)), details

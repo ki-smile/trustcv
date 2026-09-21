@@ -58,3 +58,47 @@ def test_oof_bootstrap_multiclass_metrics_use_global_labels():
     assert details["skipped_resamples"] == n_bootstrap - len(expected)
     assert interval == pytest.approx(np.percentile(expected, [2.5, 97.5]))
     assert interval != pytest.approx(np.percentile(legacy, [2.5, 97.5]))
+
+
+def test_oof_bootstrap_stratifies_imbalanced_ungrouped_classification():
+    y_true = np.array([0] * 95 + [1] * 5)
+    y_score = np.linspace(0.0, 1.0, y_true.size)
+
+    _, details = _oof_bootstrap_interval(
+        "roc_auc",
+        y_true=y_true,
+        y_pred=None,
+        y_score=y_score,
+        groups=None,
+        cluster=False,
+        regression=False,
+        n_bootstrap=200,
+        level=0.95,
+        rng=np.random.default_rng(7),
+    )
+
+    assert details["skipped_resamples"] == 0
+    assert details["skipped_fraction"] == 0.0
+
+
+def test_oof_cluster_bootstrap_warns_when_many_resamples_are_skipped():
+    groups = np.repeat(np.arange(20), 5)
+    y_true = np.repeat(np.array([0] * 19 + [1]), 5)
+    y_score = y_true.astype(float)
+
+    with pytest.warns(UserWarning, match="skipped.*10%"):
+        _, details = _oof_bootstrap_interval(
+            "roc_auc",
+            y_true=y_true,
+            y_pred=None,
+            y_score=y_score,
+            groups=groups,
+            cluster=True,
+            regression=False,
+            n_bootstrap=200,
+            level=0.95,
+            rng=np.random.default_rng(9),
+        )
+
+    assert details["skipped_resamples"] > 20
+    assert details["skipped_fraction"] > 0.10
