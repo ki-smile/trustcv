@@ -107,11 +107,15 @@ class DataLeakageChecker:
         target_auc_threshold: float = 0.99,
         target_correlation_threshold: float = 0.99,
         max_target_features: int = 10_000,
+        near_duplicate_distance_ratio: float = 0.01,
+        covariate_shift_alpha: float = 0.05,
     ) -> None:
         self.verbose = verbose
         self.target_auc_threshold = float(target_auc_threshold)
         self.target_correlation_threshold = float(target_correlation_threshold)
         self.max_target_features = max(int(max_target_features), 1)
+        self.near_duplicate_distance_ratio = float(near_duplicate_distance_ratio)
+        self.covariate_shift_alpha = float(covariate_shift_alpha)
 
     # ------------------------------------------------------------------
     # Auto-compute spatial threshold helper
@@ -290,11 +294,30 @@ class DataLeakageChecker:
             ):
                 worst = rpt.severity
 
+        shifted_features = sorted(
+            {
+                feature
+                for report in fold_reports
+                for feature in report.details.get("covariate_shift", {}).get(
+                    "shifted_features", []
+                )
+            }
+        )
+        shift_by_fold = [
+            report.details.get("covariate_shift", {})
+            for report in fold_reports
+        ]
         return LeakageReport(
             has_leakage=any(fr.has_leakage for fr in fold_reports),
             leakage_types=sorted(all_types),
             severity=worst,
             details={
+                "covariate_shift": {
+                    "n_shifted_features": len(shifted_features),
+                    "shifted_features": shifted_features,
+                    "folds": shift_by_fold,
+                    "correction": "bonferroni",
+                },
                 "folds": [
                     {
                         "fold_index": i,
@@ -303,7 +326,7 @@ class DataLeakageChecker:
                         "details": fr.details,
                     }
                     for i, fr in enumerate(fold_reports)
-                ]
+                ],
             },
             recommendations=sorted(recs),
         )
@@ -402,7 +425,8 @@ class DataLeakageChecker:
                 )
                 severity = _worst_severity(severity, "high")
 
-        # Check 4: Feature statistics leakage (with KS-test)
+        # Check 4: Identical feature statistics can indicate joint preprocessing.
+        # Distribution shift is reported separately and is never leakage.
         feature_leakage = self._check_feature_statistics(
             X_train, X_test
         )
@@ -414,6 +438,10 @@ class DataLeakageChecker:
                 "train-test split"
             )
             severity = _worst_severity(severity, "medium")
+
+        details["covariate_shift"] = self._check_covariate_shift(
+            X_train, X_test
+        )
 
         # Check 5: Spatial proximity
         if (
@@ -457,15 +485,18 @@ class DataLeakageChecker:
                         sev = "medium"
                     severity = _worst_severity(severity, sev)
 
-        # Check 6: Near-duplicate samples (cosine similarity)
-        near_dup = self.check_near_duplicates(X_train, X_test)
+        # Check 6: Near-duplicate samples relative to within-train spacing
+        near_dup = self.check_near_duplicates(
+            X_train,
+            X_test,
+            distance_ratio=self.near_duplicate_distance_ratio,
+        )
         if near_dup["has_leakage"]:
             leakage_types.append("near_duplicate")
             details["near_duplicate_leakage"] = near_dup
             recommendations.append(
-                "Investigate near-duplicate samples across "
-                "train/test (cosine similarity "
-                f">= {near_dup['similarity_threshold']})"
+                "Investigate test rows whose train-standardized Euclidean "
+                "distance is far below typical within-train nearest-neighbour spacing."
             )
             severity = _worst_severity(severity, "high")
 
@@ -720,68 +751,79 @@ class DataLeakageChecker:
         X_train: Union[np.ndarray, pd.DataFrame],
         X_test: Union[np.ndarray, pd.DataFrame],
     ) -> Dict[str, Any]:
-        """Check if feature statistics are suspiciously similar.
+        """Check for implausibly identical train/test summary statistics.
 
-        In addition to the existing near-zero diff check, runs a
-        Kolmogorov-Smirnov test on each feature (when scipy is
-        available).  A feature is KS-suspicious if its p-value < 0.001
-        (very different distributions).
+        This narrow check can indicate that preprocessing was jointly applied
+        before splitting. It cannot establish where preprocessing was fitted.
+        KS distribution-shift results are included for backward-compatible
+        inspection but never determine this method's suspicious flag.
         """
-        if isinstance(X_train, pd.DataFrame):
-            X_train = X_train.values
-        if isinstance(X_test, pd.DataFrame):
-            X_test = X_test.values
-
-        # Calculate statistics
-        train_mean = np.mean(X_train, axis=0)
-        test_mean = np.mean(X_test, axis=0)
-        train_std = np.std(X_train, axis=0)
-        test_std = np.std(X_test, axis=0)
-
-        # Near-zero diff check (original logic)
+        train = np.asarray(X_train)
+        test = np.asarray(X_test)
+        train_mean = np.mean(train, axis=0)
+        test_mean = np.mean(test, axis=0)
+        train_std = np.std(train, axis=0)
+        test_std = np.std(test, axis=0)
         mean_diff = np.abs(train_mean - test_mean)
         std_diff = np.abs(train_std - test_std)
-        suspicious_features = np.where(
+        identical = np.where(
             (mean_diff < 1e-10) & (std_diff < 1e-10) & (train_std > 0)
         )[0]
-
-        # KS-test on each feature (optional scipy dependency)
-        ks_suspicious_count = 0
-        ks_pvalues: Optional[List[float]] = None
-        try:
-            from scipy.stats import ks_2samp
-
-            n_features = X_train.shape[1]
-            ks_pvalues = []
-            for i in range(n_features):
-                _, p = ks_2samp(X_train[:, i], X_test[:, i])
-                ks_pvalues.append(p)
-                if p < 0.001:
-                    ks_suspicious_count += 1
-        except ImportError:
-            pass
-
+        shift = self._check_covariate_shift(train, test)
         result: Dict[str, Any] = {
-            "suspicious": (
-                len(suspicious_features) > X_train.shape[1] * 0.5
-            ),
-            "suspicious_features": int(len(suspicious_features)),
-            "total_features": int(X_train.shape[1]),
-            "likely_normalized_together": len(suspicious_features) > 0,
-            "ks_suspicious_features": ks_suspicious_count,
+            "suspicious": len(identical) > train.shape[1] * 0.5,
+            "suspicious_features": int(len(identical)),
+            "total_features": int(train.shape[1]),
+            "likely_normalized_together": len(identical) > 0,
+            "ks_suspicious_features": shift["n_shifted_features"],
+            "ks_pvalues": shift["ks_pvalues"],
         }
-        if ks_pvalues is not None:
-            result["ks_pvalues"] = ks_pvalues
-
         if result["suspicious"] and self.verbose:
             warnings.warn(
-                f"{result['suspicious_features']} features have "
-                "identical statistics. Data might have been "
-                "preprocessed before splitting!"
+                f"{result['suspicious_features']} features have identical "
+                "statistics. Data might have been preprocessed before splitting!"
             )
-
         return result
 
+    def _check_covariate_shift(
+        self,
+        X_train: Union[np.ndarray, pd.DataFrame],
+        X_test: Union[np.ndarray, pd.DataFrame],
+        *,
+        alpha: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Report KS-tested distribution shift with Bonferroni correction.
+
+        The report can identify marginal feature-distribution differences. It
+        cannot determine their cause and never treats shift as data leakage.
+        """
+        from scipy.stats import ks_2samp
+
+        train = np.asarray(X_train)
+        test = np.asarray(X_test)
+        n_features = int(train.shape[1])
+        family_alpha = self.covariate_shift_alpha if alpha is None else float(alpha)
+        corrected_alpha = family_alpha / max(n_features, 1)
+        pvalues: List[float] = []
+        shifted_features: List[int] = []
+        for feature_index in range(n_features):
+            try:
+                pvalue = float(
+                    ks_2samp(train[:, feature_index], test[:, feature_index]).pvalue
+                )
+            except (TypeError, ValueError):
+                pvalue = float("nan")
+            pvalues.append(pvalue)
+            if np.isfinite(pvalue) and pvalue < corrected_alpha:
+                shifted_features.append(feature_index)
+        return {
+            "n_shifted_features": len(shifted_features),
+            "shifted_features": shifted_features,
+            "ks_pvalues": pvalues,
+            "alpha": family_alpha,
+            "corrected_alpha": corrected_alpha,
+            "correction": "bonferroni",
+        }
     def _check_label_distribution(
         self,
         y_train: Union[np.ndarray, pd.Series],
@@ -870,86 +912,113 @@ class DataLeakageChecker:
         self,
         X_train: Union[np.ndarray, pd.DataFrame],
         X_test: Union[np.ndarray, pd.DataFrame],
-        similarity_threshold: float = 0.99,
+        similarity_threshold: Optional[float] = None,
+        *,
+        distance_ratio: Optional[float] = None,
     ) -> Dict[str, Any]:
-        """Detect near-duplicate samples across train/test via cosine
-        similarity.
+        """Detect unusually close test rows using calibrated Euclidean distance.
 
-        Features are standardized with training-set statistics before
-        cosine similarity is computed. This avoids false positives on
-        mixed-scale tabular data where raw feature magnitudes dominate
-        vector direction.
+        Features are standardized using training statistics. A test row is
+        flagged only when its nearest training-row distance is below a small
+        fraction of the median within-training nearest-neighbour distance.
 
         Parameters
         ----------
         X_train, X_test : array-like
-            Feature matrices.
-        similarity_threshold : float
-            Cosine similarity threshold above which a pair is
-            considered a near-duplicate. Default 0.99.
+            Numeric feature matrices.
+        similarity_threshold : float, optional
+            Deprecated compatibility parameter. It maps to a distance ratio of
+            1 - similarity_threshold.
+        distance_ratio : float, optional
+            Fraction of typical within-training nearest-neighbour spacing used
+            as the flagging threshold. Defaults to the checker configuration.
 
         Returns
         -------
         dict
-            ``has_leakage``, ``near_duplicate_count``,
-            ``near_duplicate_percentage``, ``similarity_threshold``.
+            Counts and calibrated distance thresholds.
+
+        Notes
+        -----
+        This check finds extremely close rows after numeric standardization. It
+        cannot identify semantically duplicated records with different feature
+        encodings.
         """
-        try:
-            from sklearn.metrics.pairwise import cosine_similarity
-        except ImportError:
-            return {
-                "has_leakage": False,
-                "near_duplicate_count": 0,
-                "near_duplicate_percentage": 0.0,
-                "similarity_threshold": similarity_threshold,
-                "error": "sklearn not available for cosine similarity",
-            }
-
         if isinstance(X_train, pd.DataFrame):
-            X_train = X_train.values
+            X_train = X_train.to_numpy()
         if isinstance(X_test, pd.DataFrame):
-            X_test = X_test.values
-
+            X_test = X_test.to_numpy()
+        if distance_ratio is None:
+            if similarity_threshold is None:
+                ratio = self.near_duplicate_distance_ratio
+            else:
+                ratio = max(1.0 - float(similarity_threshold), 0.0)
+        else:
+            ratio = float(distance_ratio)
+        legacy_similarity = (
+            float(similarity_threshold)
+            if similarity_threshold is not None
+            else 1.0 - ratio
+        )
         try:
-            X_train = np.asarray(X_train, dtype=float)
-            X_test = np.asarray(X_test, dtype=float)
+            from sklearn.neighbors import NearestNeighbors
 
-            train_mean = X_train.mean(axis=0)
-            train_std = X_train.std(axis=0)
-            train_std[train_std == 0] = 1.0
+            train = np.asarray(X_train, dtype=float)
+            test = np.asarray(X_test, dtype=float)
+            if train.ndim != 2 or test.ndim != 2 or train.shape[0] < 2:
+                raise ValueError("at least two training rows and 2D arrays are required")
+            train_mean = np.nanmean(train, axis=0)
+            train_std = np.nanstd(train, axis=0)
+            train_std[~np.isfinite(train_std) | (train_std == 0)] = 1.0
+            train_scaled = (train - train_mean) / train_std
+            test_scaled = (test - train_mean) / train_std
 
-            X_train_normalized = (X_train - train_mean) / train_std
-            X_test_normalized = (X_test - train_mean) / train_std
+            neighbours = NearestNeighbors(n_neighbors=2, metric="euclidean")
+            neighbours.fit(train_scaled)
+            within_distances = neighbours.kneighbors(
+                train_scaled, return_distance=True
+            )[0][:, 1]
+            typical_distance = float(np.median(within_distances))
+            distance_threshold = ratio * typical_distance
 
-            sim = cosine_similarity(X_test_normalized, X_train_normalized)
-            near_dup_mask = sim.max(axis=1) >= similarity_threshold
-            count = int(near_dup_mask.sum())
-            pct = float(count / len(X_test) * 100) if len(X_test) else 0.0
-        except Exception:
+            test_neighbours = NearestNeighbors(n_neighbors=1, metric="euclidean")
+            test_neighbours.fit(train_scaled)
+            nearest_test_distances = test_neighbours.kneighbors(
+                test_scaled, return_distance=True
+            )[0][:, 0]
+            near_mask = nearest_test_distances < distance_threshold
+            count = int(np.count_nonzero(near_mask))
+            percentage = float(count / len(test) * 100) if len(test) else 0.0
+        except Exception as exc:
             return {
                 "has_leakage": False,
                 "near_duplicate_count": 0,
                 "near_duplicate_percentage": 0.0,
-                "similarity_threshold": similarity_threshold,
-                "error": "Could not compute cosine similarity",
+                "similarity_threshold": legacy_similarity,
+                "distance_ratio": ratio,
+                "error": str(exc),
             }
 
         result: Dict[str, Any] = {
             "has_leakage": count > 0,
             "near_duplicate_count": count,
-            "near_duplicate_percentage": pct,
-            "similarity_threshold": similarity_threshold,
+            "near_duplicate_percentage": percentage,
+            "similarity_threshold": legacy_similarity,
+            "distance_ratio": ratio,
+            "within_train_median_nn_distance": typical_distance,
+            "distance_threshold": distance_threshold,
+            "minimum_test_train_distance": (
+                float(np.min(nearest_test_distances))
+                if nearest_test_distances.size
+                else float("nan")
+            ),
         }
-
         if result["has_leakage"] and self.verbose:
             warnings.warn(
-                f"Found {count} near-duplicate test samples "
-                f"({pct:.1f}%) with cosine similarity "
-                f">= {similarity_threshold}."
+                f"Found {count} near-duplicate test samples ({percentage:.1f}%) "
+                f"below calibrated distance {distance_threshold:.6g}."
             )
-
         return result
-
     # ------------------------------------------------------------------
     # Hierarchical leakage detection (P1 #6)
     # ------------------------------------------------------------------
