@@ -34,11 +34,26 @@ from .metrics.diagnostics import (
     check_fold_metric_feasibility,
     emit_metric_feasibility_warning,
 )
+from .checks import (
+    CheckResult,
+    build_initial_checks,
+    covariate_shift_from_report,
+    default_checks,
+    ensure_complete_checks,
+    overall_status as compute_overall_status,
+)
 
 
 @dataclass
 class ValidationResult:
-    """Results from medical cross-validation"""
+    """Results from medical cross-validation.
+
+    Notes
+    -----
+    leakage_check['has_leakage'] is a deprecated inverted legacy key:
+    True means the external detector did not find leakage. Use checks or
+    leakage_check['external_leakage_detected'] instead.
+    """
 
     scores: Dict[str, np.ndarray]
     mean_scores: Dict[str, float]
@@ -48,8 +63,59 @@ class ValidationResult:
     leakage_check: Dict[str, bool]
     recommendations: List[str]
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    checks: Dict[str, CheckResult] = field(default_factory=default_checks)
+    overall_status: str = ""
     ci_method: str = ""
     ci_level: float = 0.95
+
+    def __post_init__(self) -> None:
+        self.checks = ensure_complete_checks(self.checks)
+        if all(check.status == "NOT_CHECKED" for check in self.checks.values()):
+            if "no_duplicate_samples" in self.leakage_check:
+                passed = self.leakage_check["no_duplicate_samples"]
+                self.checks["duplicate_samples"] = CheckResult(
+                    "duplicate_samples",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "No exact duplicate feature rows were found."
+                        if passed
+                        else "The legacy integrity map reports duplicate samples."
+                    ),
+                )
+            if "no_patient_leakage" in self.leakage_check:
+                passed = self.leakage_check["no_patient_leakage"]
+                self.checks["group_leakage"] = CheckResult(
+                    "group_leakage",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "The legacy integrity map reports separated groups."
+                        if passed
+                        else "The legacy integrity map reports group overlap."
+                    ),
+                )
+            if "has_leakage" in self.leakage_check:
+                passed = self.leakage_check["has_leakage"]
+                self.checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "The legacy external detector found no supported leakage pattern."
+                        if passed
+                        else "The legacy external detector reported potential leakage."
+                    ),
+                )
+            if "balanced_classes" in self.leakage_check:
+                balanced = self.leakage_check["balanced_classes"]
+                self.checks["class_balance"] = CheckResult(
+                    "class_balance",
+                    "INFO" if balanced else "WARNING",
+                    (
+                        "The legacy integrity map reports acceptable class balance."
+                        if balanced
+                        else "The legacy integrity map reports severe class imbalance."
+                    ),
+                )
+        self.overall_status = compute_overall_status(self.checks)
 
     @property
     def metric_feasibility_warnings(self) -> List[str]:
@@ -85,32 +151,11 @@ class ValidationResult:
             seen.add(display_metric)
 
         summary += "\nData Integrity Checks:\n"
-        friendly_names = {
-            "no_duplicate_samples": "Duplicate Samples",
-            "no_patient_leakage": "Patient Leakage Separation",
-            "has_leakage": "External Leakage Detector",
-            "balanced_classes": "Class Balance",
-        }
-        handled = set()
-        leakage_keys = [
-            k
-            for k in ("no_duplicate_samples", "no_patient_leakage", "has_leakage")
-            if k in self.leakage_check
-        ]
-        if leakage_keys:
-            leakage_status = all(self.leakage_check[k] for k in leakage_keys)
-            summary += f"  Leakage Check: {'PASSED' if leakage_status else 'FAILED'}\n"
-            handled.update(leakage_keys)
-        if "balanced_classes" in self.leakage_check:
-            balanced = self.leakage_check["balanced_classes"]
-            summary += f"  Class Balance: {'PASSED' if balanced else 'FAILED'}\n"
-            handled.add("balanced_classes")
-        for check, passed in self.leakage_check.items():
-            if check in handled:
-                continue
-            label = friendly_names.get(check, check.replace("_", " ").title())
-            status = "PASSED" if passed else "FAILED"
-            summary += f"  {label}: {status}\n"
+        for name, check in self.checks.items():
+            label = name.replace("_", " ").title()
+            summary += f"  {label}: {check.status} — {check.message}\n"
+        summary += f"\nOverall Status: {self.overall_status}\n"
+        summary += f"Leakage Check: {self.overall_status}\n"
 
         if self.recommendations:
             summary += "\nRecommendations:\n"
@@ -166,12 +211,6 @@ class ValidationResult:
         n_folds = len(self.fold_details)
         flabels = [f"Fold {f['fold']}" for f in self.fold_details]
 
-        # leakage logic (mirrors summary())
-        lk_keys = [k for k in ("no_duplicate_samples",
-                                "no_patient_leakage", "has_leakage")
-                   if k in self.leakage_check]
-        leakage_ok = all(self.leakage_check[k] for k in lk_keys) if lk_keys else True
-        balance_ok = self.leakage_check.get("balanced_classes", True)
 
         # Create subplots
         fig = make_subplots(
@@ -274,29 +313,21 @@ class ValidationResult:
         ), row=2, col=2)
 
         # ── 5. Integrity checks table ───────────────────────────
-        def _status(passed):
-            if passed is None: return "N/A — IID"
-            return "PASSED ✓" if passed else "FAILED ✗"
-
-        def _color(passed):
-            if passed is None: return "#888780"
-            return "#3B6D11" if passed else "#A32D2D"
+        def _color(status):
+            if status in {"PASSED", "INFO", "NOT_APPLICABLE"}:
+                return "#3B6D11"
+            if status in {"FAILED", "ERROR"}:
+                return "#A32D2D"
+            return "#9A6700" if status == "WARNING" else "#888780"
 
         rows = [
-            ("Leakage check",               leakage_ok),
-            ("Class balance",               balance_ok),
-            ("Duplicate samples",           self.leakage_check.get("no_duplicate_samples", True)),
-            ("Patient separation",          self.leakage_check.get("no_patient_leakage", None)),
-            ("Near-duplicate (cosine)",     not self.leakage_check.get("near_duplicate", False)),
-            ("Feature statistics",          True),
-            ("Temporal leakage",            None),
+            (name.replace("_", " ").title(), check.status)
+            for name, check in self.checks.items()
         ]
-        if self.recommendations:
-            for rec in self.recommendations:
-                rows.append((f"⚠ {rec[:60]}", False))
+        rows.append(("Overall status", self.overall_status))
 
         check_names   = [r[0] for r in rows]
-        status_texts  = [_status(r[1]) for r in rows]
+        status_texts  = [r[1] for r in rows]
         status_colors = [_color(r[1]) for r in rows]
 
         fig.add_trace(go.Table(
@@ -442,6 +473,16 @@ class ValidationResult:
             "ci_method": self.ci_method,
             "ci_level": self.ci_level,
             "leakage_check": self.leakage_check,
+            "checks": {
+                name: {
+                    "name": check.name,
+                    "status": check.status,
+                    "message": check.message,
+                    "details": check.details,
+                }
+                for name, check in self.checks.items()
+            },
+            "overall_status": self.overall_status,
             "recommendations": self.recommendations,
         }
 
@@ -465,6 +506,7 @@ class TrustCVValidator:
         shuffle: bool = True,
         check_leakage: bool = True,
         check_balance: bool = True,
+        declare_independent_samples: bool = False,
         compliance: Optional[str] = None,
         *,
         metrics: Optional[List[str]] = None,
@@ -513,6 +555,9 @@ class TrustCVValidator:
             Whether to check for data leakage
         check_balance : bool
             Whether to check class balance
+        declare_independent_samples : bool
+            Declare that rows are independent when no group identifiers exist.
+            This makes group leakage explicitly not applicable.
         compliance : str
             Regulatory compliance mode ('FDA', 'CE', None)
         holdout_test_size : float or int
@@ -549,6 +594,7 @@ class TrustCVValidator:
         self.shuffle = bool(shuffle)
         self.check_leakage = check_leakage
         self.check_balance = check_balance
+        self.declare_independent_samples = bool(declare_independent_samples)
         self.compliance = compliance
         self.metrics = self._normalize_metric_list(metrics)
         self.return_confidence_intervals = bool(return_confidence_intervals)
@@ -1024,6 +1070,18 @@ class TrustCVValidator:
             std_scores[m] = float(arr.std(ddof=1)) if arr.size > 1 else 0.0
             conf_ints[m] = self._compute_confidence_interval(arr, rng=rng)
 
+        checks = build_initial_checks(
+            X=X_arr,
+            y=y_arr,
+            model=model,
+            groups=split_groups,
+            splitter=splitter,
+            check_leakage=self.check_leakage,
+            check_balance=self.check_balance,
+            declare_independent_samples=self.declare_independent_samples,
+            is_regression=is_regression,
+        )
+
         # leakage check (optional)
         leakage_check_map: Dict[str, bool] = self._basic_integrity_checks(
             X_arr, y_arr, groups=split_groups, splitter=splitter
@@ -1050,14 +1108,41 @@ class TrustCVValidator:
                 leak_report = effective_checker.check(
                     X=X_arr, y=y_arr, groups=split_groups
                 )
-                leakage_check_map["has_leakage"] = not getattr(
-                    leak_report, "has_leakage", True
+                external_detected = bool(getattr(leak_report, "has_leakage", True))
+                leakage_check_map["external_leakage_detected"] = external_detected
+                leakage_check_map["has_leakage"] = not external_detected
+                checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "FAILED" if external_detected else "PASSED",
+                    (
+                        "The external leakage detector reported potential leakage."
+                        if external_detected
+                        else "The external leakage detector found no supported leakage pattern."
+                    ),
+                    {"leakage_types": list(getattr(leak_report, "leakage_types", []))},
                 )
+                checks["covariate_shift"] = covariate_shift_from_report(leak_report)
                 recs = getattr(leak_report, "recommendations", [])
                 if recs:
                     recommendations.extend(recs)
-            except Exception:
+            except Exception as exc:
+                leakage_check_map["external_leakage_detected"] = False
                 leakage_check_map["has_leakage"] = True
+                checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "ERROR",
+                    f"The external leakage detector failed: {exc}",
+                    {"error": str(exc)},
+                )
+        elif self.check_leakage:
+            leakage_check_map["external_leakage_detected"] = False
+            leakage_check_map["has_leakage"] = True
+
+        if checks["preprocessing_leakage"].status == "NOT_CHECKED":
+            recommendations.append(
+                "Wrap preprocessing in an sklearn Pipeline so scaling, imputation, "
+                "and feature selection are refit within each fold."
+            )
 
         diagnostics: Dict[str, Any] = {}
         if test_indices_by_fold:
@@ -1086,6 +1171,7 @@ class TrustCVValidator:
             ci_method=ci_label,
             ci_level=self.ci_level,
             fold_details=fold_details,
+            checks=checks,
             leakage_check=leakage_check_map,
             recommendations=recommendations,
             diagnostics=diagnostics,
