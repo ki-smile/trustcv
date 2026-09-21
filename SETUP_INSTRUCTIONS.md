@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.8+ 
+- Python 3.10+
 - Anaconda or Miniconda installed
 - Git
 
@@ -270,7 +270,7 @@ trustcv/
 
 ## 📝 Notes
 
-- Use Python 3.8+ for best compatibility
+- Use Python 3.10+ for best compatibility
 - GPU is not required but beneficial for large datasets
 - Recommended RAM: 8GB+ for running all examples
 - Internet connection needed for initial setup only

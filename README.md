@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/trustcv)](https://pypi.org/project/trustcv/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10–3.12](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://ki-smile.github.io/trustcv/)
 
 **Website & Docs:** [https://ki-smile.github.io/trustcv/](https://ki-smile.github.io/trustcv/)

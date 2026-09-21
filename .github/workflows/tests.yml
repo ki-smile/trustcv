@@ -26,4 +26,4 @@ jobs:
         run: python -m pip install -e . pytest
 
       - name: Run tests
-        run: python -m pytest -q
+        run: python -m pytest -q -o addopts="-ra -q --strict-markers"

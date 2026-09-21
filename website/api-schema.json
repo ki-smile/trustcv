@@ -5,7 +5,7 @@
   "install": "pip install trustcv",
   "repository": "https://github.com/ki-smile/trustcv",
   "pypi": "https://pypi.org/project/trustcv/",
-  "python_requires": ">=3.8",
+  "python_requires": ">=3.10",
   "functions": [
     {
       "name": "recommend_cv",
