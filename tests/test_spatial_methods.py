@@ -217,7 +217,7 @@ class TestSpatialMethods:
         for i in range(n):
             # Value depends on location (spatial trend)
             X_auto[i] = np.sin(coords_auto[i, 0] / 2) + np.cos(coords_auto[i, 1] / 2)
-            y_auto[i] = int(X_auto[i] > 0)
+            y_auto[i] = int(X_auto[i, 0] > 0)
         
         # Test with spatial block CV
         cv = SpatialBlockCV(n_splits=4)

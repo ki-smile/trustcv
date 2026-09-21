@@ -51,7 +51,7 @@ class TestDataLeakage:
         cls.hospital_ids = np.repeat(np.arange(n_hospitals), n_samples // n_hospitals)
         
         # Temporal structure
-        cls.timestamps = pd.date_range('2023-01-01', periods=n_samples, freq='H')
+        cls.timestamps = pd.date_range('2023-01-01', periods=n_samples, freq='h')
         
         # Spatial structure
         cls.coordinates = np.random.uniform(0, 100, (n_samples, 2))

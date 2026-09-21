@@ -163,6 +163,7 @@ class TestDashboardFigureStructure:
         assert hm.zmax is not None and hm.zmax <= 101
 
     def test_uses_colab_renderer_in_colab(self, results):
+        pytest.importorskip("IPython")
         import plotly.graph_objects as go
 
         captured_kwargs = []
