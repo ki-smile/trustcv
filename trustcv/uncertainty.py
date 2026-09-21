@@ -21,16 +21,38 @@ from sklearn.metrics import (
 def _corrected_t_interval(
     values: Iterable[float],
     *,
-    train_sizes: Iterable[int],
-    test_sizes: Iterable[int],
+    train_sizes: Optional[Iterable[int]] = None,
+    test_sizes: Optional[Iterable[int]] = None,
     level: float,
 ) -> Tuple[float, float]:
+    if train_sizes is None or test_sizes is None:
+        raise ValueError(
+            "corrected_t requires actual train_sizes and test_sizes for every fold."
+        )
     values_array = np.asarray(list(values), dtype=float)
-    values_array = values_array[np.isfinite(values_array)]
+    train_sizes_array = np.asarray(list(train_sizes), dtype=float)
+    test_sizes_array = np.asarray(list(test_sizes), dtype=float)
+    if not (
+        values_array.size == train_sizes_array.size == test_sizes_array.size
+    ):
+        raise ValueError(
+            "values, train_sizes, and test_sizes must have the same length."
+        )
+    finite = np.isfinite(values_array)
+    values_array = values_array[finite]
+    train_sizes_array = train_sizes_array[finite]
+    test_sizes_array = test_sizes_array[finite]
     if values_array.size <= 1:
         return (float("nan"), float("nan"))
-    train_mean = float(np.mean(list(train_sizes)))
-    test_mean = float(np.mean(list(test_sizes)))
+    if (
+        not np.all(np.isfinite(train_sizes_array))
+        or not np.all(np.isfinite(test_sizes_array))
+        or np.any(train_sizes_array <= 0)
+        or np.any(test_sizes_array <= 0)
+    ):
+        raise ValueError("train_sizes and test_sizes must be finite and positive.")
+    train_mean = float(np.mean(train_sizes_array))
+    test_mean = float(np.mean(test_sizes_array))
     sample_variance = float(np.var(values_array, ddof=1))
     correction = 1.0 / values_array.size + test_mean / train_mean
     standard_error = float(np.sqrt(correction * sample_variance))

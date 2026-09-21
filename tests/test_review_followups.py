@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from scipy import stats
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import f1_score
 
@@ -164,3 +165,25 @@ def test_near_duplicates_calibrate_after_deduplicating_training_rows():
     assert "near_duplicate" in near_report.leakage_types
     assert near_report.details["near_duplicate_leakage"]["near_duplicate_count"] == 10
     assert "near_duplicate" not in independent_report.leakage_types
+
+
+def test_corrected_t_uses_actual_uneven_fold_sizes_and_requires_them():
+    scores = np.array([0.61, 0.68, 0.72, 0.66, 0.75])
+    train_sizes = np.array([82, 82, 82, 83, 83])
+    test_sizes = np.array([21, 21, 21, 20, 20])
+    validator = TrustCV(ci_method="corrected_t", ci_level=0.95)
+
+    interval = validator._calculate_confidence_intervals(
+        {"test_score": scores},
+        train_sizes=train_sizes,
+        test_sizes=test_sizes,
+    )["score"]
+
+    variance = np.var(scores, ddof=1)
+    correction = 1 / scores.size + np.mean(test_sizes) / np.mean(train_sizes)
+    margin = stats.t.ppf(0.975, scores.size - 1) * np.sqrt(correction * variance)
+    expected = (np.mean(scores) - margin, np.mean(scores) + margin)
+    assert interval == pytest.approx(expected)
+
+    with pytest.raises(ValueError, match="train_sizes.*test_sizes"):
+        validator._compute_confidence_interval(scores)

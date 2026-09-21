@@ -1189,7 +1189,11 @@ class TrustCVValidator:
                     rng=rng,
                 )
             elif effective_ci_method in ("t", "t-interval", "t_interval", "student"):
-                conf_ints[m] = self._compute_confidence_interval(arr)
+                conf_ints[m] = self._compute_confidence_interval(
+                    arr,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
+                )
             elif effective_ci_method == "oof_bootstrap":
                 try:
                     interval, metric_diagnostics = _oof_bootstrap_interval(
@@ -2070,7 +2074,21 @@ class TrustCVValidator:
                     std_scores[metric] = std_scores[base]
 
         # Calculate 95% confidence intervals
-        confidence_intervals = self._calculate_confidence_intervals(cv_results)
+        train_sizes = (
+            [len(train_idx) for train_idx, _ in precomputed_splits]
+            if precomputed_splits is not None
+            else None
+        )
+        test_sizes = (
+            [len(test_idx) for _, test_idx in precomputed_splits]
+            if precomputed_splits is not None
+            else None
+        )
+        confidence_intervals = self._calculate_confidence_intervals(
+            cv_results,
+            train_sizes=train_sizes,
+            test_sizes=test_sizes,
+        )
         # Alias common default scorer names for convenience
         if "score" in confidence_intervals and "accuracy" not in confidence_intervals:
             confidence_intervals["accuracy"] = confidence_intervals["score"]
@@ -2212,6 +2230,8 @@ class TrustCVValidator:
         *,
         rng: Optional[np.random.Generator] = None,
         alpha: Optional[float] = None,
+        train_sizes: Optional[Iterable[int]] = None,
+        test_sizes: Optional[Iterable[int]] = None,
     ) -> Tuple[float, float]:
         """Compute confidence intervals over per-fold values."""
         arr = np.asarray(values, dtype=float)
@@ -2221,11 +2241,10 @@ class TrustCVValidator:
             alpha = 1.0 - float(self.ci_level or 0.95)
         method = (self.ci_method or "corrected_t").lower()
         if method in ("corrected_t", "corrected-t", "nadeau_bengio"):
-            k = arr.size
             return _corrected_t_interval(
                 arr,
-                train_sizes=[max(k - 1, 1)] * k,
-                test_sizes=[1] * k,
+                train_sizes=train_sizes,
+                test_sizes=test_sizes,
                 level=1.0 - alpha,
             )
         if method in ("t", "t-interval", "t_interval", "student"):
@@ -2249,7 +2268,12 @@ class TrustCVValidator:
         return (float(lo), float(hi))
 
     def _calculate_confidence_intervals(
-        self, cv_results: Dict, alpha: Optional[float] = None
+        self,
+        cv_results: Dict,
+        alpha: Optional[float] = None,
+        *,
+        train_sizes: Optional[Iterable[int]] = None,
+        test_sizes: Optional[Iterable[int]] = None,
     ) -> Dict[str, Tuple[float, float]]:
         """Calculate confidence intervals from cross_validate outputs."""
         if not self.return_confidence_intervals:
@@ -2264,7 +2288,11 @@ class TrustCVValidator:
                 scores = np.asarray(cv_results[metric], dtype=float)
                 metric_name = metric.replace("test_", "")
                 confidence_intervals[metric_name] = self._compute_confidence_interval(
-                    scores, rng=rng, alpha=alpha
+                    scores,
+                    rng=rng,
+                    alpha=alpha,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
                 )
 
         return confidence_intervals
