@@ -15,6 +15,12 @@ All notable changes to trustcv are documented in this file.
 - Near-duplicate detection now uses train-standardized Euclidean distance calibrated to within-training nearest-neighbour spacing instead of cosine similarity.
 - Preprocessing is reported PASSED only for visible sklearn Pipeline steps; preprocessing applied before validate() cannot be detected.
 
+### Differences from the version described in the paper (v1.0.7)
+
+- **Confidence intervals:** v1.0.7 defaulted to bootstrapping a small set of correlated fold scores. v1.1.0 defaults to the Nadeau–Bengio corrected resampled t interval and offers pooled OOF bootstrap intervals.
+- **PASSED semantics:** v1.0.7 could report leakage PASSED when evidence was missing or a detector failed. v1.1.0 reports PASSED only when every applicable leakage-relevant structured check passed; incomplete evidence is NOT_FULLY_VERIFIED.
+- **Near-duplicate detection:** v1.0.7 used a fixed cosine-similarity threshold that produced false positives in low dimensions. v1.1.0 uses train-standardized Euclidean distance calibrated to within-training nearest-neighbour spacing.
+
 ## [1.0.7] - 2026-03-16
 
 ### Bug Fixes
