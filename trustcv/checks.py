@@ -1,5 +1,6 @@
 ﻿"""Structured integrity checks for TrustCV validation results."""
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -174,17 +175,24 @@ def _group_leakage_check(
         )
     groups_arr = groups.to_numpy() if hasattr(groups, "to_numpy") else np.asarray(groups)
     try:
-        for train_idx, test_idx in splitter.split(X, y, groups_arr):
-            train_groups = set(np.unique(groups_arr[train_idx]))
-            test_groups = set(np.unique(groups_arr[test_idx]))
-            overlap = train_groups.intersection(test_groups)
-            if overlap:
-                return CheckResult(
-                    "group_leakage",
-                    "FAILED",
-                    "Group or patient IDs overlap between training and test folds.",
-                    {"overlap_count": len(overlap)},
-                )
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="The groups parameter is ignored by KFold",
+                category=UserWarning,
+            )
+            split_iter = splitter.split(X, y, groups_arr)
+            for train_idx, test_idx in split_iter:
+                train_groups = set(np.unique(groups_arr[train_idx]))
+                test_groups = set(np.unique(groups_arr[test_idx]))
+                overlap = train_groups.intersection(test_groups)
+                if overlap:
+                    return CheckResult(
+                        "group_leakage",
+                        "FAILED",
+                        "Group or patient IDs overlap between training and test folds.",
+                        {"overlap_count": len(overlap)},
+                    )
     except Exception as exc:
         return CheckResult(
             "group_leakage",

@@ -623,8 +623,9 @@ class LeakageDetectionCallback(CVCallback):
             n_total = len(self.fold_reports)
             if n_leak == 0:
                 print(
-                    "[LeakageDetection] No data leakage "
-                    f"detected across {n_total} folds."
+                    "[LeakageDetection] External fold detector found no supported "
+                    f"leakage pattern across {n_total} folds; remaining TrustCV "
+                    "integrity checks were not run."
                 )
             else:
                 print(

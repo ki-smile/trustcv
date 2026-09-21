@@ -875,7 +875,19 @@ class TrustCVValidator:
         # iterate folds
         # Most trustcv/sklearn splitters accept (X, y, groups)
         split_groups = group_labels
-        for k, (tr, te) in enumerate(splitter.split(X_for_split, y_arr, split_groups), 1):
+        groups_for_splitter = split_groups
+        if (
+            split_groups is not None
+            and splitter.__class__.__module__.startswith("sklearn.model_selection")
+            and splitter.__class__.__name__ in {"KFold", "StratifiedKFold"}
+        ):
+            # These sklearn splitters ignore groups. Keep group labels for the
+            # structured overlap audit, but do not trigger sklearn's redundant
+            # "groups ignored" warning during the performance split.
+            groups_for_splitter = None
+        for k, (tr, te) in enumerate(
+            splitter.split(X_for_split, y_arr, groups_for_splitter), 1
+        ):
             test_indices_by_fold.append(np.asarray(te, dtype=int))
             # train/val slices
             if isinstance(X_arr, Mapping):
@@ -2267,8 +2279,7 @@ class TrustCVValidator:
             if isinstance(X, pd.DataFrame):
                 has_duplicates = bool(X.duplicated().any())
                 checks["no_duplicate_samples"] = not has_duplicates
-                if has_duplicates:
-                    warnings.warn("Duplicate samples detected in dataset")
+                # Structured duplicate_samples status carries this evidence.
             groups_arr = None
             if groups is not None:
                 groups_arr = (
@@ -2279,18 +2290,21 @@ class TrustCVValidator:
             if groups_arr is not None and splitter is not None:
                 no_overlap_all = True
                 try:
-                    for train_idx, test_idx in splitter.split(X, y, groups_arr):
-                        train_groups = set(np.unique(groups_arr[train_idx]))
-                        test_groups = set(np.unique(groups_arr[test_idx]))
-                        if train_groups.intersection(test_groups):
-                            no_overlap_all = False
-                            break
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message="The groups parameter is ignored by KFold",
+                            category=UserWarning,
+                        )
+                        split_iter = splitter.split(X, y, groups_arr)
+                        for train_idx, test_idx in split_iter:
+                            train_groups = set(np.unique(groups_arr[train_idx]))
+                            test_groups = set(np.unique(groups_arr[test_idx]))
+                            if train_groups.intersection(test_groups):
+                                no_overlap_all = False
+                                break
                 except Exception:
                     no_overlap_all = False
-                if not no_overlap_all:
-                    warnings.warn(
-                        "Group leakage detected: some group/patient IDs appear in both train and test folds."
-                    )
                 checks["no_patient_leakage"] = no_overlap_all
 
         if self.check_balance:
@@ -2300,7 +2314,6 @@ class TrustCVValidator:
                 ratio = counts.min() / counts.max()
                 if ratio < 0.1:
                     balanced = False
-                    warnings.warn(f"Severe class imbalance detected: {ratio:.2%} minority class")
             checks["balanced_classes"] = balanced
 
         return checks

@@ -1,5 +1,6 @@
 ﻿"""Cross-validation design advisor."""
 
+import warnings as warnings_module
 from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
@@ -75,7 +76,13 @@ def _classification_warnings(
             f"Only {int(counts.min())} minority-class events are available; fold estimates may be unstable."
         )
     try:
-        splits = list(splitter.split(X, y, groups))
+        with warnings_module.catch_warnings():
+            warnings_module.filterwarnings(
+                "ignore",
+                message="Class distribution difference > 10%",
+                category=UserWarning,
+            )
+            splits = list(splitter.split(X, y, groups))
         diagnostics = check_fold_metric_feasibility(
             y,
             [test for _, test in splits],
