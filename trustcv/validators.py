@@ -43,6 +43,12 @@ from .checks import (
     overall_status as compute_overall_status,
 )
 from .sanity import _run_permutation_sanity
+from .uncertainty import (
+    _corrected_t_interval,
+    _fold_bootstrap_interval,
+    _is_partition,
+    _oof_bootstrap_interval,
+)
 
 
 @dataclass
@@ -225,7 +231,7 @@ class ValidationResult:
             subplot_titles=[
                 "Performance metrics — mean ± 95% CI",
                 "Per-fold metrics  (dashed = mean)",
-                "95% bootstrap confidence intervals",
+                f"95% {self.ci_method or 'confidence'} confidence intervals",
                 "Metric × Fold heatmap",
                 "Data integrity checks",
                 "Run summary"
@@ -520,7 +526,7 @@ class TrustCVValidator:
         metrics: Optional[List[str]] = None,
         return_confidence_intervals: bool = True,
         ci_level: float = 0.95,
-        ci_method: str = "bootstrap",
+        ci_method: str = "corrected_t",
         n_bootstrap: int = 1000,
         holdout_test_size: Union[float, int] = 0.2,
         holdout_stratify: bool = False,
@@ -694,6 +700,7 @@ class TrustCVValidator:
         sample_weight: Optional[np.ndarray] = None,
         metrics: Optional[List[str]] = None,
         scoring: Optional[Dict[str, Any]] = None,
+        ci_cluster: bool = True,
     ) -> "ValidationResult":
         """
         Run cross-validation with the requested metrics and return a ValidationResult.
@@ -725,6 +732,20 @@ class TrustCVValidator:
         from sklearn.metrics import get_scorer as _get_scorer
 
         from collections.abc import Mapping, Sequence
+
+        requested_ci_method = (self.ci_method or "corrected_t").lower()
+        if self.return_confidence_intervals and requested_ci_method in (
+            "bootstrap",
+            "boot",
+            "bstrap",
+        ):
+            warnings.warn(
+                "Bootstrapping a handful of correlated fold scores gives confidence "
+                "intervals that are too narrow; prefer ci_method='corrected_t' or "
+                "'oof_bootstrap'.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         X_arr = X if hasattr(X, "iloc") else X
 
@@ -849,6 +870,7 @@ class TrustCVValidator:
         fold_details: List[Dict[str, Any]] = []
         test_indices_by_fold: List[np.ndarray] = []
         per_label_prevalence: List[np.ndarray] = []
+        oof_records: List[Dict[str, Any]] = []
 
         # iterate folds
         # Most trustcv/sklearn splitters accept (X, y, groups)
@@ -926,6 +948,19 @@ class TrustCVValidator:
                     y_score_raw = None
 
             y_pred, y_score = self._coerce_predictions(y_te_eval, y_pred_raw, y_score_raw)
+            y_true_oof = (
+                y_te_eval.to_numpy()
+                if hasattr(y_te_eval, "to_numpy")
+                else _np.asarray(y_te_eval)
+            )
+            oof_records.append(
+                {
+                    "indices": _np.asarray(te, dtype=int),
+                    "y_true": _np.asarray(y_true_oof),
+                    "y_pred": None if y_pred is None else _np.asarray(y_pred),
+                    "y_score": None if y_score is None else _np.asarray(y_score),
+                }
+            )
 
             # compute metrics
             fold_metric_values: Dict[str, float] = {}
@@ -1078,21 +1113,103 @@ class TrustCVValidator:
         mean_scores: Dict[str, float] = {}
         std_scores: Dict[str, float] = {}
         conf_ints: Dict[str, Tuple[float, float]] = {}
-        need_bootstrap_rng = (self.ci_method or "bootstrap").lower() in (
-            "bootstrap",
-            "boot",
-            "bstrap",
+        ci_diagnostics: Dict[str, Any] = {}
+        train_sizes = [detail["n_train"] for detail in fold_details]
+        test_sizes = [detail["n_val"] for detail in fold_details]
+        effective_ci_method = requested_ci_method
+        partition = bool(test_indices_by_fold) and _is_partition(
+            test_indices_by_fold, n
         )
-        rng = _np.random.default_rng(self.random_state) if need_bootstrap_rng else None
+        if (
+            self.return_confidence_intervals
+            and requested_ci_method == "oof_bootstrap"
+            and not partition
+        ):
+            warnings.warn(
+                "OOF bootstrap requires test folds that partition the data exactly "
+                "once; falling back to ci_method='corrected_t'.",
+                UserWarning,
+                stacklevel=2,
+            )
+            effective_ci_method = "corrected_t"
 
+        pooled_y_true = None
+        pooled_y_pred = None
+        pooled_y_score = None
+        pooled_groups = None
+        if effective_ci_method == "oof_bootstrap" and oof_records:
+            pooled_y_true = _np.concatenate([record["y_true"] for record in oof_records])
+            if all(record["y_pred"] is not None for record in oof_records):
+                pooled_y_pred = _np.concatenate([record["y_pred"] for record in oof_records])
+            if all(record["y_score"] is not None for record in oof_records):
+                pooled_y_score = _np.concatenate([record["y_score"] for record in oof_records])
+            if split_groups is not None:
+                groups_array = (
+                    split_groups.to_numpy()
+                    if hasattr(split_groups, "to_numpy")
+                    else _np.asarray(split_groups)
+                )
+                pooled_groups = _np.concatenate(
+                    [groups_array[record["indices"]] for record in oof_records]
+                )
+
+        rng = _np.random.default_rng(self.random_state)
         for m, vals in per_metric_scores.items():
             arr = _np.asarray(vals, dtype=float)
             if arr.size == 0:
                 continue
             mean_scores[m] = float(arr.mean())
             std_scores[m] = float(arr.std(ddof=1)) if arr.size > 1 else 0.0
-            conf_ints[m] = self._compute_confidence_interval(arr, rng=rng)
-
+            if not self.return_confidence_intervals:
+                continue
+            if effective_ci_method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+                conf_ints[m] = _corrected_t_interval(
+                    arr,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
+                    level=self.ci_level,
+                )
+            elif effective_ci_method in ("bootstrap", "boot", "bstrap"):
+                conf_ints[m] = _fold_bootstrap_interval(
+                    arr,
+                    n_bootstrap=self.n_bootstrap,
+                    level=self.ci_level,
+                    rng=rng,
+                )
+            elif effective_ci_method in ("t", "t-interval", "t_interval", "student"):
+                conf_ints[m] = self._compute_confidence_interval(arr)
+            elif effective_ci_method == "oof_bootstrap":
+                try:
+                    interval, metric_diagnostics = _oof_bootstrap_interval(
+                        m,
+                        y_true=pooled_y_true,
+                        y_pred=pooled_y_pred,
+                        y_score=pooled_y_score,
+                        groups=pooled_groups,
+                        cluster=bool(ci_cluster and pooled_groups is not None),
+                        regression=is_regression,
+                        n_bootstrap=self.n_bootstrap,
+                        level=self.ci_level,
+                        rng=rng,
+                    )
+                    conf_ints[m] = interval
+                    ci_diagnostics[m] = metric_diagnostics
+                except (TypeError, ValueError):
+                    conf_ints[m] = _corrected_t_interval(
+                        arr,
+                        train_sizes=train_sizes,
+                        test_sizes=test_sizes,
+                        level=self.ci_level,
+                    )
+                    ci_diagnostics[m] = {
+                        "fallback": "corrected_t",
+                        "skipped_resamples": 0,
+                    }
+            else:
+                raise ValueError(
+                    "ci_method must be 'corrected_t', 'oof_bootstrap', "
+                    "'bootstrap', or 't-interval'."
+                )
         checks = build_initial_checks(
             X=X_arr,
             y=y_arr,
@@ -1270,6 +1387,8 @@ class TrustCVValidator:
                 )
 
         diagnostics: Dict[str, Any] = {}
+        if ci_diagnostics:
+            diagnostics["confidence_intervals"] = ci_diagnostics
         if test_indices_by_fold:
             metric_feasibility = check_fold_metric_feasibility(
                 y_arr,
@@ -1286,7 +1405,11 @@ class TrustCVValidator:
             m: np.asarray(v, dtype=float) for m, v in per_metric_scores.items() if len(v) > 0
         }
 
-        ci_label = self._ci_method_label()
+        ci_label = (
+            "corrected_t"
+            if effective_ci_method in ("corrected_t", "corrected-t", "nadeau_bengio")
+            else self._ci_method_label()
+        )
 
         result = ValidationResult(
             scores=scores_dict,
@@ -2051,9 +2174,13 @@ class TrustCVValidator:
     def _ci_method_label(self) -> str:
         if not self.return_confidence_intervals:
             return ""
-        method = (self.ci_method or "bootstrap").lower()
+        method = (self.ci_method or "corrected_t").lower()
         if method in ("bootstrap", "boot", "bstrap"):
             return "bootstrap"
+        if method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+            return "corrected_t"
+        if method == "oof_bootstrap":
+            return "oof_bootstrap"
         if method in ("t", "t-interval", "t_interval", "student"):
             return "t-interval"
         return method
@@ -2071,7 +2198,15 @@ class TrustCVValidator:
             return (float("nan"), float("nan"))
         if alpha is None:
             alpha = 1.0 - float(self.ci_level or 0.95)
-        method = (self.ci_method or "bootstrap").lower()
+        method = (self.ci_method or "corrected_t").lower()
+        if method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+            k = arr.size
+            return _corrected_t_interval(
+                arr,
+                train_sizes=[max(k - 1, 1)] * k,
+                test_sizes=[1] * k,
+                level=1.0 - alpha,
+            )
         if method in ("t", "t-interval", "t_interval", "student"):
             from scipy import stats
 
@@ -2101,7 +2236,7 @@ class TrustCVValidator:
         if alpha is None:
             alpha = 1.0 - float(self.ci_level or 0.95)
         confidence_intervals = {}
-        use_bootstrap = (self.ci_method or "bootstrap").lower() in ("bootstrap", "boot", "bstrap")
+        use_bootstrap = (self.ci_method or "corrected_t").lower() in ("bootstrap", "boot", "bstrap")
         rng = np.random.default_rng(self.random_state) if use_bootstrap else None
         for metric in cv_results:
             if metric.startswith("test_"):
