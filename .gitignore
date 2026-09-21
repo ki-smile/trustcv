@@ -1,4 +1,6 @@
 .DS_Store
+.agents/
+.coverage
 .env
 .idea/
 .ipynb_checkpoints/
@@ -7,7 +9,9 @@
 .venv/
 __pycache__/
 build/
+catboost_info/
 dist/
+htmlcov/
 outputs/
 notebooks/outputs/
 env/
