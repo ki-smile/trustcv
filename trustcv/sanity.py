@@ -49,8 +49,11 @@ def _cv_primary_score(
         X_test = _slice_rows(X, test_idx)
         y_train = y[train_idx]
         y_test = y[test_idx]
-        estimator.fit(X_train, y_train)
-        score = _score_estimator(estimator, X_test, y_test, regression)
+        try:
+            estimator.fit(X_train, y_train)
+            score = _score_estimator(estimator, X_test, y_test, regression)
+        except Exception:
+            continue
         if np.isfinite(score):
             fold_scores.append(score)
     return float(np.mean(fold_scores)) if fold_scores else float("nan")
@@ -118,10 +121,19 @@ def _run_permutation_sanity(
     null_array = np.asarray(null_scores, dtype=float)
     finite_null = null_array[np.isfinite(null_array)]
     null_mean = float(np.mean(finite_null)) if finite_null.size else float("nan")
-    p_value = float(
-        (1 + np.count_nonzero(finite_null >= observed)) / (1 + finite_null.size)
+    errors = []
+    if not np.isfinite(observed):
+        errors.append("the observed CV score is NaN")
+    if finite_null.size == 0:
+        errors.append("all permutation-null scores are NaN")
+    p_value = (
+        float("nan")
+        if errors
+        else float(
+            (1 + np.count_nonzero(finite_null >= observed)) / (1 + finite_null.size)
+        )
     )
-    return {
+    result = {
         "metric": "r2" if regression else "roc_auc",
         "observed": float(observed),
         "null_scores": [float(value) for value in null_array],
@@ -129,3 +141,6 @@ def _run_permutation_sanity(
         "p_value": p_value,
         "chance_level": 0.0 if regression else 0.5,
     }
+    if errors:
+        result["error"] = "Permutation sanity could not be evaluated because " + " and ".join(errors) + "."
+    return result

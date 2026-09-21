@@ -2,9 +2,31 @@
 
 import numpy as np
 import pytest
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import f1_score
 
+from trustcv import TrustCV
 from trustcv.uncertainty import _oof_bootstrap_interval
+
+
+class _FailsAfterPrimaryCV(ClassifierMixin, BaseEstimator):
+    fit_calls = 0
+
+    def __init__(self, successful_fits=3):
+        self.successful_fits = successful_fits
+
+    def fit(self, X, y):
+        type(self).fit_calls += 1
+        if type(self).fit_calls > self.successful_fits:
+            raise RuntimeError("deliberate permutation fit failure")
+        self.classes_ = np.unique(y)
+        return self
+
+    def predict(self, X):
+        return np.repeat(self.classes_[0], len(X))
+
+    def predict_proba(self, X):
+        return np.full((len(X), 2), 0.5)
 
 
 def test_oof_bootstrap_multiclass_metrics_use_global_labels():
@@ -102,3 +124,26 @@ def test_oof_cluster_bootstrap_warns_when_many_resamples_are_skipped():
 
     assert details["skipped_resamples"] > 20
     assert details["skipped_fraction"] > 0.10
+
+
+def test_permutation_nan_observed_score_is_an_error():
+    rng = np.random.default_rng(21)
+    X = rng.normal(size=(60, 4))
+    y = np.tile([0, 1], 30)
+    _FailsAfterPrimaryCV.fit_calls = 0
+
+    result = TrustCV(
+        method="stratified_kfold",
+        n_splits=3,
+        check_leakage=False,
+        permutation_check=True,
+        n_permutations=3,
+        random_state=0,
+    ).validate(model=_FailsAfterPrimaryCV(), X=X, y=y)
+
+    check = result.checks["permutation_sanity"]
+    assert np.isnan(result.permutation["observed"])
+    assert all(np.isnan(score) for score in result.permutation["null_scores"])
+    assert np.isnan(result.permutation["p_value"])
+    assert check.status == "ERROR"
+    assert "NaN" in check.message or "undefined" in check.message.lower()

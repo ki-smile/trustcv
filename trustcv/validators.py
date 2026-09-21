@@ -1369,27 +1369,36 @@ class TrustCVValidator:
                     random_state=self.random_state,
                     regression=is_regression,
                 )
-                failed = (
-                    permutation["null_mean"]
-                    > permutation["chance_level"] + 0.10
-                )
-                beats_chance = permutation["p_value"] < 0.05
-                checks["permutation_sanity"] = CheckResult(
-                    "permutation_sanity",
-                    "FAILED" if failed else "PASSED",
-                    (
-                        "Shuffled labels score above chance, indicating leakage inside "
-                        "the CV loop or a broken splitter."
-                        if failed
-                        else (
-                            "Shuffled-label scores are at chance; the model "
-                            + ("beats" if beats_chance else "does not beat")
-                            + " the permutation null at p < 0.05. This check cannot "
-                            "detect preprocessing done before validate()."
-                        )
-                    ),
-                    dict(permutation),
-                )
+                permutation_error = permutation.get("error")
+                if permutation_error:
+                    checks["permutation_sanity"] = CheckResult(
+                        "permutation_sanity",
+                        "ERROR",
+                        permutation_error,
+                        dict(permutation),
+                    )
+                else:
+                    failed = (
+                        permutation["null_mean"]
+                        > permutation["chance_level"] + 0.10
+                    )
+                    beats_chance = permutation["p_value"] < 0.05
+                    checks["permutation_sanity"] = CheckResult(
+                        "permutation_sanity",
+                        "FAILED" if failed else "PASSED",
+                        (
+                            "Shuffled labels score above chance, indicating leakage inside "
+                            "the CV loop or a broken splitter."
+                            if failed
+                            else (
+                                "Shuffled-label scores are at chance; the model "
+                                + ("beats" if beats_chance else "does not beat")
+                                + " the permutation null at p < 0.05. This check cannot "
+                                "detect preprocessing done before validate()."
+                            )
+                        ),
+                        dict(permutation),
+                    )
             except Exception as exc:
                 checks["permutation_sanity"] = CheckResult(
                     "permutation_sanity",
