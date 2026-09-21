@@ -100,8 +100,18 @@ class DataLeakageChecker:
     >>>     print(report)
     """
 
-    def __init__(self, verbose: bool = True) -> None:
+    def __init__(
+        self,
+        verbose: bool = True,
+        *,
+        target_auc_threshold: float = 0.99,
+        target_correlation_threshold: float = 0.99,
+        max_target_features: int = 10_000,
+    ) -> None:
         self.verbose = verbose
+        self.target_auc_threshold = float(target_auc_threshold)
+        self.target_correlation_threshold = float(target_correlation_threshold)
+        self.max_target_features = max(int(max_target_features), 1)
 
     # ------------------------------------------------------------------
     # Auto-compute spatial threshold helper
@@ -1048,105 +1058,169 @@ class DataLeakageChecker:
         self,
         X: Union[np.ndarray, pd.DataFrame],
         y: Union[np.ndarray, pd.Series],
-        threshold: float = 0.95,
+        threshold: Optional[float] = None,
+        *,
+        auc_threshold: Optional[float] = None,
+        correlation_threshold: Optional[float] = None,
+        max_features: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Check if any features are too correlated with target
-        (potential leakage)
+        """Scan individual features for near-deterministic target encoding.
 
         Parameters
         ----------
         X : array-like
-            Feature matrix
+            Feature matrix. Only the first max_features columns are scanned.
         y : array-like
-            Target variable
-        threshold : float
-            Correlation threshold above which to flag as suspicious
+            Binary labels or a one-dimensional regression target.
+        threshold : float, optional
+            Backward-compatible alias for correlation_threshold.
+        auc_threshold : float, optional
+            Binary ROC-AUC threshold. A feature is flagged at or above this
+            value, or at or below 1 - auc_threshold.
+        correlation_threshold : float, optional
+            Absolute Spearman-correlation threshold for regression.
+        max_features : int, optional
+            Maximum number of columns to inspect.
 
         Returns
         -------
         dict
-            Leakage detection results
+            Scan result with suspicious feature records and truncation details.
+
+        Notes
+        -----
+        This univariate scan can find features that almost directly encode a
+        target. It cannot prove that a feature is causally valid, detect
+        multivariate encodings, or determine when an upstream transformation
+        was fitted.
         """
         if isinstance(X, pd.DataFrame):
-            X_array = X.values
-            feature_names = X.columns.tolist()
+            X_array = X.to_numpy()
+            feature_names = list(X.columns)
         else:
-            X_array = X
-            feature_names = [
-                f"feature_{i}" for i in range(X.shape[1])
-            ]
+            X_array = np.asarray(X)
+            if X_array.ndim == 1:
+                X_array = X_array.reshape(-1, 1)
+            feature_names = [f"feature_{i}" for i in range(X_array.shape[1])]
 
-        if isinstance(y, pd.Series):
-            y_array = y.values
-        else:
-            y_array = y
+        y_array = y.to_numpy() if hasattr(y, "to_numpy") else np.asarray(y)
+        if y_array.ndim != 1:
+            return {
+                "has_leakage": False,
+                "not_applicable": True,
+                "reason": "multilabel targets are not supported",
+                "suspicious_features": [],
+                "num_suspicious": 0,
+                "truncated": False,
+                "evaluated_features": 0,
+                "total_features": int(X_array.shape[1]),
+            }
 
-        # Calculate correlations
-        correlations: List[float] = []
+        auc_cutoff = (
+            float(auc_threshold)
+            if auc_threshold is not None
+            else self.target_auc_threshold
+        )
+        corr_cutoff = (
+            float(correlation_threshold)
+            if correlation_threshold is not None
+            else (
+                float(threshold)
+                if threshold is not None
+                else self.target_correlation_threshold
+            )
+        )
+        limit = (
+            max(int(max_features), 1)
+            if max_features is not None
+            else self.max_target_features
+        )
+        total_features = int(X_array.shape[1])
+        evaluated_features = min(total_features, limit)
+        truncated = evaluated_features < total_features
+
+        unique = np.unique(y_array)
+        is_binary = unique.size == 2
+        is_regression = (
+            not is_binary
+            and (
+                np.issubdtype(y_array.dtype, np.floating)
+                or unique.size > 20
+            )
+        )
+        if not is_binary and not is_regression:
+            return {
+                "has_leakage": False,
+                "not_applicable": True,
+                "reason": "only binary classification and regression are supported",
+                "suspicious_features": [],
+                "num_suspicious": 0,
+                "truncated": truncated,
+                "evaluated_features": evaluated_features,
+                "total_features": total_features,
+            }
+
         suspicious_features: List[Dict[str, Any]] = []
+        scores: List[float] = []
+        if is_binary:
+            from sklearn.metrics import roc_auc_score
 
-        for i in range(X_array.shape[1]):
-            try:
-                from scipy.stats import pearsonr
-
-                corr, _ = pearsonr(X_array[:, i], y_array)
-                correlations.append(abs(corr))
-
-                if abs(corr) > threshold:
+            y_binary = (y_array == unique[1]).astype(int)
+            for i in range(evaluated_features):
+                try:
+                    auc = float(roc_auc_score(y_binary, X_array[:, i]))
+                except (TypeError, ValueError):
+                    continue
+                scores.append(auc)
+                if auc >= auc_cutoff or auc <= 1.0 - auc_cutoff:
                     suspicious_features.append(
                         {
                             "index": i,
                             "name": feature_names[i],
-                            "correlation": corr,
+                            "roc_auc": auc,
                         }
                     )
-            except (ValueError, TypeError):
-                # For categorical, use mutual information
-                from sklearn.feature_selection import (
-                    mutual_info_classif,
-                )
+            metric = "roc_auc"
+        else:
+            from scipy.stats import spearmanr
 
-                mi = mutual_info_classif(
-                    X_array[:, i : i + 1],
-                    y_array,
-                    random_state=42,
-                )[0]
-                normalized_mi = min(mi, 1.0)
-                correlations.append(normalized_mi)
-
-                if normalized_mi > threshold:
+            for i in range(evaluated_features):
+                try:
+                    corr = float(spearmanr(X_array[:, i], y_array).statistic)
+                except (TypeError, ValueError):
+                    continue
+                if not np.isfinite(corr):
+                    continue
+                scores.append(abs(corr))
+                if abs(corr) >= corr_cutoff:
                     suspicious_features.append(
                         {
                             "index": i,
                             "name": feature_names[i],
-                            "mutual_info": normalized_mi,
+                            "spearman": corr,
                         }
                     )
+            metric = "spearman"
 
         result: Dict[str, Any] = {
-            "has_leakage": len(suspicious_features) > 0,
+            "has_leakage": bool(suspicious_features),
+            "not_applicable": False,
             "suspicious_features": suspicious_features,
-            "max_correlation": (
-                max(correlations) if correlations else 0
-            ),
             "num_suspicious": len(suspicious_features),
+            "metric": metric,
+            "auc_threshold": auc_cutoff,
+            "correlation_threshold": corr_cutoff,
+            "truncated": truncated,
+            "evaluated_features": evaluated_features,
+            "total_features": total_features,
+            "max_score": max(scores) if scores else None,
         }
-
         if result["has_leakage"] and self.verbose:
             warnings.warn(
-                f"Found {len(suspicious_features)} features with "
-                f"suspiciously high correlation to target "
-                f"(>{threshold}). Possible target leakage!"
+                f"Found {len(suspicious_features)} features with near-deterministic "
+                "univariate association to the target. Possible target leakage!"
             )
-            for feat in suspicious_features[:3]:
-                print(
-                    f"  - {feat['name']}: "
-                    f"{feat.get('correlation', feat.get('mutual_info', 0)):.3f}"
-                )
-
         return result
-
     # ------------------------------------------------------------------
     # comprehensive_check() — truly comprehensive
     # ------------------------------------------------------------------

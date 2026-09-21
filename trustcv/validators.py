@@ -507,6 +507,9 @@ class TrustCVValidator:
         check_leakage: bool = True,
         check_balance: bool = True,
         declare_independent_samples: bool = False,
+        target_auc_threshold: float = 0.99,
+        target_correlation_threshold: float = 0.99,
+        max_target_features: int = 10_000,
         compliance: Optional[str] = None,
         *,
         metrics: Optional[List[str]] = None,
@@ -558,6 +561,12 @@ class TrustCVValidator:
         declare_independent_samples : bool
             Declare that rows are independent when no group identifiers exist.
             This makes group leakage explicitly not applicable.
+        target_auc_threshold : float
+            Binary univariate ROC-AUC threshold for target-leakage warnings.
+        target_correlation_threshold : float
+            Absolute Spearman threshold for regression target-leakage warnings.
+        max_target_features : int
+            Maximum number of feature columns scanned for target leakage.
         compliance : str
             Regulatory compliance mode ('FDA', 'CE', None)
         holdout_test_size : float or int
@@ -595,6 +604,9 @@ class TrustCVValidator:
         self.check_leakage = check_leakage
         self.check_balance = check_balance
         self.declare_independent_samples = bool(declare_independent_samples)
+        self.target_auc_threshold = float(target_auc_threshold)
+        self.target_correlation_threshold = float(target_correlation_threshold)
+        self.max_target_features = max(int(max_target_features), 1)
         self.compliance = compliance
         self.metrics = self._normalize_metric_list(metrics)
         self.return_confidence_intervals = bool(return_confidence_intervals)
@@ -1100,7 +1112,12 @@ class TrustCVValidator:
         if effective_checker is None and self.check_leakage:
             try:
                 from .checkers.leakage import DataLeakageChecker as _DLC
-                effective_checker = _DLC(verbose=False)
+                effective_checker = _DLC(
+                    verbose=False,
+                    target_auc_threshold=self.target_auc_threshold,
+                    target_correlation_threshold=self.target_correlation_threshold,
+                    max_target_features=self.max_target_features,
+                )
             except Exception:
                 effective_checker = None
         if effective_checker is not None:
@@ -1137,6 +1154,61 @@ class TrustCVValidator:
         elif self.check_leakage:
             leakage_check_map["external_leakage_detected"] = False
             leakage_check_map["has_leakage"] = True
+
+        if self.check_leakage:
+            try:
+                scan_checker = effective_checker
+                if not hasattr(scan_checker, "check_feature_target_leakage"):
+                    from .checkers.leakage import DataLeakageChecker as _DLC
+
+                    scan_checker = _DLC(
+                        verbose=False,
+                        target_auc_threshold=self.target_auc_threshold,
+                        target_correlation_threshold=self.target_correlation_threshold,
+                        max_target_features=self.max_target_features,
+                    )
+                scan = scan_checker.check_feature_target_leakage(
+                    X_arr,
+                    y_arr,
+                    auc_threshold=self.target_auc_threshold,
+                    correlation_threshold=self.target_correlation_threshold,
+                    max_features=self.max_target_features,
+                )
+                if scan.get("not_applicable"):
+                    checks["target_leakage_features"] = CheckResult(
+                        "target_leakage_features",
+                        "NOT_APPLICABLE",
+                        f"Target-feature scanning is not applicable: {scan.get('reason', 'unsupported target')}.",
+                        dict(scan),
+                    )
+                else:
+                    records = scan.get("suspicious_features", [])
+                    flagged = [
+                        record.get("name")
+                        if isinstance(X_arr, pd.DataFrame)
+                        else record.get("index")
+                        for record in records
+                    ]
+                    scan_details = dict(scan)
+                    scan_details["flagged_features"] = flagged
+                    checks["target_leakage_features"] = CheckResult(
+                        "target_leakage_features",
+                        "WARNING" if flagged else "PASSED",
+                        (
+                            f"Found {len(flagged)} feature(s) with near-deterministic "
+                            "univariate association to the target."
+                            if flagged
+                            else "No feature crossed the configured univariate target-leakage threshold."
+                        ),
+                        scan_details,
+                    )
+            except Exception as exc:
+                checks["target_leakage_features"] = CheckResult(
+                    "target_leakage_features",
+                    "ERROR",
+                    f"Target-feature leakage scanning failed: {exc}",
+                    {"error": str(exc)},
+                )
 
         if checks["preprocessing_leakage"].status == "NOT_CHECKED":
             recommendations.append(
