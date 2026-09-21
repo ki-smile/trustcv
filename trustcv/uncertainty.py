@@ -25,6 +25,16 @@ def _corrected_t_interval(
     test_sizes: Optional[Iterable[int]] = None,
     level: float,
 ) -> Tuple[float, float]:
+    """Return the corrected resampled-t interval for cross-validation scores.
+
+    For repeated ``k``-fold CV with ``r`` repeats, this uses
+    ``df = r * k - 1`` and estimated mean-score variance
+    ``(1 / (r * k) + n_test / n_train) * s^2``, where the size ratio is
+    calculated from the actual mean test and train fold sizes.
+
+    References: Nadeau & Bengio (2003, Machine Learning 52:239-281) and
+    Bouckaert & Frank (2004, PAKDD).
+    """
     if train_sizes is None or test_sizes is None:
         raise ValueError(
             "corrected_t requires actual train_sizes and test_sizes for every fold."

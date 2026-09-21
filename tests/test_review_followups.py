@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score
 
 from trustcv import TrustCV
 from trustcv.checkers.leakage import DataLeakageChecker
-from trustcv.uncertainty import _oof_bootstrap_interval
+from trustcv.uncertainty import _corrected_t_interval, _oof_bootstrap_interval
 
 
 class _FailsAfterPrimaryCV(ClassifierMixin, BaseEstimator):
@@ -187,3 +187,12 @@ def test_corrected_t_uses_actual_uneven_fold_sizes_and_requires_them():
 
     with pytest.raises(ValueError, match="train_sizes.*test_sizes"):
         validator._compute_confidence_interval(scores)
+
+
+def test_corrected_t_docstring_states_repeated_cv_formula_and_sources():
+    docstring = _corrected_t_interval.__doc__ or ""
+
+    assert "df = r * k - 1" in docstring
+    assert "(1 / (r * k) + n_test / n_train) * s^2" in docstring
+    assert "Nadeau & Bengio (2003, Machine Learning 52:239-281)" in docstring
+    assert "Bouckaert & Frank (2004, PAKDD)" in docstring
