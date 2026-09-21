@@ -67,7 +67,7 @@ class ValidationResult:
     std_scores: Dict[str, float]
     confidence_intervals: Dict[str, Tuple[float, float]]
     fold_details: List[Dict]
-    leakage_check: Dict[str, bool]
+    leakage_check: Dict[str, Any]
     recommendations: List[str]
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     checks: Dict[str, CheckResult] = field(default_factory=default_checks)
@@ -1287,8 +1287,8 @@ class TrustCVValidator:
                 if recs:
                     recommendations.extend(recs)
             except Exception as exc:
-                leakage_check_map["external_leakage_detected"] = False
-                leakage_check_map["has_leakage"] = True
+                leakage_check_map["external_leakage_detected"] = None  # unknown
+                leakage_check_map["has_leakage"] = False  # legacy: NOT passed
                 checks["external_leakage_detector"] = CheckResult(
                     "external_leakage_detector",
                     "ERROR",
@@ -1296,8 +1296,13 @@ class TrustCVValidator:
                     {"error": str(exc)},
                 )
         elif self.check_leakage:
-            leakage_check_map["external_leakage_detected"] = False
-            leakage_check_map["has_leakage"] = True
+            leakage_check_map["external_leakage_detected"] = None  # unknown
+            leakage_check_map["has_leakage"] = False  # legacy: NOT passed
+            checks["external_leakage_detector"] = CheckResult(
+                "external_leakage_detector",
+                "NOT_CHECKED",
+                "The external leakage detector could not be constructed.",
+            )
 
         if self.check_leakage:
             try:

@@ -196,3 +196,97 @@ def test_corrected_t_docstring_states_repeated_cv_formula_and_sources():
     assert "(1 / (r * k) + n_test / n_train) * s^2" in docstring
     assert "Nadeau & Bengio (2003, Machine Learning 52:239-281)" in docstring
     assert "Bouckaert & Frank (2004, PAKDD)" in docstring
+
+
+# ---------------------------------------------------------------------------
+# Legacy leakage keys when the detector fails or cannot run
+# ---------------------------------------------------------------------------
+
+class _CrashingChecker:
+    """Leakage checker whose check() always raises."""
+
+    def check(self, *args, **kwargs):
+        raise RuntimeError("deliberate crash")
+
+
+def test_legacy_leakage_keys_on_crashing_checker():
+    """When the external leakage detector crashes, legacy keys must not
+    silently report a pass (has_leakage=True in v1.0.7 semantics).
+    """
+    from sklearn.linear_model import LogisticRegression
+
+    rng = np.random.default_rng(99)
+    X = rng.normal(size=(60, 4))
+    y = np.tile([0, 1], 30)
+
+    result = TrustCV(
+        method="stratified_kfold",
+        n_splits=3,
+        check_leakage=True,
+        random_state=0,
+    ).validate(
+        model=LogisticRegression(max_iter=3000),
+        X=X,
+        y=y,
+        leakage_checker=_CrashingChecker(),
+    )
+
+    # has_leakage=False means "NOT passed" in legacy semantics
+    assert result.leakage_check["has_leakage"] is False
+    # external_leakage_detected=None means "unknown / not checked"
+    assert result.leakage_check["external_leakage_detected"] is None
+    # The structured check must be ERROR
+    assert result.checks["external_leakage_detector"].status == "ERROR"
+    # Overall status must be FAILED (ERROR ∈ LEAKAGE_RELEVANT_KEYS)
+    assert result.overall_status == "FAILED"
+    # Summary must not say PASSED on the external leakage detector line
+    for line in result.summary().splitlines():
+        if "external leakage" in line.lower():
+            assert "PASSED" not in line
+
+
+def test_legacy_leakage_keys_when_no_checker_can_be_built():
+    """When check_leakage=True but no checker is available (e.g. import
+    fails or construction raises), legacy keys must not report a pass.
+    """
+    from unittest.mock import patch
+    from sklearn.linear_model import LogisticRegression
+
+    rng = np.random.default_rng(42)
+    X = rng.normal(size=(60, 4))
+    y = np.tile([0, 1], 30)
+
+    # Simulate DataLeakageChecker import failing so effective_checker stays None
+    with patch(
+        "trustcv.validators.build_initial_checks",
+        wraps=__import__("trustcv.checks", fromlist=["build_initial_checks"]).build_initial_checks,
+    ):
+        # Force the auto-creation path to fail by patching the import
+        original_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        import builtins
+
+        real_import = builtins.__import__
+
+        def _failing_dlc_import(name, *args, **kwargs):
+            if name == "trustcv.checkers.leakage" or (
+                len(args) > 2 and args[2] and "DataLeakageChecker" in (args[2] or [])
+            ):
+                raise ImportError("simulated import failure")
+            return real_import(name, *args, **kwargs)
+
+        with patch.object(builtins, "__import__", side_effect=_failing_dlc_import):
+            result = TrustCV(
+                method="stratified_kfold",
+                n_splits=3,
+                check_leakage=True,
+                random_state=0,
+            ).validate(
+                model=LogisticRegression(max_iter=3000),
+                X=X,
+                y=y,
+            )
+
+    # has_leakage=False means "NOT passed" in legacy semantics
+    assert result.leakage_check["has_leakage"] is False
+    # The structured check must be NOT_CHECKED or ERROR
+    assert result.checks["external_leakage_detector"].status in {"NOT_CHECKED", "ERROR"}

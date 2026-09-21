@@ -14,6 +14,7 @@ All notable changes to trustcv are documented in this file.
 - KS tests now report Bonferroni-corrected covariate shift and never create leakage types.
 - Near-duplicate detection now uses train-standardized Euclidean distance calibrated to within-training nearest-neighbour spacing instead of cosine similarity.
 - Preprocessing is reported PASSED only for visible sklearn Pipeline steps; preprocessing applied before validate() cannot be detected.
+- Legacy leakage keys no longer report a pass when the leakage detector fails or cannot run.
 
 ### Differences from the version described in the paper (v1.0.7)
 
