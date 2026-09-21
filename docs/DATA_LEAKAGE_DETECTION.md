@@ -1,5 +1,16 @@
 # Data Leakage Detection in trustcv
 
+## v1.1 structured checks
+
+`TrustCV.validate()` returns a complete `checks` mapping and an `overall_status`. A check can be `PASSED`, `FAILED`, `WARNING`, `NOT_CHECKED`, `NOT_APPLICABLE`, `INFO`, or `ERROR`. Group separation is not PASSED when no group IDs were supplied; it is `NOT_CHECKED` unless the caller explicitly sets `declare_independent_samples=True`.
+
+Preprocessing is PASSED only when the estimator is an sklearn `Pipeline` with at least one step before the final estimator. TrustCV cannot detect scaling, imputation, feature selection, or other transformations fitted on the full dataset before `validate()` was called.
+
+The automatic target-feature scan uses univariate ROC-AUC for binary classification and absolute Spearman correlation for regression. It examines at most 10,000 features and cannot detect multivariate encodings. The opt-in permutation check tests whether shuffled labels score above chance inside the CV loop; it is not a general preprocessing-leakage detector.
+
+KS tests report Bonferroni-corrected covariate shift in `report.details["covariate_shift"]`. Distribution shift and label-distribution drift are informational and never add leakage types. Near-duplicates use Euclidean distance after training-set standardization and are calibrated against median within-training nearest-neighbour spacing.
+
+The compatibility map `ValidationResult.leakage_check` now includes `external_leakage_detected`, where True means leakage was found. The legacy `has_leakage` key is deprecated and inverted for one release.
 ## What is Data Leakage?
 
 Data leakage occurs when information from the test set inadvertently influences the training process, leading to overly optimistic performance estimates that don't generalize to real-world data.
@@ -427,11 +438,6 @@ for train_idx, test_idx in cv.split(X, y, groups=hospital_ids):
 
 ## Summary
 
-trustcv's leakage detection:
-1. **Automatically checks** for patient, temporal, spatial, and group leakage
-2. **Reports severity** and specific violations
-3. **Integrates with CV** through callbacks
-4. **Prevents common mistakes** in ML
-5. **Ensures valid** performance estimates
+TrustCV reports only what it verified. It can check supplied-group separation, exact and calibrated near-duplicates, visible Pipeline placement, supported external leakage patterns, near-deterministic target features, CV-loop permutation behavior, class balance, and covariate shift.
 
-This comprehensive approach helps ensure your model validation reflects real-world performance!
+It cannot infer missing group/time/space metadata, establish causal validity, or detect preprocessing completed before it receives the feature matrix. Treat `PASSED` as “all applicable supported checks passed,” not as proof that every possible source of leakage is absent.

@@ -10,12 +10,12 @@
 **TrustCV** is a framework-agnostic toolkit for **reliable cross-validation** in safety-critical and regulated settings.
 It builds on familiar scikit-learn idioms, but adds:
 
-- Carefully designed cross-validation splitters (starting with IID in v0.1).
+- Carefully designed IID, grouped, temporal, and spatial cross-validation splitters.
 - Automatic **data leakage** and **class balance** checks.
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.0.7 – Production release with 29 CV methods across IID, Grouped, Temporal, and Spatial categories, metric feasibility diagnostics, split_kwargs support, and comprehensive data leakage detection.
+> **Status:** v1.1.0 – Conservative check statuses, corrected confidence intervals, calibrated leakage diagnostics, and an actionable CV advisor.
 
 ---
 
@@ -35,7 +35,7 @@ TrustCV addresses these issues by:
 
 ---
 
-## What's in v1.0.7
+## What's in v1.1.0
 
 This release includes **29 cross-validation methods** across four categories:
 
@@ -74,148 +74,89 @@ This release includes **29 cross-validation methods** across four categories:
 ### Installation
 
 ```bash
-# Install from source (recommended for latest features)
-git clone https://github.com/ki-smile/trustcv.git
-cd trustcv
-pip install -e .
-
-# Or install from PyPI
 pip install trustcv
 ```
 
-
-## Quickstart – IID CV with TrustCV
-
-Here is a minimal example:
+Ask the advisor for a runnable splitter first, then keep all preprocessing inside the model pipeline:
 
 ```python
-from trustcv import TrustCV  # or TrustCVValidator
 from sklearn.datasets import load_breast_cancer
-from sklearn.ensemble import RandomForestClassifier
-
-X, y = load_breast_cancer(return_X_y=True)
-
-# Simple usage
-validator = TrustCV(method="stratified_kfold", n_splits=5)
-results = validator.validate(model=RandomForestClassifier(), X=X, y=y)
-print(results.summary())
-```
-
-### Full Example with All Options
-
-```python
-from trustcv import TrustCV
-from sklearn.datasets import load_breast_cancer
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from trustcv import TrustCV, recommend_cv
 
 X, y = load_breast_cancer(return_X_y=True)
-model = make_pipeline(StandardScaler(), RandomForestClassifier(random_state=42))
+recommendation = recommend_cv(X, y)
+print(recommendation.category, recommendation.method, type(recommendation.splitter).__name__)
 
-# Validates with leakage checks and computes clinical CIs
-validator = TrustCV(
-    method="stratified_kfold",
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000))
+result = TrustCV(
+    method=recommendation.method,
     n_splits=5,
     random_state=42,
-    check_leakage=True,
-    check_balance=True,
-)
-results = validator.validate(model=model, X=X, y=y)
-
-print(results.summary()) 
-
-# Output:
-#=== Trustworthy Cross-Validation Results ===
-
-#Performance Metrics (mean +/- std) (method: bootstrap):
-#  accuracy: 0.956 +/- 0.014 [95% CI (bootstrap): 0.946-0.967]
-#  roc_auc: 0.989 +/- 0.009 [95% CI (bootstrap): 0.981-0.995]
-#  sensitivity: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
-#  specificity: 0.939 +/- 0.056 [95% CI (bootstrap): 0.893-0.981]
-#  precision: 0.965 +/- 0.031 [95% CI (bootstrap): 0.937-0.989]
-#  recall: 0.966 +/- 0.030 [95% CI (bootstrap): 0.939-0.986]
-#  f1: 0.965 +/- 0.011 [95% CI (bootstrap): 0.957-0.973]
-
-
-#Data Integrity Checks:
-#  Leakage Check: PASSED
-#  Class Balance: PASSED
+    declare_independent_samples=True,
+).validate(model=model, X=X, y=y, cv=recommendation.splitter)
+print(result.summary())
 ```
 
-For a higher-level workflow with leakage and balance checks, see the
-[Quickstart: IID CV with TrustCV](https://github.com/ki-smile/trustcv/blob/main/docs/Quickstart%3A%20IID%20Cross-Validation%20with%20TrustCV.md) and [IID Splitters](https://github.com/ki-smile/trustcv/blob/main/docs/iid_splitters.md) tutorial.
+Real output from v1.1.0:
 
-## Data Integrity Checks (What Is Checked and How)
+```text
+iid stratified_kfold StratifiedKFoldMedical
+=== Trustworthy Cross-Validation Results ===
 
-TrustCV runs integrity checks during `validate(...)` and returns them in
-`ValidationResult.leakage_check`.
+Performance Metrics (mean +/- std) (method: corrected_t):
+  accuracy: 0.974 +/- 0.019 [95% CI (corrected_t): 0.939-1.008]
+  roc_auc: 0.995 +/- 0.006 [95% CI (corrected_t): 0.984-1.006]
+  sensitivity: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.015]
+  specificity: 0.944 +/- 0.059 [95% CI (corrected_t): 0.834-1.053]
+  precision: 0.968 +/- 0.032 [95% CI (corrected_t): 0.908-1.029]
+  recall: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.015]
+  f1: 0.979 +/- 0.014 [95% CI (corrected_t): 0.953-1.006]
 
-### 1) Built-in checks in `TrustCVValidator._basic_integrity_checks`
+Data Integrity Checks:
+  Duplicate Samples: PASSED — No exact duplicate feature rows were found.
+  Group Leakage: NOT_APPLICABLE — Samples were explicitly declared independent; no groups were supplied.
+  Preprocessing Leakage: PASSED — Preprocessing steps are inside an sklearn Pipeline and are refit within each fold.
+  External Leakage Detector: PASSED — The external leakage detector found no supported leakage pattern.
+  Target Leakage Features: PASSED — No feature crossed the configured univariate target-leakage threshold.
+  Permutation Sanity: NOT_CHECKED — Permutation sanity checking is disabled.
+  Class Balance: INFO — Minority-to-majority class ratio is 0.594.
+  Covariate Shift: INFO — No statistically significant covariate shift was detected.
 
-These checks run when the corresponding flags are enabled:
-
-- `check_leakage=True` enables duplicate/group leakage checks.
-- `check_balance=True` enables class-balance checks.
-
-| Key in `results.leakage_check` | What it checks | Method used | Pass condition |
-| --- | --- | --- | --- |
-| `no_duplicate_samples` | Exact duplicate rows in `X` | `pandas.DataFrame.duplicated().any()` (DataFrame input) | `True` when no duplicates are found |
-| `no_patient_leakage` | Group/patient overlap between train/validation folds | Iterates the active CV splitter; computes set intersection of unique group IDs in each fold | `True` when there is no overlap in all folds |
-| `balanced_classes` | Binary class imbalance | Computes ratio `min(class_count) / max(class_count)` | `True` when ratio is `>= 0.10` |
-| `balanced_multilabel` *(multilabel only)* | Label-prevalence drift across folds | Computes max absolute deviation between per-fold prevalence and global prevalence | `True` when max deviation is `<= 0.10` |
-
-### 2) Extended leakage scan via `DataLeakageChecker`
-
-When `check_leakage=True`, `TrustCV` can run `DataLeakageChecker.check(...)`
-and fold its outcome into `results.leakage_check["has_leakage"]`.
-
-Important semantics:
-- `LeakageReport.has_leakage == True` means leakage was detected.
-- `results.leakage_check["has_leakage"] == True` means the check **passed**
-  (no leakage detected).  
-  In other words, this field is the inverse of `LeakageReport.has_leakage`.
-
-`DataLeakageChecker` methods used in the scan:
-
-| Leakage type | Method used |
-| --- | --- |
-| Patient leakage | Set intersection of patient IDs in train vs test |
-| Duplicate samples | Row hashing with `pandas.util.hash_pandas_object` across train/test |
-| Temporal leakage | Timestamp parsing + flags when test starts before train, or overlap fraction is high (`> 0.5`) |
-| Feature-statistics leakage | Near-identical feature means/stds (tight threshold) plus optional per-feature KS test |
-| Spatial proximity leakage | Euclidean nearest-distance analysis; threshold can be auto-derived from distance percentiles |
-| Near-duplicate leakage | Cosine similarity on train-normalized features (`>= 0.99` default) |
-| Label-distribution drift | Max class-proportion difference between train/test (`> 0.2`, optional chi-square test) |
-
-Additional methods such as hierarchical, preprocessing, and feature-target
-leakage checks are available in `DataLeakageChecker` for manual use.
-
-### Minimal usage
-
-```python
-from trustcv import TrustCV
-
-validator = TrustCV(
-    method="stratified_kfold",
-    n_splits=5,
-    check_leakage=True,
-    check_balance=True,
-)
-results = validator.validate(model=model, X=X, y=y)
-# If you have group/patient IDs, pass them as:
-# results = validator.validate(model=model, X=X, y=y, groups=patient_ids)
-
-print(results.leakage_check)
-# Example keys:
-# {
-#   "no_duplicate_samples": True,
-#   "no_patient_leakage": True,
-#   "balanced_classes": True,
-#   "has_leakage": True
-# }
+Overall Status: PASSED
+Leakage Check: PASSED
 ```
 
+## Integrity checks and status semantics
+
+Every `ValidationResult.checks` mapping contains the following keys:
+
+| Check | Status behavior | Meaning |
+| --- | --- | --- |
+| `duplicate_samples` | `PASSED` or `WARNING` | Exact row hashes; works for NumPy arrays and DataFrames. |
+| `group_leakage` | `PASSED`, `FAILED`, `ERROR`, `NOT_CHECKED`, or `NOT_APPLICABLE` | Group overlap can be verified only when groups are supplied, unless independence is explicitly declared. |
+| `preprocessing_leakage` | `PASSED` or `NOT_CHECKED` | Passes only when preprocessing is inside an sklearn `Pipeline` before the final estimator. |
+| `external_leakage_detector` | `PASSED`, `FAILED`, or `ERROR` | A detector crash is an error, never a silent pass. |
+| `target_leakage_features` | `PASSED`, `WARNING`, or `NOT_APPLICABLE` | Flags near-deterministic binary AUC or regression Spearman association. |
+| `permutation_sanity` | `PASSED`, `FAILED`, or `NOT_CHECKED` | Opt-in check for shuffled labels scoring above chance inside the CV loop. |
+| `class_balance` | `INFO` or `WARNING` | Imbalance describes the data and is never a failed leakage check. |
+| `covariate_shift` | `INFO`, `WARNING`, or `NOT_CHECKED` | Bonferroni-corrected KS shift report; shift is not leakage. |
+
+`overall_status` considers the first five leakage-relevant checks and the permutation check when enabled. It is `FAILED` for any `FAILED`/`ERROR`, `PASSED` only when all relevant checks are `PASSED`/`NOT_APPLICABLE`, and `NOT_FULLY_VERIFIED` otherwise.
+
+`leakage_check` remains for compatibility. Use `external_leakage_detected` for non-inverted semantics. The legacy `has_leakage` key is deprecated for one release and is inverted: `external_leakage_detected == (not has_leakage)`.
+
+### What trustcv can and cannot detect
+
+TrustCV can verify exact duplicates, supplied-group separation, whether visible sklearn preprocessing is inside a `Pipeline`, selected leakage patterns in `DataLeakageChecker`, near-deterministic single-feature target encodings, class balance, covariate shift, and—when enabled—whether shuffled labels score above chance inside the CV loop.
+
+TrustCV cannot infer missing patient IDs, timestamps, coordinates, or causal relationships. It cannot detect preprocessing or feature selection already applied to the full dataset before `validate()` receives `X`. The permutation check is not a general leakage detector: with a fixed pre-selected matrix its null scores may remain at chance while the observed score is inflated. A `PASSED` status therefore means every applicable supported check passed; it is not proof that all possible leakage is absent.
+
+### Confidence intervals
+
+`corrected_t` is the default and uses the Nadeau–Bengio correction with actual mean train/test fold sizes. `oof_bootstrap` resamples pooled out-of-fold predictions and defaults to whole-group cluster resampling when groups are supplied; set `ci_cluster=False` only for row-level comparison. Non-partition splitters fall back to `corrected_t` with a warning. Legacy `ci_method="bootstrap"` remains available but warns because bootstrapping a handful of correlated fold scores produces intervals that are too narrow.
 ### Run the interactive notebooks
 
 Prefer to learn by running code? From the repo root, open the 14 notebooks in `notebooks/`:

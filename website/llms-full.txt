@@ -1,6 +1,6 @@
 # trustcv — Full API Reference
 
-> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.0.7)
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.1.0)
 > Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
 > GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
 
@@ -248,7 +248,7 @@ LeakageDetectionCallback(data=(X, y), groups=None, timestamps=None, coordinates=
 
 ## DataLeakageChecker
 
-Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.
+Reports supported leakage evidence separately from informational data diagnostics. Covariate shift and label-distribution drift do not set `has_leakage`; calibrated near-duplicates use train-standardized Euclidean distance.
 
 ```python
 from trustcv import DataLeakageChecker
@@ -278,7 +278,7 @@ report = checker.check(
 
 ### check_cv_splits() — Explicit train/test
 
-Checks leakage between explicit train and test sets. Temporal leakage reports overlap_fraction. Feature statistics uses KS-test to compare distributions. Label distribution uses chi-squared test.
+Checks leakage between explicit train and test sets. Temporal leakage reports overlap_fraction. Bonferroni-corrected KS tests report covariate shift without classifying it as leakage. Label-distribution drift is also informational.
 
 ```python
 report = checker.check_cv_splits(
@@ -313,7 +313,7 @@ has_leakage = checker.check_preprocessing_leakage(
 
 ### check_near_duplicates()
 
-Detects near-duplicate samples between train and test sets using cosine similarity.
+Detects near-duplicate samples using train-standardized Euclidean distance, flagging only distances far below typical within-training nearest-neighbour spacing.
 
 ```python
 result = checker.check_near_duplicates(
@@ -1002,10 +1002,22 @@ splitter = NestedCV(
 
 6. **`validate()` uses keyword-only args** — call as `validator.validate(model=m, X=X, y=y)`, never positional.
 
-7. **Default CI method is bootstrap** with 1000 samples. Set `return_confidence_intervals=False` to skip for faster execution.
+7. **Default CI method is `corrected_t`**. Legacy `bootstrap` warns because resampling a handful of correlated fold scores gives intervals that are too narrow. Use `oof_bootstrap` for pooled OOF predictions or set `return_confidence_intervals=False` to skip.
 
 8. **Preprocessing leakage**: Always fit scalers/encoders on training data only. Use `DataLeakageChecker.check_preprocessing_leakage()` to verify.
 
 9. **Temporal data must be sorted** before using temporal splitters like `TimeSeriesSplit`.
 
 10. **Spatial splitters need coordinates** passed via `split(X, coordinates=coords)` or set in constructor.
+
+## v1.1 Trust Semantics
+
+Use `recommend_cv(X, y, groups=None, timestamps=None, coordinates=None, n_splits=5, random_state=42)` first. It returns a `CVRecommendation(category, method, splitter, rationale, warnings, code)`; pass `recommendation.splitter` to `TrustCV.validate(cv=...)`.
+
+`TrustCV` accepts `declare_independent_samples=False`, `permutation_check=False`, `n_permutations=20`, `target_auc_threshold=0.99`, `target_correlation_threshold=0.99`, and `max_target_features=10000`. `validate(..., ci_cluster=True)` uses whole-group resampling for `oof_bootstrap`; set it false only for an explicit row-level comparison.
+
+Every `ValidationResult.checks` mapping contains `duplicate_samples`, `group_leakage`, `preprocessing_leakage`, `external_leakage_detector`, `target_leakage_features`, `permutation_sanity`, `class_balance`, and `covariate_shift`. Each value is a `CheckResult(name, status, message, details)`, where status is `PASSED`, `FAILED`, `WARNING`, `NOT_CHECKED`, `NOT_APPLICABLE`, `INFO`, or `ERROR`. `overall_status` is `PASSED` only when every leakage-relevant check was positively passed or is not applicable; incomplete evidence is `NOT_FULLY_VERIFIED`.
+
+The legacy `leakage_check` mapping remains for compatibility. Prefer `external_leakage_detected`; `has_leakage` is deprecated and inverted, so `external_leakage_detected == (not has_leakage)`.
+
+`corrected_t` is the default CI. `oof_bootstrap` pools out-of-fold predictions and cluster-resamples groups by default. Non-partition splitters fall back to `corrected_t` with a warning. `permutation_check` tests leakage inside the CV loop; it cannot detect feature selection or preprocessing already applied to the complete dataset before `validate()`.
