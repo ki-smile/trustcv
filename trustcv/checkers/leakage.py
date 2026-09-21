@@ -108,6 +108,7 @@ class DataLeakageChecker:
         target_correlation_threshold: float = 0.99,
         max_target_features: int = 10_000,
         near_duplicate_distance_ratio: float = 0.01,
+        near_duplicate_absolute_threshold: float = 1e-3,
         covariate_shift_alpha: float = 0.05,
     ) -> None:
         self.verbose = verbose
@@ -115,6 +116,9 @@ class DataLeakageChecker:
         self.target_correlation_threshold = float(target_correlation_threshold)
         self.max_target_features = max(int(max_target_features), 1)
         self.near_duplicate_distance_ratio = float(near_duplicate_distance_ratio)
+        self.near_duplicate_absolute_threshold = float(
+            near_duplicate_absolute_threshold
+        )
         self.covariate_shift_alpha = float(covariate_shift_alpha)
 
     # ------------------------------------------------------------------
@@ -915,6 +919,7 @@ class DataLeakageChecker:
         similarity_threshold: Optional[float] = None,
         *,
         distance_ratio: Optional[float] = None,
+        absolute_threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Detect unusually close test rows using calibrated Euclidean distance.
 
@@ -932,6 +937,10 @@ class DataLeakageChecker:
         distance_ratio : float, optional
             Fraction of typical within-training nearest-neighbour spacing used
             as the flagging threshold. Defaults to the checker configuration.
+        absolute_threshold : float, optional
+            Fallback distance in standardized units when de-duplicated training
+            rows still have zero nearest-neighbour spacing. Defaults to the
+            checker configuration.
 
         Returns
         -------
@@ -955,6 +964,11 @@ class DataLeakageChecker:
                 ratio = max(1.0 - float(similarity_threshold), 0.0)
         else:
             ratio = float(distance_ratio)
+        fallback_threshold = (
+            self.near_duplicate_absolute_threshold
+            if absolute_threshold is None
+            else float(absolute_threshold)
+        )
         legacy_similarity = (
             float(similarity_threshold)
             if similarity_threshold is not None
@@ -973,20 +987,26 @@ class DataLeakageChecker:
             train_scaled = (train - train_mean) / train_std
             test_scaled = (test - train_mean) / train_std
 
-            neighbours = NearestNeighbors(n_neighbors=2, metric="euclidean")
-            neighbours.fit(train_scaled)
-            within_distances = neighbours.kneighbors(
-                train_scaled, return_distance=True
-            )[0][:, 1]
-            typical_distance = float(np.median(within_distances))
+            unique_train_scaled = np.unique(train_scaled, axis=0)
+            if unique_train_scaled.shape[0] >= 2:
+                neighbours = NearestNeighbors(n_neighbors=2, metric="euclidean")
+                neighbours.fit(unique_train_scaled)
+                within_distances = neighbours.kneighbors(
+                    unique_train_scaled, return_distance=True
+                )[0][:, 1]
+                typical_distance = float(np.median(within_distances))
+            else:
+                typical_distance = 0.0
             distance_threshold = ratio * typical_distance
+            if not np.isfinite(distance_threshold) or distance_threshold == 0:
+                distance_threshold = fallback_threshold
 
             test_neighbours = NearestNeighbors(n_neighbors=1, metric="euclidean")
             test_neighbours.fit(train_scaled)
             nearest_test_distances = test_neighbours.kneighbors(
                 test_scaled, return_distance=True
             )[0][:, 0]
-            near_mask = nearest_test_distances < distance_threshold
+            near_mask = nearest_test_distances <= distance_threshold
             count = int(np.count_nonzero(near_mask))
             percentage = float(count / len(test) * 100) if len(test) else 0.0
         except Exception as exc:
@@ -996,6 +1016,7 @@ class DataLeakageChecker:
                 "near_duplicate_percentage": 0.0,
                 "similarity_threshold": legacy_similarity,
                 "distance_ratio": ratio,
+                "absolute_threshold": fallback_threshold,
                 "error": str(exc),
             }
 
@@ -1005,6 +1026,7 @@ class DataLeakageChecker:
             "near_duplicate_percentage": percentage,
             "similarity_threshold": legacy_similarity,
             "distance_ratio": ratio,
+            "absolute_threshold": fallback_threshold,
             "within_train_median_nn_distance": typical_distance,
             "distance_threshold": distance_threshold,
             "minimum_test_train_distance": (

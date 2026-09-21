@@ -6,6 +6,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import f1_score
 
 from trustcv import TrustCV
+from trustcv.checkers.leakage import DataLeakageChecker
 from trustcv.uncertainty import _oof_bootstrap_interval
 
 
@@ -147,3 +148,19 @@ def test_permutation_nan_observed_score_is_an_error():
     assert np.isnan(result.permutation["p_value"])
     assert check.status == "ERROR"
     assert "NaN" in check.message or "undefined" in check.message.lower()
+
+
+def test_near_duplicates_calibrate_after_deduplicating_training_rows():
+    rng = np.random.default_rng(31)
+    unique_train = rng.normal(size=(40, 5))
+    X_train = np.vstack([np.repeat(unique_train[:1], 60, axis=0), unique_train])
+    X_near = unique_train[1:11] + rng.normal(scale=1e-4, size=(10, 5))
+    X_independent = rng.normal(loc=8.0, size=(100, 5))
+    checker = DataLeakageChecker(verbose=False)
+
+    near_report = checker.check_cv_splits(X_train, X_near)
+    independent_report = checker.check_cv_splits(X_train, X_independent)
+
+    assert "near_duplicate" in near_report.leakage_types
+    assert near_report.details["near_duplicate_leakage"]["near_duplicate_count"] == 10
+    assert "near_duplicate" not in independent_report.leakage_types
