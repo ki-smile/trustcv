@@ -2410,29 +2410,24 @@ class TrustCVValidator:
         patient_ids: Optional[Union[np.ndarray, pd.Series]] = None,
         timestamps: Optional[Union[np.ndarray, pd.Series]] = None,
     ) -> str:
-        """Suggest best CV method based on data characteristics"""
-        n_samples = len(y)
+        """Return a compatible method string; prefer recommend_cv for details.
 
-        # Check for temporal data
-        if timestamps is not None:
-            return "temporal"
+        This legacy wrapper cannot return the recommended splitter, warnings,
+        rationale, or copyable code. Use trustcv.recommend_cv for those fields.
+        """
+        from .advisor import recommend_cv
 
-        # Check for grouped data
-        if patient_ids is not None:
-            unique_patients = len(np.unique(patient_ids))
-            if unique_patients < n_samples:
-                return "patient_grouped_kfold"
-
-        # Check class balance
-        unique, counts = np.unique(y, return_counts=True)
-        if len(unique) > 1:
-            ratio = counts.min() / counts.max()
-            if ratio < 0.3:  # Imbalanced
-                return "stratified_kfold"
-
-        # Default
-        return "kfold" if n_samples > 1000 else "stratified_kfold"
-
+        recommendation = recommend_cv(
+            X,
+            y,
+            groups=patient_ids,
+            timestamps=timestamps,
+            n_splits=self.n_splits,
+            random_state=self.random_state,
+        )
+        if recommendation.category == "grouped":
+            return "patient_grouped_kfold"
+        return recommendation.method or "kfold"
 
 # --- Optional high-level nested CV runners ---
 try:

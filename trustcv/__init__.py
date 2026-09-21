@@ -34,6 +34,8 @@ __institution__ = "SMAILE - Stockholm Medical AI and Learning Environments, Karo
 __website__ = "https://smile.ki.se"
 
 from .checkers import BalanceChecker, DataLeakageChecker
+from .advisor import CVRecommendation, recommend_cv
+from .checks import CheckResult
 
 # Import new framework-agnostic components
 from .core import (
@@ -126,6 +128,9 @@ __all__ = [
     "BalanceChecker",
     "ClinicalMetrics",
     "check_fold_metric_feasibility",
+    "CheckResult",
+    "CVRecommendation",
+    "recommend_cv",
     "NestedTemporalCV",
     "NestedGroupedCV",
     # Framework-agnostic components
