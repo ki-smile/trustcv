@@ -42,6 +42,7 @@ from .checks import (
     ensure_complete_checks,
     overall_status as compute_overall_status,
 )
+from .sanity import _run_permutation_sanity
 
 
 @dataclass
@@ -65,6 +66,7 @@ class ValidationResult:
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     checks: Dict[str, CheckResult] = field(default_factory=default_checks)
     overall_status: str = ""
+    permutation: Dict[str, Any] = field(default_factory=dict)
     ci_method: str = ""
     ci_level: float = 0.95
 
@@ -483,6 +485,7 @@ class ValidationResult:
                 for name, check in self.checks.items()
             },
             "overall_status": self.overall_status,
+            "permutation": self.permutation,
             "recommendations": self.recommendations,
         }
 
@@ -510,6 +513,8 @@ class TrustCVValidator:
         target_auc_threshold: float = 0.99,
         target_correlation_threshold: float = 0.99,
         max_target_features: int = 10_000,
+        permutation_check: bool = False,
+        n_permutations: int = 20,
         compliance: Optional[str] = None,
         *,
         metrics: Optional[List[str]] = None,
@@ -567,6 +572,10 @@ class TrustCVValidator:
             Absolute Spearman threshold for regression target-leakage warnings.
         max_target_features : int
             Maximum number of feature columns scanned for target leakage.
+        permutation_check : bool
+            Whether to rerun CV with shuffled labels as a CV-loop sanity check.
+        n_permutations : int
+            Number of shuffled-label CV runs.
         compliance : str
             Regulatory compliance mode ('FDA', 'CE', None)
         holdout_test_size : float or int
@@ -607,6 +616,8 @@ class TrustCVValidator:
         self.target_auc_threshold = float(target_auc_threshold)
         self.target_correlation_threshold = float(target_correlation_threshold)
         self.max_target_features = max(int(max_target_features), 1)
+        self.permutation_check = bool(permutation_check)
+        self.n_permutations = max(int(n_permutations), 1)
         self.compliance = compliance
         self.metrics = self._normalize_metric_list(metrics)
         self.return_confidence_intervals = bool(return_confidence_intervals)
@@ -1216,6 +1227,48 @@ class TrustCVValidator:
                 "and feature selection are refit within each fold."
             )
 
+        permutation: Dict[str, Any] = {}
+        if self.permutation_check:
+            try:
+                permutation = _run_permutation_sanity(
+                    model=model,
+                    X=X_arr,
+                    y=y_arr,
+                    splitter=splitter,
+                    groups=split_groups,
+                    n_permutations=self.n_permutations,
+                    random_state=self.random_state,
+                    regression=is_regression,
+                )
+                failed = (
+                    permutation["null_mean"]
+                    > permutation["chance_level"] + 0.10
+                )
+                beats_chance = permutation["p_value"] < 0.05
+                checks["permutation_sanity"] = CheckResult(
+                    "permutation_sanity",
+                    "FAILED" if failed else "PASSED",
+                    (
+                        "Shuffled labels score above chance, indicating leakage inside "
+                        "the CV loop or a broken splitter."
+                        if failed
+                        else (
+                            "Shuffled-label scores are at chance; the model "
+                            + ("beats" if beats_chance else "does not beat")
+                            + " the permutation null at p < 0.05. This check cannot "
+                            "detect preprocessing done before validate()."
+                        )
+                    ),
+                    dict(permutation),
+                )
+            except Exception as exc:
+                checks["permutation_sanity"] = CheckResult(
+                    "permutation_sanity",
+                    "ERROR",
+                    f"Permutation sanity checking failed: {exc}",
+                    {"error": str(exc)},
+                )
+
         diagnostics: Dict[str, Any] = {}
         if test_indices_by_fold:
             metric_feasibility = check_fold_metric_feasibility(
@@ -1244,6 +1297,7 @@ class TrustCVValidator:
             ci_level=self.ci_level,
             fold_details=fold_details,
             checks=checks,
+            permutation=permutation,
             leakage_check=leakage_check_map,
             recommendations=recommendations,
             diagnostics=diagnostics,
