@@ -63,13 +63,24 @@ def _metric_from_predictions(
     y_true: np.ndarray,
     y_pred: Optional[np.ndarray],
     y_score: Optional[np.ndarray],
+    *,
+    labels: Optional[np.ndarray] = None,
+    pos_label: Any = None,
 ) -> float:
     if metric in {"roc_auc", "auc"}:
         if y_score is None:
             raise ValueError("ROC-AUC requires out-of-fold scores.")
         if y_score.ndim == 1:
             return float(roc_auc_score(y_true, y_score))
-        return float(roc_auc_score(y_true, y_score, multi_class="ovr", average="macro"))
+        return float(
+            roc_auc_score(
+                y_true,
+                y_score,
+                labels=labels,
+                multi_class="ovr",
+                average="macro",
+            )
+        )
     if metric in {"r2", "r2_score"}:
         return float(r2_score(y_true, y_pred))
     if metric in {"mse", "mean_squared_error"}:
@@ -83,18 +94,57 @@ def _metric_from_predictions(
     if metric == "accuracy":
         return float(accuracy_score(y_true, y_pred))
     if metric in {"f1", "f1_score"}:
-        return float(f1_score(y_true, y_pred, average="binary", zero_division=0))
+        return float(
+            f1_score(
+                y_true,
+                y_pred,
+                average="binary",
+                pos_label=pos_label,
+                zero_division=0,
+            )
+        )
     if metric == "f1_macro":
-        return float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+        return float(
+            f1_score(
+                y_true,
+                y_pred,
+                labels=labels,
+                average="macro",
+                zero_division=0,
+            )
+        )
     if metric == "f1_micro":
-        return float(f1_score(y_true, y_pred, average="micro", zero_division=0))
+        return float(
+            f1_score(
+                y_true,
+                y_pred,
+                labels=labels,
+                average="micro",
+                zero_division=0,
+            )
+        )
     if metric == "precision":
-        return float(precision_score(y_true, y_pred, average="binary", zero_division=0))
+        return float(
+            precision_score(
+                y_true,
+                y_pred,
+                average="binary",
+                pos_label=pos_label,
+                zero_division=0,
+            )
+        )
     if metric == "recall":
-        return float(recall_score(y_true, y_pred, average="binary", zero_division=0))
-    labels = np.unique(y_true)
+        return float(
+            recall_score(
+                y_true,
+                y_pred,
+                average="binary",
+                pos_label=pos_label,
+                zero_division=0,
+            )
+        )
     if metric in {"sensitivity", "tpr", "recall_pos"}:
-        return float(recall_score(y_true, y_pred, pos_label=labels[-1], zero_division=0))
+        return float(recall_score(y_true, y_pred, pos_label=pos_label, zero_division=0))
     if metric in {"specificity", "tnr"}:
         return float(recall_score(y_true, y_pred, pos_label=labels[0], zero_division=0))
     raise ValueError(f"OOF bootstrap does not support metric {metric!r}.")
@@ -124,6 +174,8 @@ def _oof_bootstrap_interval(
     estimates = []
     skipped = 0
     n_samples = y_true.shape[0]
+    labels = None if regression else np.unique(y_true)
+    pos_label = None if labels is None or labels.size == 0 else labels[-1]
     unique_groups = np.unique(groups) if cluster and groups is not None else None
     for _ in range(max(int(n_bootstrap), 1)):
         if unique_groups is not None:
@@ -141,7 +193,12 @@ def _oof_bootstrap_interval(
         sampled_score = None if y_score is None else y_score[sample_indices]
         try:
             estimate = _metric_from_predictions(
-                metric, sampled_y, sampled_pred, sampled_score
+                metric,
+                sampled_y,
+                sampled_pred,
+                sampled_score,
+                labels=labels,
+                pos_label=pos_label,
             )
         except (ValueError, TypeError):
             skipped += 1
