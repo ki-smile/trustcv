@@ -173,6 +173,15 @@ class UniversalRegulatoryReport:
             compliance_standard=compliance_standard,
             project_name=project_name,
         )
+        report.set_integrity_results(
+            getattr(runner_results, "checks", None),
+            getattr(runner_results, "overall_status", None),
+            source=(
+                "Structured integrity evidence attached to the supplied results."
+                if getattr(runner_results, "metadata", {}).get("integrity_checks_run", False)
+                else "UniversalCVRunner does not run the TrustCV integrity suite by default."
+            ),
+        )
 
         n_samples, n_features = cls._infer_dataset_shape(X)
         class_distribution = cls._compute_class_distribution(y)

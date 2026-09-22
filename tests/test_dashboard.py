@@ -172,11 +172,15 @@ class TestDashboardFigureStructure:
 
         fake_ip = MagicMock()
         fake_ip.kernel = object()
+        fake_ipython = MagicMock()
+        fake_ipython.get_ipython.return_value = fake_ip
 
-        with patch.dict("sys.modules", {"google.colab": MagicMock()}):
-            with patch("IPython.get_ipython", return_value=fake_ip):
-                with patch.object(go.Figure, "show", capturing_show):
-                    results.dashboard()
+        with patch.dict(
+            "sys.modules",
+            {"google.colab": MagicMock(), "IPython": fake_ipython},
+        ):
+            with patch.object(go.Figure, "show", capturing_show):
+                results.dashboard()
 
         assert captured_kwargs, "dashboard() must attempt to render figures"
         assert all(kw.get("renderer") == "colab" for kw in captured_kwargs), \

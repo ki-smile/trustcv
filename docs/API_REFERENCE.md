@@ -30,12 +30,18 @@ validator = TrustCVValidator(
 | `random_state` | int | 42 | Random seed for reproducibility |
 | `check_leakage` | bool | True | Enable data leakage detection |
 | `check_balance` | bool | True | Check class balance |
+| `declare_independent_samples` | bool | False | Mark group leakage NOT_APPLICABLE when no groups exist |
+| `permutation_check` | bool | False | Run shuffled-label CV-loop sanity checking |
+| `n_permutations` | int | 20 | Number of shuffled-label CV reruns |
+| `target_auc_threshold` | float | 0.99 | Binary univariate AUC target-leakage threshold |
+| `target_correlation_threshold` | float | 0.99 | Regression absolute Spearman target-leakage threshold |
+| `max_target_features` | int | 10000 | Maximum number of target-scanned features |
 | `compliance` | str/None | None | Report format for regulatory documentation ('FDA', 'CE', None) |
 | `metrics` | list[str]/None | ['accuracy','roc_auc','sensitivity','specificity','precision','recall','f1'] | Metrics reported by both validation paths (case-insensitive) |
-| `return_confidence_intervals` | bool | False | Enable 95% confidence interval reporting |
-| `ci_method` | str | 'bootstrap' | Interval estimator ('bootstrap' or 't-interval') |
+| `return_confidence_intervals` | bool | True | Enable confidence interval reporting |
+| `ci_method` | str | 'corrected_t' | Interval estimator: `corrected_t`, `oof_bootstrap`, legacy `bootstrap`, or `t-interval` |
 | `ci_level` | float | 0.95 | Coverage level for confidence intervals (0-1 range) |
-| `n_bootstrap` | int | 1000 | Resamples used when `ci_method='bootstrap'` |
+| `n_bootstrap` | int | 1000 | Resamples used by bootstrap-based interval methods |
 
 > **Tip:** `metrics` is case-insensitive. Provide a subset like `["accuracy", "roc_auc"]` to limit the reported scores, or leave it as `None` to include the full medical set.
 
@@ -77,7 +83,27 @@ Manually run cross-validation using the configured splitter. Accepts `patient_id
 method = validator.suggest_best_method(X, y, patient_ids, timestamps)
 ```
 
-Automatically suggest the best CV method based on data characteristics.
+Backward-compatible method-string wrapper. New code should use `recommend_cv`.
+
+### recommend_cv()
+
+```python
+from trustcv import recommend_cv
+
+recommendation = recommend_cv(
+    X, y,
+    groups=patient_ids,
+    timestamps=timestamps,
+    coordinates=coordinates,
+    n_splits=5,
+    random_state=42,
+)
+result = TrustCV(method=recommendation.method or "kfold").validate(
+    model=model, X=X, y=y, groups=patient_ids, cv=recommendation.splitter
+)
+```
+
+Returns `CVRecommendation(category, method, splitter, rationale, warnings, code)`. Timestamps take precedence, then coordinates, repeated groups, and finally IID designs. `validate()` has no timestamps argument, so temporal data must be sorted or supplied through a compatible `cv=` splitter.
 
 ---
 
@@ -373,10 +399,13 @@ Result object from medical validation.
 | `mean_scores` | dict | Mean scores across folds |
 | `std_scores` | dict | Standard deviation of scores |
 | `confidence_intervals` | dict | Confidence intervals per metric (per `ci_level`) |
-| `ci_method` | str | Interval estimator used (e.g., `bootstrap`, `t-interval`) |
+| `ci_method` | str | Interval estimator actually used (`corrected_t`, `oof_bootstrap`, legacy `bootstrap`, or `t-interval`) |
 | `ci_level` | float | Confidence level used when computing intervals |
 | `fold_details` | list | Per-fold information |
-| `leakage_check` | dict | Data integrity results |
+| `checks` | dict[str, CheckResult] | Complete structured check map |
+| `overall_status` | str | PASSED, FAILED, or NOT_FULLY_VERIFIED |
+| `permutation` | dict | Shuffled-label null report when enabled |
+| `leakage_check` | dict | Legacy boolean compatibility map; `has_leakage` is deprecated and inverted |
 | `recommendations` | list | Actionable suggestions |
 
 ### Methods
@@ -507,6 +536,7 @@ def validate(
     cv: Optional[BaseCrossValidator] = None,
     leakage_checker: Optional[Any] = None,
     sample_weight: Optional[np.ndarray] = None,
+    ci_cluster: bool = True,
 ) -> ValidationResult:
     ...
 ```
@@ -544,3 +574,11 @@ except ValueError as e:
 ---
 
 *For more examples and tutorials, visit the [documentation](https://trustcv.readthedocs.io).* 
+
+## Check status and confidence-interval semantics
+
+`CheckResult` statuses are `PASSED`, `FAILED`, `WARNING`, `NOT_CHECKED`, `NOT_APPLICABLE`, `INFO`, or `ERROR`. Only duplicate samples, group leakage, preprocessing leakage, the external detector, target-leakage features, and an enabled permutation check determine `overall_status`.
+
+`corrected_t` uses the Nadeau–Bengio correction with actual average train/test fold sizes. `oof_bootstrap` pools OOF predictions; with groups and `ci_cluster=True` it resamples whole groups. Resamples with one class are skipped and counted in `diagnostics["confidence_intervals"]`. Non-partition splitters fall back to `corrected_t` with a `UserWarning`. Legacy fold-score `bootstrap` warns that a handful of correlated fold scores gives intervals that are too narrow.
+
+The permutation check detects shuffled labels scoring above chance inside the CV loop. It cannot detect preprocessing or feature selection already performed on the full dataset before `validate()` receives `X`.

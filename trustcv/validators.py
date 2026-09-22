@@ -34,22 +34,96 @@ from .metrics.diagnostics import (
     check_fold_metric_feasibility,
     emit_metric_feasibility_warning,
 )
+from .checks import (
+    CheckResult,
+    build_initial_checks,
+    covariate_shift_from_report,
+    default_checks,
+    ensure_complete_checks,
+    overall_status as compute_overall_status,
+)
+from .sanity import _run_permutation_sanity
+from .uncertainty import (
+    _corrected_t_interval,
+    _fold_bootstrap_interval,
+    _is_partition,
+    _oof_bootstrap_interval,
+)
 
 
 @dataclass
 class ValidationResult:
-    """Results from medical cross-validation"""
+    """Results from medical cross-validation.
+
+    Notes
+    -----
+    leakage_check['has_leakage'] is a deprecated inverted legacy key:
+    True means the external detector did not find leakage. Use checks or
+    leakage_check['external_leakage_detected'] instead.
+    """
 
     scores: Dict[str, np.ndarray]
     mean_scores: Dict[str, float]
     std_scores: Dict[str, float]
     confidence_intervals: Dict[str, Tuple[float, float]]
     fold_details: List[Dict]
-    leakage_check: Dict[str, bool]
+    leakage_check: Dict[str, Any]
     recommendations: List[str]
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    checks: Dict[str, CheckResult] = field(default_factory=default_checks)
+    overall_status: str = ""
+    permutation: Dict[str, Any] = field(default_factory=dict)
     ci_method: str = ""
     ci_level: float = 0.95
+
+    def __post_init__(self) -> None:
+        self.checks = ensure_complete_checks(self.checks)
+        if all(check.status == "NOT_CHECKED" for check in self.checks.values()):
+            if "no_duplicate_samples" in self.leakage_check:
+                passed = self.leakage_check["no_duplicate_samples"]
+                self.checks["duplicate_samples"] = CheckResult(
+                    "duplicate_samples",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "No exact duplicate feature rows were found."
+                        if passed
+                        else "The legacy integrity map reports duplicate samples."
+                    ),
+                )
+            if "no_patient_leakage" in self.leakage_check:
+                passed = self.leakage_check["no_patient_leakage"]
+                self.checks["group_leakage"] = CheckResult(
+                    "group_leakage",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "The legacy integrity map reports separated groups."
+                        if passed
+                        else "The legacy integrity map reports group overlap."
+                    ),
+                )
+            if "has_leakage" in self.leakage_check:
+                passed = self.leakage_check["has_leakage"]
+                self.checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "PASSED" if passed else "FAILED",
+                    (
+                        "The legacy external detector found no supported leakage pattern."
+                        if passed
+                        else "The legacy external detector reported potential leakage."
+                    ),
+                )
+            if "balanced_classes" in self.leakage_check:
+                balanced = self.leakage_check["balanced_classes"]
+                self.checks["class_balance"] = CheckResult(
+                    "class_balance",
+                    "INFO" if balanced else "WARNING",
+                    (
+                        "The legacy integrity map reports acceptable class balance."
+                        if balanced
+                        else "The legacy integrity map reports severe class imbalance."
+                    ),
+                )
+        self.overall_status = compute_overall_status(self.checks)
 
     @property
     def metric_feasibility_warnings(self) -> List[str]:
@@ -85,32 +159,11 @@ class ValidationResult:
             seen.add(display_metric)
 
         summary += "\nData Integrity Checks:\n"
-        friendly_names = {
-            "no_duplicate_samples": "Duplicate Samples",
-            "no_patient_leakage": "Patient Leakage Separation",
-            "has_leakage": "External Leakage Detector",
-            "balanced_classes": "Class Balance",
-        }
-        handled = set()
-        leakage_keys = [
-            k
-            for k in ("no_duplicate_samples", "no_patient_leakage", "has_leakage")
-            if k in self.leakage_check
-        ]
-        if leakage_keys:
-            leakage_status = all(self.leakage_check[k] for k in leakage_keys)
-            summary += f"  Leakage Check: {'PASSED' if leakage_status else 'FAILED'}\n"
-            handled.update(leakage_keys)
-        if "balanced_classes" in self.leakage_check:
-            balanced = self.leakage_check["balanced_classes"]
-            summary += f"  Class Balance: {'PASSED' if balanced else 'FAILED'}\n"
-            handled.add("balanced_classes")
-        for check, passed in self.leakage_check.items():
-            if check in handled:
-                continue
-            label = friendly_names.get(check, check.replace("_", " ").title())
-            status = "PASSED" if passed else "FAILED"
-            summary += f"  {label}: {status}\n"
+        for name, check in self.checks.items():
+            label = name.replace("_", " ").title()
+            summary += f"  {label}: {check.status} — {check.message}\n"
+        summary += f"\nOverall Status: {self.overall_status}\n"
+        summary += f"Leakage Check: {self.overall_status}\n"
 
         if self.recommendations:
             summary += "\nRecommendations:\n"
@@ -166,12 +219,6 @@ class ValidationResult:
         n_folds = len(self.fold_details)
         flabels = [f"Fold {f['fold']}" for f in self.fold_details]
 
-        # leakage logic (mirrors summary())
-        lk_keys = [k for k in ("no_duplicate_samples",
-                                "no_patient_leakage", "has_leakage")
-                   if k in self.leakage_check]
-        leakage_ok = all(self.leakage_check[k] for k in lk_keys) if lk_keys else True
-        balance_ok = self.leakage_check.get("balanced_classes", True)
 
         # Create subplots
         fig = make_subplots(
@@ -184,7 +231,7 @@ class ValidationResult:
             subplot_titles=[
                 "Performance metrics — mean ± 95% CI",
                 "Per-fold metrics  (dashed = mean)",
-                "95% bootstrap confidence intervals",
+                f"95% {self.ci_method or 'confidence'} confidence intervals",
                 "Metric × Fold heatmap",
                 "Data integrity checks",
                 "Run summary"
@@ -274,29 +321,21 @@ class ValidationResult:
         ), row=2, col=2)
 
         # ── 5. Integrity checks table ───────────────────────────
-        def _status(passed):
-            if passed is None: return "N/A — IID"
-            return "PASSED ✓" if passed else "FAILED ✗"
-
-        def _color(passed):
-            if passed is None: return "#888780"
-            return "#3B6D11" if passed else "#A32D2D"
+        def _color(status):
+            if status in {"PASSED", "INFO", "NOT_APPLICABLE"}:
+                return "#3B6D11"
+            if status in {"FAILED", "ERROR"}:
+                return "#A32D2D"
+            return "#9A6700" if status == "WARNING" else "#888780"
 
         rows = [
-            ("Leakage check",               leakage_ok),
-            ("Class balance",               balance_ok),
-            ("Duplicate samples",           self.leakage_check.get("no_duplicate_samples", True)),
-            ("Patient separation",          self.leakage_check.get("no_patient_leakage", None)),
-            ("Near-duplicate (cosine)",     not self.leakage_check.get("near_duplicate", False)),
-            ("Feature statistics",          True),
-            ("Temporal leakage",            None),
+            (name.replace("_", " ").title(), check.status)
+            for name, check in self.checks.items()
         ]
-        if self.recommendations:
-            for rec in self.recommendations:
-                rows.append((f"⚠ {rec[:60]}", False))
+        rows.append(("Overall status", self.overall_status))
 
         check_names   = [r[0] for r in rows]
-        status_texts  = [_status(r[1]) for r in rows]
+        status_texts  = [r[1] for r in rows]
         status_colors = [_color(r[1]) for r in rows]
 
         fig.add_trace(go.Table(
@@ -442,6 +481,17 @@ class ValidationResult:
             "ci_method": self.ci_method,
             "ci_level": self.ci_level,
             "leakage_check": self.leakage_check,
+            "checks": {
+                name: {
+                    "name": check.name,
+                    "status": check.status,
+                    "message": check.message,
+                    "details": check.details,
+                }
+                for name, check in self.checks.items()
+            },
+            "overall_status": self.overall_status,
+            "permutation": self.permutation,
             "recommendations": self.recommendations,
         }
 
@@ -465,12 +515,18 @@ class TrustCVValidator:
         shuffle: bool = True,
         check_leakage: bool = True,
         check_balance: bool = True,
+        declare_independent_samples: bool = False,
+        target_auc_threshold: float = 0.99,
+        target_correlation_threshold: float = 0.99,
+        max_target_features: int = 10_000,
+        permutation_check: bool = False,
+        n_permutations: int = 20,
         compliance: Optional[str] = None,
         *,
         metrics: Optional[List[str]] = None,
         return_confidence_intervals: bool = True,
         ci_level: float = 0.95,
-        ci_method: str = "bootstrap",
+        ci_method: str = "corrected_t",
         n_bootstrap: int = 1000,
         holdout_test_size: Union[float, int] = 0.2,
         holdout_stratify: bool = False,
@@ -513,6 +569,19 @@ class TrustCVValidator:
             Whether to check for data leakage
         check_balance : bool
             Whether to check class balance
+        declare_independent_samples : bool
+            Declare that rows are independent when no group identifiers exist.
+            This makes group leakage explicitly not applicable.
+        target_auc_threshold : float
+            Binary univariate ROC-AUC threshold for target-leakage warnings.
+        target_correlation_threshold : float
+            Absolute Spearman threshold for regression target-leakage warnings.
+        max_target_features : int
+            Maximum number of feature columns scanned for target leakage.
+        permutation_check : bool
+            Whether to rerun CV with shuffled labels as a CV-loop sanity check.
+        n_permutations : int
+            Number of shuffled-label CV runs.
         compliance : str
             Regulatory compliance mode ('FDA', 'CE', None)
         holdout_test_size : float or int
@@ -549,6 +618,12 @@ class TrustCVValidator:
         self.shuffle = bool(shuffle)
         self.check_leakage = check_leakage
         self.check_balance = check_balance
+        self.declare_independent_samples = bool(declare_independent_samples)
+        self.target_auc_threshold = float(target_auc_threshold)
+        self.target_correlation_threshold = float(target_correlation_threshold)
+        self.max_target_features = max(int(max_target_features), 1)
+        self.permutation_check = bool(permutation_check)
+        self.n_permutations = max(int(n_permutations), 1)
         self.compliance = compliance
         self.metrics = self._normalize_metric_list(metrics)
         self.return_confidence_intervals = bool(return_confidence_intervals)
@@ -625,6 +700,7 @@ class TrustCVValidator:
         sample_weight: Optional[np.ndarray] = None,
         metrics: Optional[List[str]] = None,
         scoring: Optional[Dict[str, Any]] = None,
+        ci_cluster: bool = True,
     ) -> "ValidationResult":
         """
         Run cross-validation with the requested metrics and return a ValidationResult.
@@ -656,6 +732,20 @@ class TrustCVValidator:
         from sklearn.metrics import get_scorer as _get_scorer
 
         from collections.abc import Mapping, Sequence
+
+        requested_ci_method = (self.ci_method or "corrected_t").lower()
+        if self.return_confidence_intervals and requested_ci_method in (
+            "bootstrap",
+            "boot",
+            "bstrap",
+        ):
+            warnings.warn(
+                "Bootstrapping a handful of correlated fold scores gives confidence "
+                "intervals that are too narrow; prefer ci_method='corrected_t' or "
+                "'oof_bootstrap'.",
+                UserWarning,
+                stacklevel=2,
+            )
 
         X_arr = X if hasattr(X, "iloc") else X
 
@@ -780,11 +870,24 @@ class TrustCVValidator:
         fold_details: List[Dict[str, Any]] = []
         test_indices_by_fold: List[np.ndarray] = []
         per_label_prevalence: List[np.ndarray] = []
+        oof_records: List[Dict[str, Any]] = []
 
         # iterate folds
         # Most trustcv/sklearn splitters accept (X, y, groups)
         split_groups = group_labels
-        for k, (tr, te) in enumerate(splitter.split(X_for_split, y_arr, split_groups), 1):
+        groups_for_splitter = split_groups
+        if (
+            split_groups is not None
+            and splitter.__class__.__module__.startswith("sklearn.model_selection")
+            and splitter.__class__.__name__ in {"KFold", "StratifiedKFold"}
+        ):
+            # These sklearn splitters ignore groups. Keep group labels for the
+            # structured overlap audit, but do not trigger sklearn's redundant
+            # "groups ignored" warning during the performance split.
+            groups_for_splitter = None
+        for k, (tr, te) in enumerate(
+            splitter.split(X_for_split, y_arr, groups_for_splitter), 1
+        ):
             test_indices_by_fold.append(np.asarray(te, dtype=int))
             # train/val slices
             if isinstance(X_arr, Mapping):
@@ -857,6 +960,19 @@ class TrustCVValidator:
                     y_score_raw = None
 
             y_pred, y_score = self._coerce_predictions(y_te_eval, y_pred_raw, y_score_raw)
+            y_true_oof = (
+                y_te_eval.to_numpy()
+                if hasattr(y_te_eval, "to_numpy")
+                else _np.asarray(y_te_eval)
+            )
+            oof_records.append(
+                {
+                    "indices": _np.asarray(te, dtype=int),
+                    "y_true": _np.asarray(y_true_oof),
+                    "y_pred": None if y_pred is None else _np.asarray(y_pred),
+                    "y_score": None if y_score is None else _np.asarray(y_score),
+                }
+            )
 
             # compute metrics
             fold_metric_values: Dict[str, float] = {}
@@ -1009,20 +1125,118 @@ class TrustCVValidator:
         mean_scores: Dict[str, float] = {}
         std_scores: Dict[str, float] = {}
         conf_ints: Dict[str, Tuple[float, float]] = {}
-        need_bootstrap_rng = (self.ci_method or "bootstrap").lower() in (
-            "bootstrap",
-            "boot",
-            "bstrap",
+        ci_diagnostics: Dict[str, Any] = {}
+        train_sizes = [detail["n_train"] for detail in fold_details]
+        test_sizes = [detail["n_val"] for detail in fold_details]
+        effective_ci_method = requested_ci_method
+        partition = bool(test_indices_by_fold) and _is_partition(
+            test_indices_by_fold, n
         )
-        rng = _np.random.default_rng(self.random_state) if need_bootstrap_rng else None
+        if (
+            self.return_confidence_intervals
+            and requested_ci_method == "oof_bootstrap"
+            and not partition
+        ):
+            warnings.warn(
+                "OOF bootstrap requires test folds that partition the data exactly "
+                "once; falling back to ci_method='corrected_t'.",
+                UserWarning,
+                stacklevel=2,
+            )
+            effective_ci_method = "corrected_t"
 
+        pooled_y_true = None
+        pooled_y_pred = None
+        pooled_y_score = None
+        pooled_groups = None
+        if effective_ci_method == "oof_bootstrap" and oof_records:
+            pooled_y_true = _np.concatenate([record["y_true"] for record in oof_records])
+            if all(record["y_pred"] is not None for record in oof_records):
+                pooled_y_pred = _np.concatenate([record["y_pred"] for record in oof_records])
+            if all(record["y_score"] is not None for record in oof_records):
+                pooled_y_score = _np.concatenate([record["y_score"] for record in oof_records])
+            if split_groups is not None:
+                groups_array = (
+                    split_groups.to_numpy()
+                    if hasattr(split_groups, "to_numpy")
+                    else _np.asarray(split_groups)
+                )
+                pooled_groups = _np.concatenate(
+                    [groups_array[record["indices"]] for record in oof_records]
+                )
+
+        rng = _np.random.default_rng(self.random_state)
         for m, vals in per_metric_scores.items():
             arr = _np.asarray(vals, dtype=float)
             if arr.size == 0:
                 continue
             mean_scores[m] = float(arr.mean())
             std_scores[m] = float(arr.std(ddof=1)) if arr.size > 1 else 0.0
-            conf_ints[m] = self._compute_confidence_interval(arr, rng=rng)
+            if not self.return_confidence_intervals:
+                continue
+            if effective_ci_method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+                conf_ints[m] = _corrected_t_interval(
+                    arr,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
+                    level=self.ci_level,
+                )
+            elif effective_ci_method in ("bootstrap", "boot", "bstrap"):
+                conf_ints[m] = _fold_bootstrap_interval(
+                    arr,
+                    n_bootstrap=self.n_bootstrap,
+                    level=self.ci_level,
+                    rng=rng,
+                )
+            elif effective_ci_method in ("t", "t-interval", "t_interval", "student"):
+                conf_ints[m] = self._compute_confidence_interval(
+                    arr,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
+                )
+            elif effective_ci_method == "oof_bootstrap":
+                try:
+                    interval, metric_diagnostics = _oof_bootstrap_interval(
+                        m,
+                        y_true=pooled_y_true,
+                        y_pred=pooled_y_pred,
+                        y_score=pooled_y_score,
+                        groups=pooled_groups,
+                        cluster=bool(ci_cluster and pooled_groups is not None),
+                        regression=is_regression,
+                        n_bootstrap=self.n_bootstrap,
+                        level=self.ci_level,
+                        rng=rng,
+                    )
+                    conf_ints[m] = interval
+                    ci_diagnostics[m] = metric_diagnostics
+                except (TypeError, ValueError):
+                    conf_ints[m] = _corrected_t_interval(
+                        arr,
+                        train_sizes=train_sizes,
+                        test_sizes=test_sizes,
+                        level=self.ci_level,
+                    )
+                    ci_diagnostics[m] = {
+                        "fallback": "corrected_t",
+                        "skipped_resamples": 0,
+                    }
+            else:
+                raise ValueError(
+                    "ci_method must be 'corrected_t', 'oof_bootstrap', "
+                    "'bootstrap', or 't-interval'."
+                )
+        checks = build_initial_checks(
+            X=X_arr,
+            y=y_arr,
+            model=model,
+            groups=split_groups,
+            splitter=splitter,
+            check_leakage=self.check_leakage,
+            check_balance=self.check_balance,
+            declare_independent_samples=self.declare_independent_samples,
+            is_regression=is_regression,
+        )
 
         # leakage check (optional)
         leakage_check_map: Dict[str, bool] = self._basic_integrity_checks(
@@ -1042,7 +1256,12 @@ class TrustCVValidator:
         if effective_checker is None and self.check_leakage:
             try:
                 from .checkers.leakage import DataLeakageChecker as _DLC
-                effective_checker = _DLC(verbose=False)
+                effective_checker = _DLC(
+                    verbose=False,
+                    target_auc_threshold=self.target_auc_threshold,
+                    target_correlation_threshold=self.target_correlation_threshold,
+                    max_target_features=self.max_target_features,
+                )
             except Exception:
                 effective_checker = None
         if effective_checker is not None:
@@ -1050,16 +1269,156 @@ class TrustCVValidator:
                 leak_report = effective_checker.check(
                     X=X_arr, y=y_arr, groups=split_groups
                 )
-                leakage_check_map["has_leakage"] = not getattr(
-                    leak_report, "has_leakage", True
+                external_detected = bool(getattr(leak_report, "has_leakage", True))
+                leakage_check_map["external_leakage_detected"] = external_detected
+                leakage_check_map["has_leakage"] = not external_detected
+                checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "FAILED" if external_detected else "PASSED",
+                    (
+                        "The external leakage detector reported potential leakage."
+                        if external_detected
+                        else "The external leakage detector found no supported leakage pattern."
+                    ),
+                    {"leakage_types": list(getattr(leak_report, "leakage_types", []))},
                 )
+                checks["covariate_shift"] = covariate_shift_from_report(leak_report)
                 recs = getattr(leak_report, "recommendations", [])
                 if recs:
                     recommendations.extend(recs)
-            except Exception:
-                leakage_check_map["has_leakage"] = True
+            except Exception as exc:
+                leakage_check_map["external_leakage_detected"] = None  # unknown
+                leakage_check_map["has_leakage"] = False  # legacy: NOT passed
+                checks["external_leakage_detector"] = CheckResult(
+                    "external_leakage_detector",
+                    "ERROR",
+                    f"The external leakage detector failed: {exc}",
+                    {"error": str(exc)},
+                )
+        elif self.check_leakage:
+            leakage_check_map["external_leakage_detected"] = None  # unknown
+            leakage_check_map["has_leakage"] = False  # legacy: NOT passed
+            checks["external_leakage_detector"] = CheckResult(
+                "external_leakage_detector",
+                "NOT_CHECKED",
+                "The external leakage detector could not be constructed.",
+            )
+
+        if self.check_leakage:
+            try:
+                scan_checker = effective_checker
+                if not hasattr(scan_checker, "check_feature_target_leakage"):
+                    from .checkers.leakage import DataLeakageChecker as _DLC
+
+                    scan_checker = _DLC(
+                        verbose=False,
+                        target_auc_threshold=self.target_auc_threshold,
+                        target_correlation_threshold=self.target_correlation_threshold,
+                        max_target_features=self.max_target_features,
+                    )
+                scan = scan_checker.check_feature_target_leakage(
+                    X_arr,
+                    y_arr,
+                    auc_threshold=self.target_auc_threshold,
+                    correlation_threshold=self.target_correlation_threshold,
+                    max_features=self.max_target_features,
+                )
+                if scan.get("not_applicable"):
+                    checks["target_leakage_features"] = CheckResult(
+                        "target_leakage_features",
+                        "NOT_APPLICABLE",
+                        f"Target-feature scanning is not applicable: {scan.get('reason', 'unsupported target')}.",
+                        dict(scan),
+                    )
+                else:
+                    records = scan.get("suspicious_features", [])
+                    flagged = [
+                        record.get("name")
+                        if isinstance(X_arr, pd.DataFrame)
+                        else record.get("index")
+                        for record in records
+                    ]
+                    scan_details = dict(scan)
+                    scan_details["flagged_features"] = flagged
+                    checks["target_leakage_features"] = CheckResult(
+                        "target_leakage_features",
+                        "WARNING" if flagged else "PASSED",
+                        (
+                            f"Found {len(flagged)} feature(s) with near-deterministic "
+                            "univariate association to the target."
+                            if flagged
+                            else "No feature crossed the configured univariate target-leakage threshold."
+                        ),
+                        scan_details,
+                    )
+            except Exception as exc:
+                checks["target_leakage_features"] = CheckResult(
+                    "target_leakage_features",
+                    "ERROR",
+                    f"Target-feature leakage scanning failed: {exc}",
+                    {"error": str(exc)},
+                )
+
+        if checks["preprocessing_leakage"].status == "NOT_CHECKED":
+            recommendations.append(
+                "Wrap preprocessing in an sklearn Pipeline so scaling, imputation, "
+                "and feature selection are refit within each fold."
+            )
+
+        permutation: Dict[str, Any] = {}
+        if self.permutation_check:
+            try:
+                permutation = _run_permutation_sanity(
+                    model=model,
+                    X=X_arr,
+                    y=y_arr,
+                    splitter=splitter,
+                    groups=split_groups,
+                    n_permutations=self.n_permutations,
+                    random_state=self.random_state,
+                    regression=is_regression,
+                )
+                permutation_error = permutation.get("error")
+                if permutation_error:
+                    checks["permutation_sanity"] = CheckResult(
+                        "permutation_sanity",
+                        "ERROR",
+                        permutation_error,
+                        dict(permutation),
+                    )
+                else:
+                    failed = (
+                        permutation["null_mean"]
+                        > permutation["chance_level"] + 0.10
+                    )
+                    beats_chance = permutation["p_value"] < 0.05
+                    checks["permutation_sanity"] = CheckResult(
+                        "permutation_sanity",
+                        "FAILED" if failed else "PASSED",
+                        (
+                            "Shuffled labels score above chance, indicating leakage inside "
+                            "the CV loop or a broken splitter."
+                            if failed
+                            else (
+                                "Shuffled-label scores are at chance; the model "
+                                + ("beats" if beats_chance else "does not beat")
+                                + " the permutation null at p < 0.05. This check cannot "
+                                "detect preprocessing done before validate()."
+                            )
+                        ),
+                        dict(permutation),
+                    )
+            except Exception as exc:
+                checks["permutation_sanity"] = CheckResult(
+                    "permutation_sanity",
+                    "ERROR",
+                    f"Permutation sanity checking failed: {exc}",
+                    {"error": str(exc)},
+                )
 
         diagnostics: Dict[str, Any] = {}
+        if ci_diagnostics:
+            diagnostics["confidence_intervals"] = ci_diagnostics
         if test_indices_by_fold:
             metric_feasibility = check_fold_metric_feasibility(
                 y_arr,
@@ -1076,7 +1435,11 @@ class TrustCVValidator:
             m: np.asarray(v, dtype=float) for m, v in per_metric_scores.items() if len(v) > 0
         }
 
-        ci_label = self._ci_method_label()
+        ci_label = (
+            "corrected_t"
+            if effective_ci_method in ("corrected_t", "corrected-t", "nadeau_bengio")
+            else self._ci_method_label()
+        )
 
         result = ValidationResult(
             scores=scores_dict,
@@ -1086,6 +1449,8 @@ class TrustCVValidator:
             ci_method=ci_label,
             ci_level=self.ci_level,
             fold_details=fold_details,
+            checks=checks,
+            permutation=permutation,
             leakage_check=leakage_check_map,
             recommendations=recommendations,
             diagnostics=diagnostics,
@@ -1714,7 +2079,21 @@ class TrustCVValidator:
                     std_scores[metric] = std_scores[base]
 
         # Calculate 95% confidence intervals
-        confidence_intervals = self._calculate_confidence_intervals(cv_results)
+        train_sizes = (
+            [len(train_idx) for train_idx, _ in precomputed_splits]
+            if precomputed_splits is not None
+            else None
+        )
+        test_sizes = (
+            [len(test_idx) for _, test_idx in precomputed_splits]
+            if precomputed_splits is not None
+            else None
+        )
+        confidence_intervals = self._calculate_confidence_intervals(
+            cv_results,
+            train_sizes=train_sizes,
+            test_sizes=test_sizes,
+        )
         # Alias common default scorer names for convenience
         if "score" in confidence_intervals and "accuracy" not in confidence_intervals:
             confidence_intervals["accuracy"] = confidence_intervals["score"]
@@ -1839,9 +2218,13 @@ class TrustCVValidator:
     def _ci_method_label(self) -> str:
         if not self.return_confidence_intervals:
             return ""
-        method = (self.ci_method or "bootstrap").lower()
+        method = (self.ci_method or "corrected_t").lower()
         if method in ("bootstrap", "boot", "bstrap"):
             return "bootstrap"
+        if method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+            return "corrected_t"
+        if method == "oof_bootstrap":
+            return "oof_bootstrap"
         if method in ("t", "t-interval", "t_interval", "student"):
             return "t-interval"
         return method
@@ -1852,6 +2235,8 @@ class TrustCVValidator:
         *,
         rng: Optional[np.random.Generator] = None,
         alpha: Optional[float] = None,
+        train_sizes: Optional[Iterable[int]] = None,
+        test_sizes: Optional[Iterable[int]] = None,
     ) -> Tuple[float, float]:
         """Compute confidence intervals over per-fold values."""
         arr = np.asarray(values, dtype=float)
@@ -1859,7 +2244,14 @@ class TrustCVValidator:
             return (float("nan"), float("nan"))
         if alpha is None:
             alpha = 1.0 - float(self.ci_level or 0.95)
-        method = (self.ci_method or "bootstrap").lower()
+        method = (self.ci_method or "corrected_t").lower()
+        if method in ("corrected_t", "corrected-t", "nadeau_bengio"):
+            return _corrected_t_interval(
+                arr,
+                train_sizes=train_sizes,
+                test_sizes=test_sizes,
+                level=1.0 - alpha,
+            )
         if method in ("t", "t-interval", "t_interval", "student"):
             from scipy import stats
 
@@ -1881,7 +2273,12 @@ class TrustCVValidator:
         return (float(lo), float(hi))
 
     def _calculate_confidence_intervals(
-        self, cv_results: Dict, alpha: Optional[float] = None
+        self,
+        cv_results: Dict,
+        alpha: Optional[float] = None,
+        *,
+        train_sizes: Optional[Iterable[int]] = None,
+        test_sizes: Optional[Iterable[int]] = None,
     ) -> Dict[str, Tuple[float, float]]:
         """Calculate confidence intervals from cross_validate outputs."""
         if not self.return_confidence_intervals:
@@ -1889,14 +2286,18 @@ class TrustCVValidator:
         if alpha is None:
             alpha = 1.0 - float(self.ci_level or 0.95)
         confidence_intervals = {}
-        use_bootstrap = (self.ci_method or "bootstrap").lower() in ("bootstrap", "boot", "bstrap")
+        use_bootstrap = (self.ci_method or "corrected_t").lower() in ("bootstrap", "boot", "bstrap")
         rng = np.random.default_rng(self.random_state) if use_bootstrap else None
         for metric in cv_results:
             if metric.startswith("test_"):
                 scores = np.asarray(cv_results[metric], dtype=float)
                 metric_name = metric.replace("test_", "")
                 confidence_intervals[metric_name] = self._compute_confidence_interval(
-                    scores, rng=rng, alpha=alpha
+                    scores,
+                    rng=rng,
+                    alpha=alpha,
+                    train_sizes=train_sizes,
+                    test_sizes=test_sizes,
                 )
 
         return confidence_intervals
@@ -1920,8 +2321,7 @@ class TrustCVValidator:
             if isinstance(X, pd.DataFrame):
                 has_duplicates = bool(X.duplicated().any())
                 checks["no_duplicate_samples"] = not has_duplicates
-                if has_duplicates:
-                    warnings.warn("Duplicate samples detected in dataset")
+                # Structured duplicate_samples status carries this evidence.
             groups_arr = None
             if groups is not None:
                 groups_arr = (
@@ -1932,18 +2332,21 @@ class TrustCVValidator:
             if groups_arr is not None and splitter is not None:
                 no_overlap_all = True
                 try:
-                    for train_idx, test_idx in splitter.split(X, y, groups_arr):
-                        train_groups = set(np.unique(groups_arr[train_idx]))
-                        test_groups = set(np.unique(groups_arr[test_idx]))
-                        if train_groups.intersection(test_groups):
-                            no_overlap_all = False
-                            break
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message="The groups parameter is ignored by KFold",
+                            category=UserWarning,
+                        )
+                        split_iter = splitter.split(X, y, groups_arr)
+                        for train_idx, test_idx in split_iter:
+                            train_groups = set(np.unique(groups_arr[train_idx]))
+                            test_groups = set(np.unique(groups_arr[test_idx]))
+                            if train_groups.intersection(test_groups):
+                                no_overlap_all = False
+                                break
                 except Exception:
                     no_overlap_all = False
-                if not no_overlap_all:
-                    warnings.warn(
-                        "Group leakage detected: some group/patient IDs appear in both train and test folds."
-                    )
                 checks["no_patient_leakage"] = no_overlap_all
 
         if self.check_balance:
@@ -1953,7 +2356,6 @@ class TrustCVValidator:
                 ratio = counts.min() / counts.max()
                 if ratio < 0.1:
                     balanced = False
-                    warnings.warn(f"Severe class imbalance detected: {ratio:.2%} minority class")
             checks["balanced_classes"] = balanced
 
         return checks
@@ -2063,29 +2465,24 @@ class TrustCVValidator:
         patient_ids: Optional[Union[np.ndarray, pd.Series]] = None,
         timestamps: Optional[Union[np.ndarray, pd.Series]] = None,
     ) -> str:
-        """Suggest best CV method based on data characteristics"""
-        n_samples = len(y)
+        """Return a compatible method string; prefer recommend_cv for details.
 
-        # Check for temporal data
-        if timestamps is not None:
-            return "temporal"
+        This legacy wrapper cannot return the recommended splitter, warnings,
+        rationale, or copyable code. Use trustcv.recommend_cv for those fields.
+        """
+        from .advisor import recommend_cv
 
-        # Check for grouped data
-        if patient_ids is not None:
-            unique_patients = len(np.unique(patient_ids))
-            if unique_patients < n_samples:
-                return "patient_grouped_kfold"
-
-        # Check class balance
-        unique, counts = np.unique(y, return_counts=True)
-        if len(unique) > 1:
-            ratio = counts.min() / counts.max()
-            if ratio < 0.3:  # Imbalanced
-                return "stratified_kfold"
-
-        # Default
-        return "kfold" if n_samples > 1000 else "stratified_kfold"
-
+        recommendation = recommend_cv(
+            X,
+            y,
+            groups=patient_ids,
+            timestamps=timestamps,
+            n_splits=self.n_splits,
+            random_state=self.random_state,
+        )
+        if recommendation.category == "grouped":
+            return "patient_grouped_kfold"
+        return recommendation.method or "kfold"
 
 # --- Optional high-level nested CV runners ---
 try:

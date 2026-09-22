@@ -217,7 +217,7 @@ class TestSpatialMethods:
         for i in range(n):
             # Value depends on location (spatial trend)
             X_auto[i] = np.sin(coords_auto[i, 0] / 2) + np.cos(coords_auto[i, 1] / 2)
-            y_auto[i] = int(X_auto[i] > 0)
+            y_auto[i] = int(X_auto[i, 0] > 0)
         
         # Test with spatial block CV
         cv = SpatialBlockCV(n_splits=4)
@@ -306,22 +306,24 @@ class TestSpatialMethods:
     
     def test_spatial_cv_edge_cases(self):
         """Test spatial CV with edge cases"""
+        rng = np.random.default_rng(42)
+
         # Very small dataset
-        X_tiny = np.random.randn(10, 3)
-        y_tiny = np.random.randint(0, 2, 10)
-        coords_tiny = np.random.uniform(0, 10, (10, 2))
+        X_tiny = rng.normal(size=(10, 3))
+        y_tiny = rng.integers(0, 2, 10)
+        coords_tiny = rng.uniform(0, 10, (10, 2))
         
-        cv = SpatialBlockCV(n_splits=2)
+        cv = SpatialBlockCV(n_splits=2, random_state=42)
         splits = list(cv.split(X_tiny, y_tiny, coordinates=coords_tiny))
         
         assert len(splits) > 0, "Should handle small datasets"
         
         # All same location (no spatial variation)
         coords_same = np.ones((20, 2))
-        X_same = np.random.randn(20, 3)
-        y_same = np.random.randint(0, 2, 20)
+        X_same = rng.normal(size=(20, 3))
+        y_same = rng.integers(0, 2, 20)
         
-        cv2 = SpatialBlockCV(n_splits=4)
+        cv2 = SpatialBlockCV(n_splits=4, random_state=42)
         splits2 = list(cv2.split(X_same, y_same, coordinates=coords_same))
         
         # Should fall back to random splitting

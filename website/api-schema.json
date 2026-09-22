@@ -1,11 +1,19 @@
 {
   "name": "trustcv",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "Framework-agnostic toolkit for trustworthy cross-validation in medical AI",
   "install": "pip install trustcv",
   "repository": "https://github.com/ki-smile/trustcv",
   "pypi": "https://pypi.org/project/trustcv/",
-  "python_requires": ">=3.8",
+  "python_requires": ">=3.10",
+  "functions": [
+    {
+      "name": "recommend_cv",
+      "import": "from trustcv import recommend_cv",
+      "signature": "recommend_cv(X, y, *, groups=None, timestamps=None, coordinates=None, n_splits=5, random_state=42) -> CVRecommendation",
+      "description": "Recommend a runnable splitter from supplied group, time, and spatial metadata; cannot infer metadata that was not supplied."
+    }
+  ],
   "classes": [
     {
       "name": "TrustCVValidator",
@@ -24,7 +32,7 @@
           {"name": "metrics", "type": "list[str]|None", "default": null, "description": "Metrics to compute. Defaults based on task type."},
           {"name": "return_confidence_intervals", "type": "bool", "default": true, "description": "Whether to compute confidence intervals"},
           {"name": "ci_level", "type": "float", "default": 0.95, "description": "Confidence level for intervals (0 < ci_level < 1)"},
-          {"name": "ci_method", "type": "str", "default": "bootstrap", "description": "Method for CI calculation"},
+          {"name": "ci_method", "type": "str", "default": "corrected_t", "description": "CI estimator: corrected_t (default), oof_bootstrap, legacy bootstrap, or t-interval"},
           {"name": "n_bootstrap", "type": "int", "default": 1000, "description": "Number of bootstrap samples for CI estimation"},
           {"name": "holdout_test_size", "type": "float|int", "default": 0.2, "description": "Fraction or count for hold-out validation"},
           {"name": "holdout_stratify", "type": "bool", "default": false, "description": "Enable stratified hold-out splitting"},
@@ -33,7 +41,13 @@
           {"name": "monte_carlo_iterations", "type": "int", "default": 50, "description": "Iterations for Monte Carlo CV (aliases: n_iterations, iterations)"},
           {"name": "monte_carlo_test_size", "type": "float|int", "default": 0.2, "description": "Test size for Monte Carlo splits (alias: mc_test_size)"},
           {"name": "bootstrap_validation_iterations", "type": "int", "default": 200, "description": "Bootstrap resamples (alias: bootstrap_iterations)"},
-          {"name": "bootstrap_validation_estimator", "type": "str", "default": "standard", "description": "Bootstrap estimator: 'standard', '.632', '.632+' (alias: bootstrap_estimator)"}
+          {"name": "bootstrap_validation_estimator", "type": "str", "default": "standard", "description": "Bootstrap estimator: 'standard', '.632', '.632+' (alias: bootstrap_estimator)"},
+          {"name": "declare_independent_samples", "type": "bool", "default": false, "description": "Declare absent groups not applicable rather than unchecked"},
+          {"name": "target_auc_threshold", "type": "float", "default": 0.99, "description": "Binary univariate target-leakage AUC threshold"},
+          {"name": "target_correlation_threshold", "type": "float", "default": 0.99, "description": "Regression absolute Spearman target-leakage threshold"},
+          {"name": "max_target_features", "type": "int", "default": 10000, "description": "Maximum features scanned for target leakage"},
+          {"name": "permutation_check", "type": "bool", "default": false, "description": "Run opt-in CV-loop permutation sanity check"},
+          {"name": "n_permutations", "type": "int", "default": 20, "description": "Number of label permutations"}
         ]
       },
       "methods": [
@@ -51,7 +65,8 @@
             {"name": "leakage_checker", "type": "DataLeakageChecker|None", "default": null, "description": "Custom leakage checker"},
             {"name": "sample_weight", "type": "array|None", "default": null, "description": "Per-sample weights"},
             {"name": "metrics", "type": "list[str]|None", "default": null, "description": "Per-call metric override"},
-            {"name": "scoring", "type": "dict|None", "default": null, "description": "sklearn-style scorers (overrides metrics)"}
+            {"name": "scoring", "type": "dict|None", "default": null, "description": "sklearn-style scorers (overrides metrics)"},
+            {"name": "ci_cluster", "type": "bool", "default": true, "description": "For oof_bootstrap with groups, resample whole groups rather than rows"}
           ],
           "returns": "ValidationResult"
         },
@@ -125,7 +140,7 @@
       "name": "DataLeakageChecker",
       "aliases": ["LeakageChecker"],
       "import": "from trustcv import DataLeakageChecker",
-      "description": "Detects 8 types of data leakage: patient-level, duplicate samples, near-duplicate samples, temporal, feature statistics, spatial proximity, label distribution, hierarchical group leakage.",
+      "description": "Reports supported leakage separately from informational covariate and label-distribution drift; near-duplicates use train-standardized Euclidean distance calibrated to training spacing.",
       "constructor": {
         "params": [
           {"name": "verbose", "type": "bool", "default": true}
@@ -186,11 +201,11 @@
         },
         {
           "name": "check_near_duplicates",
-          "description": "Detect near-duplicate samples between train and test sets via cosine similarity",
+          "description": "Detect near-duplicate samples using train-standardized Euclidean distance relative to within-training nearest-neighbour spacing",
           "params": [
             {"name": "X_train", "type": "array|DataFrame", "required": true},
             {"name": "X_test", "type": "array|DataFrame", "required": true},
-            {"name": "similarity_threshold", "type": "float", "default": 0.99, "description": "Cosine similarity threshold for near-duplicate detection"}
+            {"name": "similarity_threshold", "type": "float|None", "default": null, "description": "Deprecated compatibility control mapped to Euclidean distance ratio as 1 - similarity_threshold"}
           ],
           "returns": "dict"
         },
@@ -299,6 +314,26 @@
           "returns": "str"
         }
       ]
+    },
+    {
+      "name": "CheckResult",
+      "import": "from trustcv import CheckResult",
+      "description": "Structured evidence for one check; it cannot prove absence of unobserved leakage.",
+      "fields": ["name", "status", "message", "details"],
+      "statuses": ["PASSED", "FAILED", "WARNING", "NOT_CHECKED", "NOT_APPLICABLE", "INFO", "ERROR"]
+    },
+    {
+      "name": "ValidationResult",
+      "import": "from trustcv import ValidationResult",
+      "description": "Validation output whose overall_status is PASSED only when every leakage-relevant check passed or is not applicable.",
+      "attributes": ["checks", "overall_status", "permutation", "confidence_intervals", "ci_method", "leakage_check"],
+      "legacy": "leakage_check.has_leakage is deprecated and inverted relative to external_leakage_detected"
+    },
+    {
+      "name": "CVRecommendation",
+      "import": "from trustcv import CVRecommendation",
+      "description": "Runnable recommendation based only on supplied dependence metadata.",
+      "fields": ["category", "method", "splitter", "rationale", "warnings", "code"]
     }
   ],
   "splitters": {

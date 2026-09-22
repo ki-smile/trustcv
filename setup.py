@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="trustcv",
-    version="1.0.7",
+    version="1.1.0",
     author="SMAILE (Stockholm Medical AI and Learning Environments), Karolinska Institutet",
     description="Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection",
     long_description=long_description,
@@ -26,13 +26,12 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "numpy>=1.20.0",
         "pandas>=1.3.0",

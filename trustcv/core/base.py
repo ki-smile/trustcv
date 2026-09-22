@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
+from ..checks import CheckResult, default_checks, ensure_complete_checks
+
 
 @dataclass
 class CVResults:
@@ -25,6 +27,16 @@ class CVResults:
         probabilities: Prediction probabilities per fold (classification)
         indices: Train/test indices for each fold
         metadata: Additional info (framework, n_splits, cv_method, ...)
+        checks: Structured integrity results. UniversalCVRunner leaves all checks
+            NOT_CHECKED unless an explicit supported integrity callback is used.
+        overall_status: Conservative integrity status. It is
+            NOT_FULLY_VERIFIED when integrity checks were not run.
+
+    Notes
+    -----
+    UniversalCVRunner evaluates model performance across frameworks but does
+    not run the TrustCV integrity suite by default. A CVResults object therefore
+    must not be interpreted as a leakage PASSED result.
     """
 
     scores: List[Dict[str, Any]]
@@ -34,6 +46,12 @@ class CVResults:
     indices: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+    checks: Dict[str, CheckResult] = field(default_factory=default_checks)
+    overall_status: str = "NOT_FULLY_VERIFIED"
+
+    def __post_init__(self) -> None:
+        """Ensure every structured integrity-check key is present."""
+        self.checks = ensure_complete_checks(self.checks)
 
     # ----- helpers -----
     def _to_float_list(self, value) -> List[float]:
@@ -228,6 +246,15 @@ class CVResults:
             mm, ss = self._metric_stats(name)
             if _np.isfinite(mm):
                 lines.append(f"  {name}: {mm:.4f} (+/- {ss:.4f})")
+        lines.append("Integrity Checks:")
+        if all(check.status == "NOT_CHECKED" for check in self.checks.values()):
+            lines.append(
+                "  NOT RUN: UniversalCVRunner does not run the TrustCV integrity suite by default."
+            )
+        for name, check in self.checks.items():
+            label = name.replace("_", " ").title()
+            lines.append(f"  {label}: {check.status} — {check.message}")
+        lines.append(f"Overall Status: {self.overall_status}")
         return "\n".join(lines)
 
 

@@ -1,7 +1,7 @@
 # trustcv — GitHub Copilot Instructions
 
 ## Project
-**trustcv** (v1.0.7) — Framework-agnostic toolkit for trustworthy cross-validation in safety-critical/medical AI settings. Developed at SMAILE, Karolinska Institutet. Python 3.8+.
+**trustcv** (v1.1.0) — Framework-agnostic toolkit for trustworthy cross-validation in safety-critical/medical AI settings. Developed at SMAILE, Karolinska Institutet. Python 3.10+.
 
 - PyPI: https://pypi.org/project/trustcv/
 - GitHub: https://github.com/ki-smile/trustcv

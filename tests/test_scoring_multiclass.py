@@ -10,7 +10,7 @@ def test_validate_accepts_sklearn_scorers_multiclass():
     X, y = data.data, data.target
 
     validator = TrustCVValidator(method="stratified_kfold", n_splits=3)
-    model = LogisticRegression(max_iter=500, multi_class="auto")
+    model = LogisticRegression(max_iter=500)
 
     scoring = {
         "accuracy": "accuracy",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trustcv"
-version = "1.0.7"
+version = "1.1.0"
 description = "Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection"
 readme = "README.md"
 authors = [
@@ -17,10 +17,9 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
@@ -36,7 +35,7 @@ dependencies = [
     "joblib>=1.0.0",
     "tqdm>=4.60.0",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 
 [project.urls]
 Homepage = "https://github.com/ki-smile/trustcv"
@@ -115,7 +114,10 @@ exclude = ["tests*", "docs*", "examples*", "notebooks*"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers"
+addopts = "-ra -q --strict-markers -m 'not slow'"
+markers = [
+    "slow: statistically intensive coverage or permutation validation",
+]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
@@ -137,7 +139,7 @@ exclude_lines = [
 ignore_errors = true
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -145,7 +147,7 @@ ignore_missing_imports = true
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311']
+target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 extend-exclude = '''
 /(

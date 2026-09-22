@@ -2,6 +2,26 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [1.1.0] - 2026-09-21
+
+### Trust and validation semantics
+
+- The default confidence interval method is now **corrected_t**; **oof_bootstrap** adds pooled OOF and group-cluster resampling. Legacy fold-score **bootstrap** remains available with a warning that correlated fold-score intervals are too narrow.
+- A reported **PASSED** overall status now requires every applicable leakage-relevant check to be PASSED or NOT_APPLICABLE. Unknown and unverified conditions produce **NOT_FULLY_VERIFIED**.
+- Class imbalance is now **INFO** or **WARNING**, never FAILED.
+- Added structured **CheckResult** entries, **overall_status**, automatic target-feature scanning, an opt-in permutation CV-loop sanity check, and **recommend_cv**.
+- Added **external_leakage_detected**. The inverted legacy **has_leakage** result key is deprecated for one release.
+- KS tests now report Bonferroni-corrected covariate shift and never create leakage types.
+- Near-duplicate detection now uses train-standardized Euclidean distance calibrated to within-training nearest-neighbour spacing instead of cosine similarity.
+- Preprocessing is reported PASSED only for visible sklearn Pipeline steps; preprocessing applied before validate() cannot be detected.
+- Legacy leakage keys no longer report a pass when the leakage detector fails or cannot run.
+
+### Differences from the version described in the paper (v1.0.7)
+
+- **Confidence intervals:** v1.0.7 defaulted to bootstrapping a small set of correlated fold scores. v1.1.0 defaults to the Nadeau–Bengio corrected resampled t interval and offers pooled OOF bootstrap intervals.
+- **PASSED semantics:** v1.0.7 could report leakage PASSED when evidence was missing or a detector failed. v1.1.0 reports PASSED only when every applicable leakage-relevant structured check passed; incomplete evidence is NOT_FULLY_VERIFIED.
+- **Near-duplicate detection:** v1.0.7 used a fixed cosine-similarity threshold that produced false positives in low dimensions. v1.1.0 uses train-standardized Euclidean distance calibrated to within-training nearest-neighbour spacing.
+
 ## [1.0.7] - 2026-03-16
 
 ### Bug Fixes

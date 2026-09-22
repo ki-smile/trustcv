@@ -5,11 +5,14 @@ Generates FDA/CE-compliant validation reports from cross-validation results
 
 import datetime
 import json
+from html import escape
 from pathlib import Path
 from string import Template
 from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
+
+from ..checks import CHECK_KEYS, CheckResult, default_checks, overall_status
 
 
 class RegulatoryReport:
@@ -57,6 +60,78 @@ class RegulatoryReport:
         self.dataset_info = {}
         self.performance_metrics = {}
         self.validation_method = None
+        self.integrity_checks = default_checks()
+        self.integrity_overall_status = "NOT_FULLY_VERIFIED"
+        self.integrity_source = "The TrustCV integrity suite was not run for this report."
+
+    def set_integrity_results(
+        self,
+        checks: Optional[Dict[str, CheckResult]],
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> None:
+        """Attach complete structured integrity evidence to the report.
+
+        Parameters
+        ----------
+        checks : dict of str to CheckResult, optional
+            Structured TrustCV checks. Missing keys remain ``NOT_CHECKED``.
+        status : str, optional
+            Caller-provided overall status. The report recomputes the status
+            from the normalized checks and will not promote incomplete evidence
+            to ``PASSED``.
+        source : str, optional
+            Plain-language note describing where the checks came from.
+
+        Notes
+        -----
+        This method renders only supplied TrustCV evidence. It cannot infer or
+        detect leakage that was not checked by the originating validation path.
+        """
+        normalized = default_checks()
+        for name, value in (checks or {}).items():
+            if name not in CHECK_KEYS:
+                continue
+            if isinstance(value, CheckResult):
+                normalized[name] = value
+            elif isinstance(value, dict):
+                normalized[name] = CheckResult(
+                    name=name,
+                    status=str(value.get("status", "NOT_CHECKED")),
+                    message=str(value.get("message", "No check message was supplied.")),
+                    details=dict(value.get("details", {})),
+                )
+        computed = overall_status(normalized)
+        self.integrity_checks = normalized
+        self.integrity_overall_status = status if status == computed else computed
+        self.integrity_source = source or "Structured TrustCV validation checks."
+
+    def _integrity_html(self) -> str:
+        """Render every structured integrity check and the conservative status."""
+        rows = []
+        for name in CHECK_KEYS:
+            check = self.integrity_checks[name]
+            label = name.replace("_", " ").title()
+            rows.append(
+                "<tr>"
+                f"<td>{escape(label)}</td>"
+                f"<td>{escape(check.status)}</td>"
+                f"<td>{escape(check.message)}</td>"
+                "</tr>"
+            )
+        rows_html = "\n".join(rows)
+        status = escape(self.integrity_overall_status)
+        source = escape(self.integrity_source)
+        return f"""
+        <h2>Integrity Checks</h2>
+        <p><strong>Overall Status:</strong> {status}</p>
+        <p><strong>Leakage Check:</strong> {status}</p>
+        <p>{source}</p>
+        <table>
+            <tr><th>Check</th><th>Status</th><th>Message</th></tr>
+            {rows_html}
+        </table>
+        """
 
     # --- convenience helpers ---
     def generate_from_validator(
@@ -100,6 +175,18 @@ class RegulatoryReport:
                     scores_list = scores_arr.ravel().tolist()
                 except Exception:
                     scores_list = []
+
+        if valres is not None:
+            self.set_integrity_results(
+                getattr(valres, "checks", None),
+                getattr(valres, "overall_status", None),
+                source="Structured checks from TrustCVValidator.validate().",
+            )
+        else:
+            self.set_integrity_results(
+                None,
+                source="No ValidationResult was available; integrity checks were not run.",
+            )
 
         # Fill CV section
         self.add_cv_results(
@@ -221,6 +308,17 @@ class RegulatoryReport:
                 "method": self.validation_method,
                 "cv_results": self.cv_results,
                 "performance": self.performance_metrics,
+                "checks": {
+                    name: {
+                        "name": check.name,
+                        "status": check.status,
+                        "message": check.message,
+                        "details": check.details,
+                    }
+                    for name, check in self.integrity_checks.items()
+                },
+                "overall_status": self.integrity_overall_status,
+                "integrity_source": self.integrity_source,
             },
         }
         if self.project_name:
@@ -289,6 +387,7 @@ class RegulatoryReport:
         )
         demographics_html = self._render_demographics(report["dataset"].get("demographics", {}))
         data_sources_html = self._render_data_sources(report["dataset"].get("data_sources", []))
+        integrity_html = self._integrity_html()
 
         html = f"""
         <!DOCTYPE html>
@@ -374,6 +473,8 @@ class RegulatoryReport:
             <p><strong>Number of Folds:</strong> {report['validation']['cv_results'].get('n_splits', 'N/A')}</p>
             <p><strong>Mean Accuracy:</strong> {report['validation']['cv_results'].get('mean_score', 0):.3f} &plusmn; {report['validation']['cv_results'].get('std_score', 0):.3f}</p>
             
+            {integrity_html}
+
             <h2>4. Confusion Matrix</h2>
             <table style="width: auto; margin: 20px auto;">
                 <tr>
@@ -748,6 +849,7 @@ class RegulatoryReport:
                     </p>
                 </div>
             </div>
+            $integrity_section
             <div class="split-container">
                 <div>
                     <h2>Clinical Utility</h2>
@@ -828,10 +930,11 @@ class RegulatoryReport:
             "n_folds": cv_info.get("n_splits", "N/A"),
             "mean_accuracy_text": mean_accuracy_text,
             "validation_notes": (
-                "Validated using configured cross-validation strategy with leakage safeguards."
+                "Cross-validation performance is reported separately from integrity evidence."
                 if self.validation_method
                 else "Validation method not specified."
             ),
+            "integrity_section": self._integrity_html(),
             "auc_value": auc_value,
             "auc_ci": auc_ci,
             "lr_positive": format_lr(lr_pos),

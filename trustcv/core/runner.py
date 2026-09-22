@@ -17,6 +17,7 @@ from sklearn.metrics import f1_score, mean_squared_error, mean_absolute_error, r
 
 from .base import CVResults, FrameworkAdapter, SklearnAdapter
 from .callbacks import CVCallback, ProgressLogger
+from ..checks import CheckResult, default_checks, overall_status as compute_overall_status
 from ..metrics.diagnostics import (
     check_fold_metric_feasibility,
     emit_metric_feasibility_warning,
@@ -27,8 +28,15 @@ class UniversalCVRunner:
     """
     Framework-agnostic cross-validation runner
 
-    Automatically detects the framework and runs appropriate cross-validation
-    while ensuring best practices in model evaluation.
+    Automatically detects the framework and runs appropriate cross-validation.
+
+    Notes
+    -----
+    This path does not run the full TrustCV integrity suite by default. Returned
+    ``CVResults`` therefore contain eight ``NOT_CHECKED`` entries and
+    ``overall_status="NOT_FULLY_VERIFIED"`` unless an explicit supported
+    integrity callback supplies partial evidence. Performance results from this
+    runner are not a leakage PASSED claim.
     """
 
     # Mapping of framework names to their adapters
@@ -211,7 +219,8 @@ class UniversalCVRunner:
             ... )
 
         Returns:
-            CVResults object with scores and models
+            CVResults object with scores, models, and explicit structured
+            integrity checks. Integrity checks are NOT_CHECKED by default.
         """
         run_start = time.perf_counter()
         split_kwargs_provided = split_kwargs is not None
@@ -620,6 +629,34 @@ class UniversalCVRunner:
             if warn_metric_feasibility and grouped_workflow:
                 emit_metric_feasibility_warning(metric_feasibility, stacklevel=2)
 
+        integrity_checks = default_checks()
+        integrity_callback_used = False
+        for callback in all_callbacks:
+            summary_report = getattr(callback, "summary_report", None)
+            if not isinstance(summary_report, dict):
+                continue
+            if "n_folds_with_leakage" not in summary_report:
+                continue
+            integrity_callback_used = True
+            n_leaking = int(summary_report.get("n_folds_with_leakage", 0))
+            n_total = int(summary_report.get("n_folds_total", 0))
+            types = list(summary_report.get("all_leakage_types", []))
+            status = "FAILED" if n_leaking else "PASSED"
+            message = (
+                f"The opt-in fold leakage detector found supported patterns in {n_leaking}/{n_total} folds."
+                if n_leaking
+                else f"The opt-in fold leakage detector found no supported pattern across {n_total} folds."
+            )
+            integrity_checks["external_leakage_detector"] = CheckResult(
+                "external_leakage_detector",
+                status,
+                message,
+                {"n_folds_with_leakage": n_leaking, "n_folds_total": n_total,
+                 "leakage_types": types},
+            )
+
+        integrity_overall_status = compute_overall_status(integrity_checks)
+
         # Create results object
         results = CVResults(
             scores=all_scores,
@@ -634,8 +671,11 @@ class UniversalCVRunner:
                 "cv_method": cv_method_name,
                 "fold_sizes": fold_sizes,
                 "runtime_seconds": elapsed_seconds,
+                "integrity_checks_run": integrity_callback_used,
             },
             diagnostics=diagnostics,
+            checks=integrity_checks,
+            overall_status=integrity_overall_status,
         )
 
         if epochs is not None:
