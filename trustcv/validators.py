@@ -172,16 +172,24 @@ class ValidationResult:
 
         return summary
 
-    def dashboard(self, title: str = "TrustCV Results") -> None:
+    def dashboard(
+        self,
+        title: str = "TrustCV Results",
+        save_path: Optional[str] = None,
+    ) -> None:
         """Display an interactive multi-panel Plotly dashboard.
 
-        Opens (or saves) a rich visual summary equivalent to summary()
+        Opens a rich visual summary equivalent to summary()
         but rendered as interactive charts.
 
         Parameters
         ----------
         title : str
             Title shown at the top of every figure.
+        save_path : str or None
+            If given, the dashboard is written to this path as a
+            self-contained HTML file (e.g. ``save_path="report.html"``).
+            When *None* (default) nothing is written to disk.
         """
         try:
             import plotly.graph_objects as go
@@ -467,10 +475,15 @@ class ValidationResult:
                     display(HTML(fig_obj.to_html(full_html=False, include_plotlyjs=True)))
                     return
                 except Exception:
-                    fig_obj.write_html("trustcv_dashboard.html")
-                    print("Saved → trustcv_dashboard.html")
+                    # Interactive display failed and no save_path given;
+                    # do not write to the current directory by default.
+                    pass
 
         _show(fig)
+
+        if save_path is not None:
+            fig.write_html(save_path)
+            print(f"Saved → {save_path}")
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON export"""

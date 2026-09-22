@@ -301,3 +301,26 @@ class TestEdgeCases:
         title_text = captured["fig"].layout.title.text or ""
         assert "MY CUSTOM TITLE" in title_text, \
             "Custom title must appear in figure layout title"
+
+
+# ── 8. save_path kwarg ───────────────────────────────────────────────────────
+class TestDashboardSavePath:
+    """dashboard(save_path=...) must write a self-contained HTML file;
+    dashboard() without save_path must NOT create any file in cwd."""
+
+    def test_no_file_written_by_default(self, results, tmp_path, monkeypatch):
+        """dashboard() must not leave any file behind when save_path is omitted."""
+        monkeypatch.chdir(tmp_path)
+        with patch("plotly.graph_objects.Figure.show"):
+            results.dashboard()
+        html_files = list(tmp_path.glob("*.html"))
+        assert html_files == [], \
+            f"dashboard() must not write files to cwd by default, found: {html_files}"
+
+    def test_file_written_to_save_path(self, results, tmp_path):
+        """dashboard(save_path=...) must create the specified HTML file."""
+        out = tmp_path / "report.html"
+        with patch("plotly.graph_objects.Figure.show"):
+            results.dashboard(save_path=str(out))
+        assert out.exists(), "dashboard(save_path=...) must create the file"
+        assert out.stat().st_size > 1000, "Written HTML must be non-trivial in size"

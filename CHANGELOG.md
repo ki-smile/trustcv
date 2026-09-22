@@ -2,6 +2,12 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- `dashboard()` no longer writes `trustcv_dashboard.html` into the current directory by default. Pass `save_path="<file>.html"` to save the dashboard to disk.
+
 ## [1.1.0] - 2026-09-21
 
 ### Trust and validation semantics
