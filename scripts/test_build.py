@@ -7,6 +7,8 @@ import tempfile
 import shutil
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 def test_build():
     """Test building the package"""
     print("=" * 60)
@@ -16,8 +18,9 @@ def test_build():
     # Clean previous builds
     print("\n1. Cleaning previous builds...")
     for dir_name in ['dist', 'build', 'trustcv.egg-info']:
-        if Path(dir_name).exists():
-            shutil.rmtree(dir_name)
+        build_path = REPO_ROOT / dir_name
+        if build_path.exists():
+            shutil.rmtree(build_path)
             print(f"   Removed {dir_name}/")
     
     # Build the package
@@ -25,7 +28,8 @@ def test_build():
     result = subprocess.run(
         [sys.executable, "-m", "build"],
         capture_output=True,
-        text=True
+        text=True,
+        cwd=REPO_ROOT,
     )
     
     if result.returncode != 0:
@@ -36,7 +40,7 @@ def test_build():
     
     # Check created files
     print("\n3. Checking build artifacts...")
-    dist_files = list(Path('dist').glob('*'))
+    dist_files = list((REPO_ROOT / 'dist').glob('*'))
     
     expected_files = ['trustcv-1.0.0.tar.gz', 'trustcv-1.0.0-py3-none-any.whl']
     for expected in expected_files:
@@ -61,7 +65,7 @@ def test_build():
             python_exe = venv_dir / 'bin' / 'python'
         
         # Install the wheel
-        wheel_file = next(Path('dist').glob('*.whl'))
+        wheel_file = next((REPO_ROOT / 'dist').glob('*.whl'))
         result = subprocess.run(
             [str(pip_exe), 'install', str(wheel_file)],
             capture_output=True,

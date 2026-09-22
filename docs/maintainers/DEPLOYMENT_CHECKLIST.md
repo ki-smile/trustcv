@@ -8,12 +8,12 @@
   
 - [ ] **Tests passing:**
   ```bash
-  python test_all.py
+  python scripts/test_all.py
   ```
 
 - [ ] **Build test passing:**
   ```bash
-  python test_build.py
+  python scripts/test_build.py
   ```
 
 - [ ] **No sensitive data:**

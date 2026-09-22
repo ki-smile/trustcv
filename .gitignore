@@ -22,3 +22,9 @@ TrustCV_v1/
 notebooks/Test1.ipynb/
 .venv-dashboard/
 .Archives/
+# Generated artefacts
+notebooks/catboost_info/
+notebooks/*.log
+notebooks/reports/
+trustcv_dashboard.html
+fda_validation_report.json

@@ -9,8 +9,9 @@ import os
 import traceback
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Resolve repository paths after this script moved from the root into scripts/.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
 def test_imports():
     """Test that all modules can be imported"""
@@ -178,7 +179,7 @@ def test_examples():
     print("📚 Testing Example Scripts")
     print("="*60)
     
-    examples_dir = Path(__file__).parent / "examples"
+    examples_dir = REPO_ROOT / "examples"
     example_files = [
         "heart_disease_prediction.py",
         "icu_patient_monitoring.py",
@@ -223,7 +224,7 @@ def test_notebooks():
     print("📓 Testing Notebooks")
     print("="*60)
     
-    notebooks_dir = Path(__file__).parent / "notebooks"
+    notebooks_dir = REPO_ROOT / "notebooks"
     
     if not notebooks_dir.exists():
         print("⚠️ Notebooks directory not found")
@@ -277,7 +278,7 @@ def test_website():
     print("🌐 Testing Website")
     print("="*60)
     
-    website_dir = Path(__file__).parent / "website"
+    website_dir = REPO_ROOT / "website"
     
     required_files = [
         "index.html",
@@ -317,7 +318,7 @@ def test_documentation():
     print("📚 Testing Documentation")
     print("="*60)
     
-    docs_dir = Path(__file__).parent / "docs"
+    docs_dir = REPO_ROOT / "docs"
     
     required_docs = [
         "CV_METHODS_CHECKLIST.md",
