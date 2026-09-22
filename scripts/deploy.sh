@@ -1,6 +1,10 @@
 #!/bin/bash
 # trustcv PyPI Deployment Script
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$REPO_ROOT" || exit 1
+
 echo "========================================="
 echo "trustcv PyPI Deployment Helper"
 echo "========================================="
@@ -34,10 +38,10 @@ fi
 # Step 3: Run tests
 echo ""
 echo "3. Running tests..."
-if python3 test_all.py > /dev/null 2>&1; then
+if python3 scripts/test_all.py > /dev/null 2>&1; then
     echo -e "   ${GREEN}✓${NC} All tests passed"
 else
-    echo -e "   ${RED}✗${NC} Tests failed. Run 'python test_all.py' for details"
+    echo -e "   ${RED}✗${NC} Tests failed. Run 'python scripts/test_all.py' for details"
     exit 1
 fi
 
