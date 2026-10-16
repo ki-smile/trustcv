@@ -213,6 +213,7 @@ class ClinicalMetrics:
             (lower_bound, upper_bound)
         """
         # Simplified bootstrap CI for AUC
+        y_true, y_proba = np.asarray(y_true), np.asarray(y_proba)
         n_bootstraps = 1000
         rng = np.random.RandomState(42)
         bootstrapped_scores = []

@@ -189,7 +189,7 @@ def test_examples():
     
     failed = []
     for example_file in example_files:
-        example_path = examples_dir / example_file
+        example_path = next((d / example_file for d in (REPO_ROOT / "trustcv" / "examples", examples_dir) if (d / example_file).exists()), examples_dir / example_file)
         
         if not example_path.exists():
             print(f"⚠️ {example_file}: File not found")

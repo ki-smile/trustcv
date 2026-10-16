@@ -40,6 +40,12 @@ FAST_MODE = os.environ.get("TRUSTCV_FULL_EXAMPLE", "").lower() not in ("1", "tru
 SHOW_PLOTS = os.environ.get("TRUSTCV_PLOT", "").lower() in ("1", "true", "yes")
 
 
+def _proba1(model, X):
+    """P(class 1); constant when a fold's training sites contain one class only."""
+    p = model.predict_proba(X)
+    return p[:, 1] if p.shape[1] > 1 else np.full(len(X), float(model.classes_[0] == 1))
+
+
 def _safe_auc(y_true, y_score, y_pred=None):
     """Return ROC-AUC when possible, otherwise fallback to accuracy."""
     if len(np.unique(y_true)) < 2:
@@ -226,7 +232,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
         model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
         y_pred = model.predict(X[test_idx])
-        y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+        y_pred_proba = _proba1(model, X[test_idx])
         score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         if np.isnan(score):
             print(f"Fold {fold}: Skipped (single class)")
@@ -262,7 +268,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
         model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
         y_pred = model.predict(X[test_idx])
-        y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+        y_pred_proba = _proba1(model, X[test_idx])
         score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         if np.isnan(score):
             print(f"Fold {fold}: Skipped (single class)")
@@ -295,7 +301,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
         model = RandomForestClassifier(n_estimators=n_estimators, random_state=42)
         model.fit(X[train_idx], y[train_idx])
         y_pred = model.predict(X[test_idx])
-        y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+        y_pred_proba = _proba1(model, X[test_idx])
         score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         if np.isnan(score):
             print(f"Fold {fold}: Skipped (single class)")
@@ -330,7 +336,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
         model.fit(X[train_idx], y[train_idx])
         
         y_pred = model.predict(X[test_idx])
-        y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+        y_pred_proba = _proba1(model, X[test_idx])
         score, used_fallback = _safe_auc(y[test_idx], y_pred_proba, y_pred)
         if np.isnan(score):
             print(f"Test Site {site_ids[test_idx[0]]}: Skipped (single class)")
@@ -370,7 +376,7 @@ def evaluate_grouped_cv_strategies(X, y, groups, site_ids, df, fast_mode=True):
                     model.fit(X[train_idx], y[train_idx])
                     
                     y_pred = model.predict(X[test_idx])
-                    y_pred_proba = model.predict_proba(X[test_idx])[:, 1]
+                    y_pred_proba = _proba1(model, X[test_idx])
                     score, _ = _safe_auc(y[test_idx], y_pred_proba, y_pred)
                     if np.isnan(score):
                         continue

@@ -303,7 +303,8 @@ leakage_report = checker.check_feature_target_leakage(
 if leakage_report['has_leakage']:
     print("⚠️ FEATURE-TARGET LEAKAGE DETECTED!")
     for feat in leakage_report['suspicious_features']:
-        print(f"   Feature '{feat['name']}' has {feat['correlation']:.3f} correlation with target")
+        metric = 'roc_auc' if 'roc_auc' in feat else 'spearman'
+        print(f"   Feature '{feat['name']}' has {metric} {feat[metric]:.3f} with target")
     print("\n💡 These features likely contain information not available at prediction time!\n")
 
 # ============================================================================

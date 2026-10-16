@@ -161,7 +161,7 @@ try:
         groups=patient_ids
     )
     
-except ImportError:
+except Exception:  # missing or broken install
     print("\n[PyTorch not installed - skipping PyTorch example]")
 
 # ============================================================================
@@ -212,7 +212,7 @@ try:
     for key, value in keras_results.mean_score.items():
         print(f"  {key}: {value:.3f} (+/- {keras_results.std_score[key]:.3f})")
     
-except ImportError:
+except Exception:  # missing or broken install
     print("\n[TensorFlow not installed - skipping TensorFlow example]")
 
 # ============================================================================

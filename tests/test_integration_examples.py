@@ -29,9 +29,17 @@ class TestExampleScripts:
     @classmethod
     def setup_class(cls):
         """Set up test environment"""
-        cls.examples_dir = Path(__file__).parent.parent / "examples"
+        root = Path(__file__).parent.parent
+        # bundled recipes live in trustcv/examples, heavier ones in examples/
+        cls.examples_dir = root / "examples"
+        cls.bundled_dir = root / "trustcv" / "examples"
         cls.temp_dir = tempfile.mkdtemp()
         
+    @classmethod
+    def _resolve(cls, name):
+        b = cls.bundled_dir / name
+        return b if b.exists() else cls.examples_dir / name
+
     @classmethod
     def teardown_class(cls):
         """Clean up test environment"""
@@ -40,7 +48,7 @@ class TestExampleScripts:
     
     def run_example_script(self, script_name, timeout=60):
         """Helper to run an example script"""
-        script_path = self.examples_dir / script_name
+        script_path = self._resolve(script_name)
         
         if not script_path.exists():
             pytest.skip(f"Example script {script_name} not found")
@@ -137,7 +145,7 @@ class TestExampleScripts:
         ]
         
         for script_name in example_files:
-            script_path = self.examples_dir / script_name
+            script_path = self._resolve(script_name)
             
             if not script_path.exists():
                 continue
@@ -162,7 +170,7 @@ class TestExampleScripts:
         }
         
         for script_name, required_functions in example_requirements.items():
-            script_path = self.examples_dir / script_name
+            script_path = self._resolve(script_name)
             
             if not script_path.exists():
                 continue
@@ -176,7 +184,7 @@ class TestExampleScripts:
     
     def test_no_hardcoded_paths(self):
         """Test that examples don't use hardcoded paths"""
-        example_files = list(self.examples_dir.glob("*.py"))
+        example_files = list(self.examples_dir.glob("*.py")) + list(self.bundled_dir.glob("[!_]*.py"))
         
         for script_path in example_files:
             with open(script_path, 'r') as f:

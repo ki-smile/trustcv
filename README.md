@@ -252,10 +252,10 @@ Please see:
 ## Repository Structure
 
 ```
-trustcv/       # Python package (splitters, validators, metrics, core)
+trustcv/       # Python package (splitters, validators, metrics, core, CLI, bundled examples)
 docs/          # Documentation & guides
 notebooks/     # Jupyter tutorials
-examples/      # Real-world examples
+examples/      # Heavier framework examples (PyTorch, TensorFlow, JAX, MONAI)
 tests/         # Unit & integration tests
 website/       # Static site and visualizations
 ```
@@ -266,6 +266,18 @@ website/       # Static site and visualizations
 pip install -e .[dev]
 pytest tests/
 cd docs && make html
+```
+
+## Command Line
+
+`pip install trustcv` ships a `trustcv` command with 7 runnable usage recipes:
+
+```bash
+trustcv --help               # Quick start
+trustcv about                # Project info, links, citation
+trustcv examples             # 7 numbered usage recipes
+trustcv examples 1 --run     # Run a recipe
+trustcv examples 3 --copy .  # Copy a recipe to edit
 ```
 
 ## Citation

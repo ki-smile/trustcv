@@ -2,7 +2,15 @@
 
 All notable changes to trustcv are documented in this file.
 
-## [Unreleased]
+## [1.1.1] - 2026-10-17
+
+### Added
+
+- `trustcv` command line tool with `about` and `examples`. Seven runnable usage recipes now ship inside the package (`trustcv examples`, `--run`, `--copy`). Examples moved from `examples/` to `trustcv/examples/`; framework-specific scripts stay in `examples/`.
+
+### Fixed
+
+- `ClinicalMetrics.calculate_all` no longer raises `KeyError` when `y_true` is a pandas Series with a non-default index.
 
 ### Changed
 
