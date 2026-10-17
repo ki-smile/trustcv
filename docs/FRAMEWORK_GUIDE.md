@@ -647,4 +647,4 @@ TrustCV v1.0.0 provides:
 4. **Best practices** - Automatic leakage detection, documentation logging
 5. **Production ready** - Callbacks, checkpointing, monitoring
 
-For more examples, see the `examples/` directory in the repository.
+For more examples, run `trustcv examples` or see the `examples/` directory in the repository.

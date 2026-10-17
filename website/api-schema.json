@@ -1,10 +1,17 @@
 {
   "name": "trustcv",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Framework-agnostic toolkit for trustworthy cross-validation in medical AI",
   "install": "pip install trustcv",
   "repository": "https://github.com/ki-smile/trustcv",
   "pypi": "https://pypi.org/project/trustcv/",
+  "cli": {
+    "command": "trustcv",
+    "subcommands": {
+      "about": "Project info, links, citation",
+      "examples": "List the 7 numbered usage recipes; \"trustcv examples N [--run | --copy DEST]\" prints, runs or copies one"
+    }
+  },
   "python_requires": ">=3.10",
   "functions": [
     {

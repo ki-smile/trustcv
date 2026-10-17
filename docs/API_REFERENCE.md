@@ -565,11 +565,26 @@ except ValueError as e:
 
 ---
 
+## Command Line Interface
+
+`pip install trustcv` installs a `trustcv` command.
+
+| Command | Purpose |
+|---|---|
+| `trustcv --help` | Quick start |
+| `trustcv about` | Project info, links, citation |
+| `trustcv examples` | List the 7 numbered usage recipes |
+| `trustcv examples N` | Print recipe N |
+| `trustcv examples N --run` | Run recipe N |
+| `trustcv examples N --copy DEST` | Copy recipe N to a file or directory |
+
+---
+
 ## Version Compatibility
 
 | trustcv | Python | scikit-learn | pandas | numpy |
 |-----------|--------|--------------|--------|-------|
-| 0.1.x | ≥3.8 | ≥1.0 | ≥1.3 | ≥1.20 |
+| 1.1.x | ≥3.10 | ≥1.0 | ≥1.3 | ≥1.20 |
 
 ---
 

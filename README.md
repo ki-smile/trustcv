@@ -18,7 +18,7 @@ It builds on familiar scikit-learn idioms, but adds:
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.1.0 – Conservative check statuses, corrected confidence intervals, calibrated leakage diagnostics, and an actionable CV advisor.
+> **Status:** v1.1.1 – Conservative check statuses, corrected confidence intervals, calibrated leakage diagnostics, and an actionable CV advisor.
 
 ---
 

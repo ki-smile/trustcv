@@ -1,6 +1,6 @@
 # trustcv — Full API Reference
 
-> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.1.0)
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.1.1)
 > Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
 > GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
 
@@ -13,6 +13,18 @@ pip install trustcv[tensorflow]    # + TensorFlow/Keras adapter
 pip install trustcv[monai]         # + MONAI adapter (medical imaging)
 pip install trustcv[all]           # all optional frameworks
 pip install trustcv[dev]           # development dependencies
+```
+
+## Command Line
+
+`pip install trustcv` installs a `trustcv` command with 7 runnable usage recipes:
+
+```
+trustcv --help               # Quick start
+trustcv about                # Project info, links, citation
+trustcv examples             # 7 numbered usage recipes
+trustcv examples 1 --run     # Run a recipe
+trustcv examples 3 --copy .  # Copy a recipe to edit
 ```
 
 ## Quick Start

@@ -1,6 +1,6 @@
 # TrustCV Documentation
 
-**Version 1.0.7** | Framework-Agnostic Cross-Validation for Medical AI
+**Version 1.1.1** | Framework-Agnostic Cross-Validation for Medical AI
 
 This directory contains comprehensive documentation for TrustCV, a toolkit implementing 29 cross-validation methods with automatic data leakage detection.
 
@@ -134,7 +134,7 @@ Fold-wise AUC averages AUC values computed separately inside each validation fol
   - `12_PhysioNet2019_Sepsis_RealClinicalData_TrustCV_cloud_TEMPORAL.ipynb`
   - `13_LeakageChecker_Injection_Boundary_Validation.ipynb`
   - `14_LOGO_metric_feasibility_warning.ipynb`
-- **Examples**: See `examples/` directory for complete scripts
+- **Examples**: Run `trustcv examples` for 7 bundled recipes (`--run` / `--copy`); heavier framework scripts are in the repository `examples/` directory
 
 ---
 
