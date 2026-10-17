@@ -151,20 +151,14 @@ def run_cv_keras(X, y, patient_ids, cv_splitter, epochs=20, batch_size=32, verbo
         # Create fresh model for each fold
         model = create_keras_model(input_dim=X.shape[1])
 
-        # Early stopping callback
-        early_stopping = keras.callbacks.EarlyStopping(
-            monitor='val_loss',
-            patience=5,
-            restore_best_weights=True
-        )
-
-        # Train model
+        # Train for a fixed number of epochs. Early stopping on (X_val, y_val)
+        # would pick the epoch on the fold that then scores it (optimistic
+        # bias); KerasCVRunner(inner_validation=0.1) stops on an inner split
+        # of the training patients instead.
         history = model.fit(
             X_train, y_train,
-            validation_data=(X_val, y_val),
             epochs=epochs,
             batch_size=batch_size,
-            callbacks=[early_stopping],
             verbose=verbose
         )
 
@@ -300,13 +294,14 @@ if __name__ == "__main__":
         model = create_keras_model(input_dim=X.shape[1])
         model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=0)
 
-        y_pred = (model.predict(X_val, verbose=0).ravel() >= 0.5).astype(int)
-        acc = accuracy_score(y_val, y_pred)
-        bootstrap_results.append({'accuracy': acc})
+        y_pred_proba = model.predict(X_val, verbose=0).ravel()
+        acc = accuracy_score(y_val, (y_pred_proba >= 0.5).astype(int))
+        auc = roc_auc_score(y_val, y_pred_proba) if len(np.unique(y_val)) == 2 else float('nan')
+        bootstrap_results.append({'accuracy': acc, 'auc': auc})
 
         keras.backend.clear_session()
 
-    print_summary([{'accuracy': r['accuracy'], 'auc': 0.5} for r in bootstrap_results],
+    print_summary(bootstrap_results,
                  "Bootstrap .632")
 
     # ---------------------------------------------------------------------

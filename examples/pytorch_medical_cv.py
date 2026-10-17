@@ -171,30 +171,19 @@ def run_cv_pytorch(X, y, patient_ids, cv_splitter, n_epochs=30, batch_size=32):
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
         criterion = nn.CrossEntropyLoss()
 
-        # Training loop with early stopping
-        best_val_auc = 0
-        patience_counter = 0
-        patience = 5
-
+        # Train for a fixed number of epochs. Stopping early or keeping the best
+        # epoch by the validation fold's score would select the model on the
+        # data that then scores it (optimistic bias). To stop early, split an
+        # inner validation set off the training patients instead.
         for epoch in range(n_epochs):
             train_loss = train_epoch(model, train_loader, optimizer, criterion, device)
-            val_metrics = evaluate(model, val_loader, device)
 
-            if val_metrics['auc'] > best_val_auc:
-                best_val_auc = val_metrics['auc']
-                best_metrics = val_metrics.copy()
-                patience_counter = 0
-            else:
-                patience_counter += 1
+        # Score the held-out fold once, after training
+        val_metrics = evaluate(model, val_loader, device)
+        print(f"  Val Accuracy: {val_metrics['accuracy']:.4f}")
+        print(f"  Val AUC: {val_metrics['auc']:.4f}")
 
-            if patience_counter >= patience:
-                print(f"  Early stopping at epoch {epoch + 1}")
-                break
-
-        print(f"  Best Val Accuracy: {best_metrics['accuracy']:.4f}")
-        print(f"  Best Val AUC: {best_metrics['auc']:.4f}")
-
-        fold_results.append(best_metrics)
+        fold_results.append(val_metrics)
 
         # Memory cleanup
         del model, optimizer

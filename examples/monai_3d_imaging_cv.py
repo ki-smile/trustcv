@@ -246,26 +246,19 @@ def run_3d_cv(dataset, cv_splitter, n_epochs=10, batch_size=4, use_monai=True):
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
         criterion = torch.nn.CrossEntropyLoss()
 
-        # Training loop
-        best_val_acc = 0
-        best_metrics = None
-
+        # Train for a fixed number of epochs; keeping the epoch with the best
+        # validation-fold score would select the model on the data that then
+        # scores it (optimistic bias).
         for epoch in range(n_epochs):
             train_loss, train_acc = train_epoch(model, train_loader, optimizer, criterion, device)
-            val_metrics = evaluate(model, val_loader, device)
-
-            if val_metrics['accuracy'] > best_val_acc:
-                best_val_acc = val_metrics['accuracy']
-                best_metrics = val_metrics.copy()
-
             if (epoch + 1) % 5 == 0:
-                print(f"  Epoch {epoch + 1}: Train Loss={train_loss:.4f}, "
-                      f"Val Acc={val_metrics['accuracy']:.4f}")
+                print(f"  Epoch {epoch + 1}: Train Loss={train_loss:.4f}, Train Acc={train_acc:.4f}")
 
-        if best_metrics:
-            print(f"  Best Val Accuracy: {best_metrics['accuracy']:.4f}")
-            print(f"  Best Val AUC: {best_metrics['auc']:.4f}")
-            fold_results.append(best_metrics)
+        # Score the held-out fold once, after training
+        val_metrics = evaluate(model, val_loader, device)
+        print(f"  Val Accuracy: {val_metrics['accuracy']:.4f}")
+        print(f"  Val AUC: {val_metrics['auc']:.4f}")
+        fold_results.append(val_metrics)
 
         # Memory cleanup (critical for 3D models)
         del model, optimizer

@@ -54,6 +54,24 @@ class CVCallback(ABC):
         pass
 
 
+def _heldout_selection_warning(callback: Any, logs: Optional[Dict[str, Any]]) -> None:
+    """Warn once per CV run when a callback selects on a held-out ``val_*`` metric."""
+    if getattr(callback, "_warned_heldout", False) or not logs:
+        return
+    if not str(callback.monitor).startswith("val") or callback.monitor not in logs:
+        return
+    callback._warned_heldout = True
+    warnings.warn(
+        f"{type(callback).__name__} selects on {callback.monitor!r}. In trustcv's Torch, MONAI, JAX "
+        "and Universal runners, val_* metrics are computed on the held-out CV fold, which then "
+        "scores the selected model, so scores are optimistically biased. Until these runners get "
+        "an inner validation split, train for a fixed number of epochs or select on an inner split "
+        "of the training fold yourself; KerasCVRunner(inner_validation=...) already does this.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 class EarlyStopping(CVCallback):
     """
     Early stopping callback to prevent overfitting
@@ -94,6 +112,9 @@ class EarlyStopping(CVCallback):
         self.best_epoch = 0
         self.best_weights = None
 
+    def on_cv_start(self, n_splits: int) -> None:
+        self._warned_heldout = False
+
     def on_fold_start(self, fold_idx: int, train_idx: np.ndarray, val_idx: np.ndarray) -> None:
         """Reset early stopping for new fold"""
         self.wait = 0
@@ -105,6 +126,7 @@ class EarlyStopping(CVCallback):
         self, epoch: int, fold_idx: int, logs: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """Check if training should stop"""
+        _heldout_selection_warning(self, logs)
         if logs is None or self.monitor not in logs:
             warnings.warn(f"Early stopping: monitored metric '{self.monitor}' not found in logs")
             return None
@@ -190,6 +212,9 @@ class ModelCheckpoint(CVCallback):
 
         self.best_score = None
 
+    def on_cv_start(self, n_splits: int) -> None:
+        self._warned_heldout = False
+
     def on_fold_start(self, fold_idx: int, train_idx: np.ndarray, val_idx: np.ndarray) -> None:
         """Reset best score for new fold"""
         self.best_score = None
@@ -205,6 +230,7 @@ class ModelCheckpoint(CVCallback):
         should_save = False
 
         if self.save_best_only:
+            _heldout_selection_warning(self, logs)
             if self.monitor not in logs:
                 warnings.warn(f"Checkpoint: monitored metric '{self.monitor}' not found")
                 return None

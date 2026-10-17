@@ -2,6 +2,26 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **`KerasCVRunner` selected models on the held-out fold by default.** It added `EarlyStopping(restore_best_weights=True)` and passed the CV test fold as `validation_data`, so each fold's best epoch was chosen on the data that then scored it. The held-out fold is now only scored. By default there is no validation data and no automatic early stopping (train for `epochs`). In a noise benchmark the old default's optimism was small (AUC 0.504 vs 0.491, within run-to-run noise), so expect small changes in reported scores.
+- `KerasCVRunner` copies Keras callbacks per fold, so state such as `EarlyStopping.best` no longer carries from one fold to the next.
+- `KerasCVRunner.run(..., verbose=0)` raised a duplicate-keyword error.
+- Examples no longer select on the held-out fold. The PyTorch example reported the best test-fold AUC over epochs, MONAI the best test-fold accuracy, and TensorFlow early-stopped on the test fold. They now train for fixed epochs and score once. The TensorFlow bootstrap section computes the real AUC instead of a constant 0.5. Bundled recipe 7 drops `EarlyStopping` and fixes its Keras summary, whose error was hidden by a broad `except`.
+- The test for duplicate column labels no longer depends on scikit-learn accepting duplicate column names (scikit-learn 1.9 rejects them).
+
+### Added
+
+- `KerasCVRunner.run(inner_validation=0.1)`: early stopping on an inner split of each training fold. It is group-aware with `groups=`, stratified when feasible, and `inner_validation_strategy="last"` handles chronological data. With no `EarlyStopping` passed, one is added on the inner split. Per-fold details are in `result.metadata["model_selection"]`.
+- `trustcv.core.inner_split.inner_validation_split`, the framework-agnostic helper behind it.
+- trustcv's `EarlyStopping` and `ModelCheckpoint(save_best_only=True)` warn once per CV run when they select on a `val_*` metric. The Torch, MONAI, JAX and Universal runners compute those on the held-out fold.
+
+### Changed
+
+- `KerasCVRunner(validation_split>0)` (Keras's last-fraction split) still works, but warns that it is not group-aware and can split repeated rows. It cannot be combined with `inner_validation`; passing `validation_data` is rejected.
+
 ## [1.2.0] - 2026-10-17
 
 ### Added

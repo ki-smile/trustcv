@@ -15,8 +15,6 @@ from sklearn.preprocessing import StandardScaler
 from trustcv import (
     UniversalCVRunner,
     GroupKFoldMedical,
-    EarlyStopping,
-    ModelCheckpoint,
     ProgressLogger
 )
 
@@ -154,10 +152,10 @@ try:
         epochs=20,
         optimizer_fn=lambda m: torch.optim.Adam(m.parameters(), lr=0.001),
         loss_fn=nn.CrossEntropyLoss(),
-        callbacks=[
-            EarlyStopping(monitor='val_loss', patience=5),
-            ProgressLogger(verbose=1)
-        ],
+        # No EarlyStopping here: TorchCVRunner reports val_* metrics on the
+        # held-out fold, so stopping on them would select the model on the data
+        # that scores it. Train for a fixed number of epochs instead.
+        callbacks=[ProgressLogger(verbose=1)],
         groups=patient_ids
     )
     
@@ -210,7 +208,7 @@ try:
     
     print(f"\nKeras CV Results:")
     for key, value in keras_results.mean_score.items():
-        print(f"  {key}: {value:.3f} (+/- {keras_results.std_score[key]:.3f})")
+        print(f"  {key}: {value:.3f} (+/- {keras_results.std_scores[key]:.3f})")
     
 except Exception:  # missing or broken install
     print("\n[TensorFlow not installed - skipping TensorFlow example]")

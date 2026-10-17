@@ -48,6 +48,6 @@ jobs:
           python -m pytest -q -o addopts="-ra -q --strict-markers"
           tests/test_keras_classifier_wrap_digits.py tests/test_keras_multi_input.py
           tests/test_keras_skwrap_digits.py tests/test_keras_wrapper_stress.py
-          tests/test_framework_integration.py
+          tests/test_framework_integration.py tests/test_keras_inner_validation.py
         env:
           TF_CPP_MIN_LOG_LEVEL: "3"

@@ -1,5 +1,10 @@
 # TrustCV v1.0.0 - Framework-Agnostic Cross-Validation Guide
 
+
+> **Model selection must not use the held-out fold.** Early stopping, best-epoch checkpoints and learning-rate schedules that watch the CV test fold choose the model on the data that then scores it, which biases scores upward.
+> - `KerasCVRunner` never uses the held-out fold for this. Pass `inner_validation=0.1` to stop early on an inner split of the training fold (group-aware with `groups=`; `inner_validation_strategy="last"` for chronologically ordered data).
+> - `TorchCVRunner`, `MONAICVRunner`, `JAXCVRunner` and `UniversalCVRunner` currently compute `val_*` metrics on the held-out fold, so trustcv's `EarlyStopping` and `ModelCheckpoint` warn when they select on them. Train for a fixed number of epochs, or select on an inner split you make from the training fold, until these runners get an inner validation split.
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Custom CV Methods Not in Scikit-learn](#custom-cv-methods)
@@ -299,8 +304,6 @@ runner = MONAICVRunner(
 )
 
 # 6. Run Cross-Validation with Medical Best Practices
-from trustcv import EarlyStopping, ModelCheckpoint
-
 results = runner.run(
     data_dicts=data_dicts,
     epochs=100,
@@ -311,10 +314,8 @@ results = runner.run(
     metrics=[
         DiceMetric(include_background=False, reduction="mean"),
     ],
-    callbacks=[
-        EarlyStopping(monitor='val_dice', mode='max', patience=10),
-        ModelCheckpoint(filepath='best_model_fold_{fold}.pth', monitor='val_dice')
-    ],
+    # No EarlyStopping/ModelCheckpoint on val_dice: it is computed on the held-out
+    # fold, so selecting on it would bias the reported Dice (see the note above).
     groups=patient_ids  # CRITICAL: Patient grouping!
 )
 
@@ -343,7 +344,7 @@ for fold_idx, (train_idx, val_idx) in enumerate(results.indices):
 import torch
 import torch.nn as nn
 from trustcv import TorchCVRunner, StratifiedGroupKFold
-from trustcv import EarlyStopping, ProgressLogger
+from trustcv import ProgressLogger
 
 # Create clinical dataset
 n_patients = 5000
@@ -394,10 +395,9 @@ results = runner.run(
         weight_decay=1e-5
     ),
     loss_fn=nn.CrossEntropyLoss(weight=torch.tensor([1.0, 2.0])),  # Handle imbalance
-    callbacks=[
-        EarlyStopping(monitor='val_loss', patience=10, restore_best=True),
-        ProgressLogger(log_file='training_log.json')
-    ],
+    # Fixed epochs: val_loss here is the held-out fold, so early stopping on it
+    # would select the model on the data that scores it.
+    callbacks=[ProgressLogger(log_file='training_log.json')],
     groups=patient_ids
 )
 ```
@@ -458,7 +458,10 @@ results = runner.run(
         keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5),
         keras.callbacks.EarlyStopping(patience=5)
     ],
-    groups=timestamps
+    # val_loss above is measured on the last 10% (in time) of each training
+    # fold, never on the held-out block.
+    inner_validation=0.1,
+    inner_validation_strategy="last",
 )
 
 print(f"Mean AUC: {results.mean_score['val_auc']:.4f}")

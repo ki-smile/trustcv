@@ -320,29 +320,61 @@ class KerasCVRunner:
         validation_split: float = 0.0,
         callbacks: Optional[List[Any]] = None,
         groups: Optional[np.ndarray] = None,
+        inner_validation: float = 0.0,
+        inner_validation_strategy: str = "auto",
+        inner_random_state: Optional[int] = 0,
         **fit_kwargs,
     ) -> CVResults:
         """
         Run cross-validation with Keras model
 
+        The held-out fold of each split is used only to score the trained
+        model. It is never passed as ``validation_data``, because early
+        stopping or checkpointing on it would select the model on the data
+        that then scores it.
+
         Parameters:
             X: Feature array
             y: Target array
             epochs: Number of training epochs per fold
-            validation_split: Validation split within training (0.0 to use CV split)
-            callbacks: List of callbacks (both Keras and trustcv)
+            validation_split: Legacy Keras split: the last fraction of each
+                training fold (not group-aware). Cannot be combined with
+                ``inner_validation``.
+            callbacks: List of callbacks (both Keras and trustcv). Keras
+                callbacks are copied per fold so their state (e.g. the best
+                value seen by EarlyStopping) does not carry over.
             groups: Group labels for grouped CV
+            inner_validation: Fraction of each training fold held out as
+                validation data for early stopping and checkpoints (0 = none:
+                train for ``epochs``). Group-aware when ``groups`` is given.
+                When > 0 and no EarlyStopping is passed, one is added that
+                restores the best weights on the inner split.
+            inner_validation_strategy: "auto" (group, then stratified, then
+                random) or "last" (the last fraction of each training fold, for
+                chronologically ordered data)
+            inner_random_state: Seed for the inner split (offset by fold)
             **fit_kwargs: Additional arguments for model.fit()
 
         Returns:
             CVResults object with scores and models
         """
+        import copy
+
+        from ..core.inner_split import inner_validation_split
+
+        if inner_validation > 0 and validation_split > 0:
+            raise ValueError("Use either inner_validation or validation_split, not both.")
+        if "validation_data" in fit_kwargs:
+            raise ValueError(
+                "validation_data is chosen per fold; use inner_validation instead of passing it."
+            )
         callbacks = callbacks or []
         all_scores = []
         all_models = []
         all_predictions = []
         all_indices = []
         all_histories = []
+        model_selection = []
 
         n_samples = len(X)
         n_splits = self.cv_splitter.get_n_splits()
@@ -357,9 +389,26 @@ class KerasCVRunner:
             else:  # trustcv callback
                 cv_callbacks.append(callback)
 
+        if validation_split > 0:
+            reasons = []
+            if groups is not None:
+                reasons.append("it is not group-aware, so a subject can be on both sides")
+            reasons.append("repeated rows (e.g. bootstrap) can be on both sides")
+            warnings.warn(
+                "validation_split uses Keras's last-fraction split of each training fold; "
+                + "; ".join(reasons)
+                + ". Prefer inner_validation.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # Trigger CV start callbacks
         for callback in cv_callbacks:
             callback.on_cv_start(n_splits)
+
+        early_stop_cls = self.adapter.keras.callbacks.EarlyStopping
+        warned_copy = False
+        warned_fallback = False
 
         # Cross-validation loop
         for fold_idx, (train_idx, val_idx) in enumerate(
@@ -379,36 +428,76 @@ class KerasCVRunner:
             if self.compile_kwargs:
                 model.compile(**self.compile_kwargs)
 
-            # Create data splits
-            X_train, y_train = X[train_idx], y[train_idx]
+            # Held-out fold: scored once, after training
             X_val, y_val = X[val_idx], y[val_idx]
 
-            # Add early stopping if not already present
-            early_stop_exists = any(
-                isinstance(cb, self.adapter.keras.callbacks.EarlyStopping) for cb in keras_callbacks
-            )
+            # Fresh callback objects per fold
+            fold_callbacks = []
+            for cb in keras_callbacks:
+                try:
+                    fold_callbacks.append(copy.deepcopy(cb))
+                except Exception:
+                    fold_callbacks.append(cb)
+                    if not warned_copy:
+                        warnings.warn(
+                            f"Could not copy callback {type(cb).__name__}; it is reused across "
+                            "folds and may carry state (e.g. a best value) between them.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        warned_copy = True
 
-            fold_callbacks = keras_callbacks.copy()
-            if not early_stop_exists:
-                fold_callbacks.append(
-                    self.adapter.keras.callbacks.EarlyStopping(
-                        monitor="val_loss", patience=10, restore_best_weights=True
-                    )
+            fit_train_idx = np.asarray(train_idx)
+            fit_args = {}
+            selection = {"strategy": "none"}
+            if inner_validation > 0:
+                split, reason = inner_validation_split(
+                    train_idx,
+                    y,
+                    groups,
+                    fraction=inner_validation,
+                    strategy=inner_validation_strategy,
+                    random_state=None if inner_random_state is None else inner_random_state + fold_idx,
                 )
+                if split is None:
+                    selection = {"strategy": "none", "reason": reason}
+                    if not warned_fallback:
+                        warnings.warn(
+                            f"No inner validation split in fold {fold_idx + 1} ({reason}); "
+                            "training for the full epochs without early stopping.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                        warned_fallback = True
+                else:
+                    fit_train_idx, inner_val_idx = split
+                    fit_args["validation_data"] = (X[inner_val_idx], y[inner_val_idx])
+                    selection = {
+                        "strategy": f"inner_validation:{reason}",
+                        "n_inner_train": int(len(fit_train_idx)),
+                        "n_inner_val": int(len(inner_val_idx)),
+                    }
+                    if not any(isinstance(cb, early_stop_cls) for cb in fold_callbacks):
+                        fold_callbacks.append(
+                            early_stop_cls(monitor="val_loss", patience=10, restore_best_weights=True)
+                        )
+            elif validation_split > 0:
+                fit_args["validation_split"] = validation_split
+                selection = {"strategy": "keras_validation_split"}
 
             # Train model
             history = model.fit(
-                X_train,
-                y_train,
-                validation_data=(X_val, y_val) if validation_split == 0.0 else None,
-                validation_split=validation_split if validation_split > 0.0 else 0.0,
+                X[fit_train_idx],
+                y[fit_train_idx],
                 epochs=epochs,
                 callbacks=fold_callbacks,
-                verbose=1,
-                **fit_kwargs,
+                **{"verbose": 1, **fit_kwargs},
+                **fit_args,
             )
+            selection["epochs_trained"] = len(history.history.get("loss", []))
+            model_selection.append(selection)
 
-            # Evaluate on validation set
+            # Evaluate on the held-out fold
             val_results = model.evaluate(X_val, y_val, verbose=0, return_dict=True)
 
             # Get predictions
@@ -448,5 +537,10 @@ class KerasCVRunner:
             models=all_models if self.store_models else None,
             predictions=all_predictions,
             indices=all_indices,
-            metadata={"framework": "tensorflow", "epochs": epochs, "histories": all_histories},
+            metadata={
+                "framework": "tensorflow",
+                "epochs": epochs,
+                "histories": all_histories,
+                "model_selection": model_selection,
+            },
         )
