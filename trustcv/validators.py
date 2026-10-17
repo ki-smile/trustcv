@@ -36,6 +36,11 @@ from .metrics.diagnostics import (
 )
 from .checks import (
     CheckResult,
+    FoldAudit,
+    GROUP_OVERLAP_HINT,
+    _identifier_columns,
+    _independence_scan,
+    _is_multi_input,
     build_initial_checks,
     covariate_shift_from_report,
     default_checks,
@@ -49,6 +54,41 @@ from .uncertainty import (
     _is_partition,
     _oof_bootstrap_interval,
 )
+
+
+_UNIT_INTERVAL_METRICS = {
+    "accuracy", "f1", "f1_score", "f1_macro", "f1_micro", "f1_samples", "precision",
+    "recall", "sensitivity", "tpr", "recall_pos", "specificity", "tnr", "roc_auc",
+    "auc", "roc_auc_ovr_macro",
+}
+
+
+def _accepts_kwarg(func: Callable, name: str) -> bool:
+    """True if ``func`` declares a keyword-capable parameter ``name``.
+
+    ``**kwargs`` does not count: a wrapper may forward it to a function that
+    rejects the keyword, or ignore it while appearing to support it.
+    """
+    import inspect
+
+    try:
+        params = inspect.signature(func).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        p.name == name and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY) for p in params
+    )
+
+
+def _feature_score(record: Dict[str, Any]) -> str:
+    if "roc_auc" in record:
+        auc = record["roc_auc"]
+        return f"AUC {auc:.2f}" if auc >= 0.5 else f"AUC {1 - auc:.2f}, inverse"
+    return f"Spearman {record.get('spearman', float('nan')):.2f}"
+
+
+def _describe_feature(record: Dict[str, Any]) -> str:
+    return f"{record.get('name')} ({_feature_score(record)})"
 
 
 @dataclass
@@ -561,6 +601,9 @@ class TrustCVValidator:
         stratify: Optional[bool] = None,
         hierarchy_level: str = "patient",
         warn_metric_feasibility: bool = True,
+        check_independence: bool = True,
+        target_strong_threshold: float = 0.90,
+        max_audit_folds: int = 10,
     ):
         """
         Initialize TrustCV Validator
@@ -635,6 +678,11 @@ class TrustCVValidator:
         self.target_auc_threshold = float(target_auc_threshold)
         self.target_correlation_threshold = float(target_correlation_threshold)
         self.max_target_features = max(int(max_target_features), 1)
+        # Scan for clustered rows when no groups are given; a hit means NEEDS_REVIEW, not FAILED
+        self.check_independence = bool(check_independence)
+        self.target_strong_threshold = float(target_strong_threshold)
+        # Distance-based leakage checks audit at most this many scored folds
+        self.max_audit_folds = max(int(max_audit_folds), 1)
         self.permutation_check = bool(permutation_check)
         self.n_permutations = max(int(n_permutations), 1)
         self.compliance = compliance
@@ -898,10 +946,21 @@ class TrustCVValidator:
             # structured overlap audit, but do not trigger sklearn's redundant
             # "groups ignored" warning during the performance split.
             groups_for_splitter = None
+        try:
+            n_folds_hint = int(splitter.get_n_splits(X_for_split, y_arr, groups_for_splitter))
+        except Exception:
+            n_folds_hint = None
+        fold_audit = FoldAudit(
+            X_arr if self.check_leakage else None,
+            split_groups,
+            max_retained=self.max_audit_folds,
+            n_folds_hint=n_folds_hint,
+        )
         for k, (tr, te) in enumerate(
             splitter.split(X_for_split, y_arr, groups_for_splitter), 1
         ):
             test_indices_by_fold.append(np.asarray(te, dtype=int))
+            fold_audit.add(tr, te)
             # train/val slices
             if isinstance(X_arr, Mapping):
                 X_tr = {k2: v[tr] for k2, v in X_arr.items()}
@@ -1239,6 +1298,34 @@ class TrustCVValidator:
                     "ci_method must be 'corrected_t', 'oof_bootstrap', "
                     "'bootstrap', or 't-interval'."
                 )
+        # Built-in metrics bounded to [0, 1]: keep intervals inside the range.
+        # Custom scorers are left alone because their names say nothing about bounds.
+        if scorer_dict is None:
+            for m, interval in list(conf_ints.items()):
+                lo, hi = (float(v) for v in interval)
+                base = m[5:] if m.startswith("test_") else m
+                if base in _UNIT_INTERVAL_METRICS and np.isfinite(lo) and np.isfinite(hi) and (lo < 0 or hi > 1):
+                    conf_ints[m] = (max(lo, 0.0), min(hi, 1.0))
+                    entry = ci_diagnostics.get(m)
+                    if not isinstance(entry, dict):
+                        entry = {}
+                        ci_diagnostics[m] = entry
+                    entry["clipped_from"] = (lo, hi)
+
+        multi_input = _is_multi_input(X_arr)
+        independence_scan = None
+        identifier_columns = None
+        if self.check_leakage:
+            try:
+                identifier_columns = _identifier_columns(X_arr)
+            except Exception:
+                identifier_columns = None
+            if split_groups is None and self.check_independence:
+                try:
+                    independence_scan = _independence_scan(X_arr, random_state=self.random_state)
+                except Exception as exc:
+                    independence_scan = {"applicable": False, "reason": f"scan failed: {exc}"}
+
         checks = build_initial_checks(
             X=X_arr,
             y=y_arr,
@@ -1249,11 +1336,22 @@ class TrustCVValidator:
             check_balance=self.check_balance,
             declare_independent_samples=self.declare_independent_samples,
             is_regression=is_regression,
+            audit=fold_audit,
+            independence_scan=independence_scan,
+            identifier_columns=identifier_columns,
         )
 
         # leakage check (optional)
         leakage_check_map: Dict[str, bool] = self._basic_integrity_checks(
-            X_arr, y_arr, groups=split_groups, splitter=splitter
+            X_arr,
+            y_arr,
+            groups=split_groups,
+            splitter=splitter,
+            group_overlap_free=(
+                not fold_audit.group_overlap_folds
+                if split_groups is not None and fold_audit.error is None
+                else None
+            ),
         )
         if is_multilabel and per_label_prevalence:
             try:
@@ -1273,29 +1371,55 @@ class TrustCVValidator:
                     verbose=False,
                     target_auc_threshold=self.target_auc_threshold,
                     target_correlation_threshold=self.target_correlation_threshold,
+                    target_strong_threshold=self.target_strong_threshold,
                     max_target_features=self.max_target_features,
                 )
             except Exception:
                 effective_checker = None
-        if effective_checker is not None:
+        if effective_checker is not None and multi_input and leakage_checker is None:
+            leakage_check_map["external_leakage_detected"] = None  # unknown
+            leakage_check_map["has_leakage"] = False  # legacy: NOT passed
+            checks["external_leakage_detector"] = CheckResult(
+                "external_leakage_detector",
+                "NOT_CHECKED",
+                "The external leakage detector does not support multi-input (dict/list) features.",
+            )
+        elif effective_checker is not None:
             try:
-                leak_report = effective_checker.check(
-                    X=X_arr, y=y_arr, groups=split_groups
+                check_kwargs: Dict[str, Any] = {"X": X_arr, "y": y_arr, "groups": split_groups}
+                on_scored_folds = bool(fold_audit.retained) and _accepts_kwarg(
+                    effective_checker.check, "folds"
                 )
+                if on_scored_folds:
+                    check_kwargs["folds"] = fold_audit.retained
+                leak_report = effective_checker.check(**check_kwargs)
                 external_detected = bool(getattr(leak_report, "has_leakage", True))
                 leakage_check_map["external_leakage_detected"] = external_detected
                 leakage_check_map["has_leakage"] = not external_detected
+                coverage = fold_audit.coverage()
+                scope = (
+                    f" ({coverage['n_folds_distance_audited']} of {coverage['n_folds_scored']} scored folds audited)"
+                    if on_scored_folds
+                    else " (on the checker's own splits, not the scored folds)"
+                )
                 checks["external_leakage_detector"] = CheckResult(
                     "external_leakage_detector",
                     "FAILED" if external_detected else "PASSED",
                     (
-                        "The external leakage detector reported potential leakage."
+                        "The external leakage detector reported potential leakage" + scope + "."
                         if external_detected
-                        else "The external leakage detector found no supported leakage pattern."
+                        else "The external leakage detector found no supported leakage pattern" + scope + "."
                     ),
-                    {"leakage_types": list(getattr(leak_report, "leakage_types", []))},
+                    {
+                        "leakage_types": list(getattr(leak_report, "leakage_types", [])),
+                        "audited_scored_folds": on_scored_folds,
+                        **coverage,
+                    },
                 )
-                checks["covariate_shift"] = covariate_shift_from_report(leak_report)
+                checks["covariate_shift"] = covariate_shift_from_report(
+                    leak_report,
+                    groups_separated=checks["group_leakage"].status == "PASSED",
+                )
                 recs = getattr(leak_report, "recommendations", [])
                 if recs:
                     recommendations.extend(recs)
@@ -1317,7 +1441,17 @@ class TrustCVValidator:
                 "The external leakage detector could not be constructed.",
             )
 
-        if self.check_leakage:
+        if (
+            self.check_leakage
+            and multi_input
+            and not hasattr(leakage_checker, "check_feature_target_leakage")
+        ):
+            checks["target_leakage_features"] = CheckResult(
+                "target_leakage_features",
+                "NOT_CHECKED",
+                "Target-feature scanning does not support multi-input (dict/list) features.",
+            )
+        elif self.check_leakage:
             try:
                 scan_checker = effective_checker
                 if not hasattr(scan_checker, "check_feature_target_leakage"):
@@ -1327,15 +1461,17 @@ class TrustCVValidator:
                         verbose=False,
                         target_auc_threshold=self.target_auc_threshold,
                         target_correlation_threshold=self.target_correlation_threshold,
+                        target_strong_threshold=self.target_strong_threshold,
                         max_target_features=self.max_target_features,
                     )
-                scan = scan_checker.check_feature_target_leakage(
-                    X_arr,
-                    y_arr,
-                    auc_threshold=self.target_auc_threshold,
-                    correlation_threshold=self.target_correlation_threshold,
-                    max_features=self.max_target_features,
-                )
+                scan_kwargs: Dict[str, Any] = {
+                    "auc_threshold": self.target_auc_threshold,
+                    "correlation_threshold": self.target_correlation_threshold,
+                    "max_features": self.max_target_features,
+                }
+                if _accepts_kwarg(scan_checker.check_feature_target_leakage, "strong_threshold"):
+                    scan_kwargs["strong_threshold"] = self.target_strong_threshold
+                scan = scan_checker.check_feature_target_leakage(X_arr, y_arr, **scan_kwargs)
                 if scan.get("not_applicable"):
                     checks["target_leakage_features"] = CheckResult(
                         "target_leakage_features",
@@ -1353,15 +1489,41 @@ class TrustCVValidator:
                     ]
                     scan_details = dict(scan)
                     scan_details["flagged_features"] = flagged
+                    strong = scan.get("strong_features", []) or []
+                    if flagged:
+                        message = (
+                            f"Found {len(flagged)} feature(s) that almost determine the target: "
+                            + ", ".join(_describe_feature(r) for r in records[:3])
+                            + (", ..." if len(records) > 3 else "")
+                            + "."
+                        )
+                        for record in records[:3]:
+                            recommendations.append(
+                                f"Feature {record.get('name')!r} alone predicts the target "
+                                f"({_feature_score(record)}). If it is not known at prediction time "
+                                "(e.g. recorded after the outcome), drop it from X."
+                            )
+                    else:
+                        message = "No feature almost determines the target on its own."
+                    if strong:
+                        message += (
+                            f" {len(strong)} feature(s) are very strong single predictors: "
+                            + ", ".join(_describe_feature(r) for r in strong[:3])
+                            + (", ..." if len(strong) > 3 else "")
+                            + "; confirm they are known at prediction time."
+                        )
+                        names = ", ".join(repr(r.get("name")) for r in strong[:3])
+                        recommendations.append(
+                            f"Very strong single predictor(s) {names}: confirm each is available "
+                            "before the outcome is known; leaked fields (codes or results recorded "
+                            "after diagnosis) often look like this."
+                        )
                     checks["target_leakage_features"] = CheckResult(
                         "target_leakage_features",
+                        # Strong single predictors stay PASSED: real biomarkers look the same
+                        # (e.g. 11 of 30 breast-cancer features reach AUC 0.90).
                         "WARNING" if flagged else "PASSED",
-                        (
-                            f"Found {len(flagged)} feature(s) with near-deterministic "
-                            "univariate association to the target."
-                            if flagged
-                            else "No feature crossed the configured univariate target-leakage threshold."
-                        ),
+                        message,
                         scan_details,
                     )
             except Exception as exc:
@@ -1371,6 +1533,24 @@ class TrustCVValidator:
                     f"Target-feature leakage scanning failed: {exc}",
                     {"error": str(exc)},
                 )
+
+        group_check = checks["group_leakage"]
+        if group_check.status == "FAILED":
+            recommendations.insert(0, GROUP_OVERLAP_HINT)
+        if independence_scan and independence_scan.get("clustered"):
+            recommendations.append(
+                f"{independence_scan['flagged_fraction']:.0%} of rows have unusually close neighbours. "
+                "If rows can share a subject (repeated visits, several images per patient), pass "
+                "groups=<subject id> and a group-aware method. If you oversampled or augmented, do it "
+                "inside the Pipeline so it is refit per fold. Tight clusters of genuinely independent "
+                "samples look the same; if that is the case, check_independence=False turns this off."
+            )
+        for column in (identifier_columns or [])[:3]:
+            recommendations.append(
+                f"Column {column['name']!r} looks like an identifier. Identifiers in X let a model "
+                f"memorise subjects: drop it from X, and if it identifies subjects pass "
+                f"groups=X[{column['name']!r}]."
+            )
 
         if checks["preprocessing_leakage"].status == "NOT_CHECKED":
             recommendations.append(
@@ -1429,7 +1609,8 @@ class TrustCVValidator:
                     {"error": str(exc)},
                 )
 
-        diagnostics: Dict[str, Any] = {}
+        recommendations = list(dict.fromkeys(recommendations))
+        diagnostics: Dict[str, Any] = {"fold_audit": fold_audit.coverage()}
         if ci_diagnostics:
             diagnostics["confidence_intervals"] = ci_diagnostics
         if test_indices_by_fold:
@@ -2322,8 +2503,13 @@ class TrustCVValidator:
         *,
         groups: Optional[Union[np.ndarray, pd.Series]] = None,
         splitter: Optional[BaseCrossValidator] = None,
+        group_overlap_free: Optional[bool] = None,
     ) -> Dict[str, bool]:
-        """Run lightweight integrity checks (balance, duplicates, group leakage)."""
+        """Run lightweight integrity checks (balance, duplicates, group leakage).
+
+        ``group_overlap_free`` is the result already computed on the scored
+        folds; when given, the splitter is not run again.
+        """
         checks: Dict[str, bool] = {}
         y_arr = y.to_numpy() if hasattr(y, "to_numpy") else np.asarray(y)
         splitter = splitter or self._cv_splitter
@@ -2342,7 +2528,9 @@ class TrustCVValidator:
                 )
                 if len(groups_arr) != len(y_arr):
                     raise ValueError("groups/patient_ids length mismatch during integrity check.")
-            if groups_arr is not None and splitter is not None:
+            if groups_arr is not None and group_overlap_free is not None:
+                checks["no_patient_leakage"] = bool(group_overlap_free)
+            elif groups_arr is not None and splitter is not None:
                 no_overlap_all = True
                 try:
                     with warnings.catch_warnings():

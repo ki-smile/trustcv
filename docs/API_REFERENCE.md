@@ -403,7 +403,7 @@ Result object from medical validation.
 | `ci_level` | float | Confidence level used when computing intervals |
 | `fold_details` | list | Per-fold information |
 | `checks` | dict[str, CheckResult] | Complete structured check map |
-| `overall_status` | str | PASSED, FAILED, or NOT_FULLY_VERIFIED |
+| `overall_status` | str | PASSED, NEEDS_REVIEW, NOT_FULLY_VERIFIED, or FAILED |
 | `permutation` | dict | Shuffled-label null report when enabled |
 | `leakage_check` | dict | Legacy boolean compatibility map; `has_leakage` is deprecated and inverted |
 | `recommendations` | list | Actionable suggestions |

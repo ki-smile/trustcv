@@ -19,6 +19,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ..checks import GROUP_OVERLAP_HINT
+
 # ---------------------------------------------------------------------------
 # Severity ranking helpers
 # ---------------------------------------------------------------------------
@@ -106,6 +108,7 @@ class DataLeakageChecker:
         *,
         target_auc_threshold: float = 0.99,
         target_correlation_threshold: float = 0.99,
+        target_strong_threshold: float = 0.90,
         max_target_features: int = 10_000,
         near_duplicate_distance_ratio: float = 0.01,
         near_duplicate_absolute_threshold: float = 1e-3,
@@ -114,6 +117,7 @@ class DataLeakageChecker:
         self.verbose = verbose
         self.target_auc_threshold = float(target_auc_threshold)
         self.target_correlation_threshold = float(target_correlation_threshold)
+        self.target_strong_threshold = float(target_strong_threshold)
         self.max_target_features = max(int(max_target_features), 1)
         self.near_duplicate_distance_ratio = float(near_duplicate_distance_ratio)
         self.near_duplicate_absolute_threshold = float(
@@ -158,13 +162,16 @@ class DataLeakageChecker:
         coordinates: Optional[Union[np.ndarray, pd.DataFrame]] = None,
         n_splits: int = 5,
         random_state: Optional[int] = 42,
+        folds: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
     ) -> "LeakageReport":
         """
         Convenience wrapper to check leakage via CV-style splits.
 
-        If groups are provided, uses GroupKFold; otherwise uses StratifiedKFold
-        when labels are available, else KFold. For time series tasks, prefer
-        calling `check_cv_splits` with your explicit train/test partitions.
+        If ``folds`` (a list of ``(train_idx, test_idx)``) is given, exactly
+        those splits are audited; pass the folds your model was scored on.
+        Otherwise, if groups are provided, uses GroupKFold; else
+        StratifiedKFold when labels are available, else KFold. Those default
+        splits describe what *these* splitters would do, not your own CV.
 
         When *coordinates* are provided but no explicit spatial threshold is
         given, the threshold is auto-computed as the 10th percentile of
@@ -175,7 +182,9 @@ class DataLeakageChecker:
         from sklearn.model_selection import GroupKFold, KFold, StratifiedKFold
 
         # Choose splitter
-        if groups is not None:
+        if folds is not None:
+            split_iter = [(np.asarray(tr, dtype=int), np.asarray(te, dtype=int)) for tr, te in folds]
+        elif groups is not None:
             splitter = GroupKFold(n_splits=n_splits)
             split_iter = splitter.split(X, y, groups)
         elif y is not None:
@@ -395,10 +404,7 @@ class DataLeakageChecker:
             if patient_leakage["has_leakage"]:
                 leakage_types.append("patient")
                 details["patient_leakage"] = patient_leakage
-                recommendations.append(
-                    "Use PatientGroupKFold to ensure "
-                    "patient-level separation"
-                )
+                recommendations.append(GROUP_OVERLAP_HINT)
                 severity = "critical"
 
         # Check 2: Duplicate samples
@@ -409,7 +415,8 @@ class DataLeakageChecker:
             leakage_types.append("duplicate")
             details["duplicate_leakage"] = duplicate_leakage
             recommendations.append(
-                "Remove duplicate samples before splitting"
+                "Some test rows are exact copies of training rows. Remove duplicates, or pass "
+                "groups= so copies stay on the same side."
             )
             severity = _worst_severity(severity, "high")
 
@@ -425,7 +432,9 @@ class DataLeakageChecker:
                 leakage_types.append("temporal")
                 details["temporal_leakage"] = temporal_leakage
                 recommendations.append(
-                    "Use TemporalClinical splitter for time-series data"
+                    "Test rows precede training rows in time, so the model sees the future. "
+                    "Use a forward-in-time splitter such as TimeSeriesSplit "
+                    "(TrustCV(method='temporal')) and pass it via cv=."
                 )
                 severity = _worst_severity(severity, "high")
 
@@ -498,10 +507,13 @@ class DataLeakageChecker:
         if near_dup["has_leakage"]:
             leakage_types.append("near_duplicate")
             details["near_duplicate_leakage"] = near_dup
-            recommendations.append(
-                "Investigate test rows whose train-standardized Euclidean "
-                "distance is far below typical within-train nearest-neighbour spacing."
-            )
+            # Exact copies are also near-duplicates; only add this hint for the rest.
+            if near_dup["near_duplicate_count"] > duplicate_leakage.get("duplicate_count", 0):
+                recommendations.append(
+                    "Some test rows have a near-identical row in training (repeated measurement, "
+                    "augmentation or oversampling?). Pass groups= so related rows stay together, "
+                    "and resample only inside the Pipeline."
+                )
             severity = _worst_severity(severity, "high")
 
         # Check 7: Label distribution
@@ -512,8 +524,9 @@ class DataLeakageChecker:
             if label_check["suspicious"]:
                 details["label_distribution"] = label_check
                 recommendations.append(
-                    "Consider using stratified splitting "
-                    "for balanced class distribution"
+                    "Class proportions differ noticeably between train and test folds. Use a "
+                    "stratified splitter (method='stratified_kfold', or "
+                    "'stratified_group_kfold' when passing groups=)."
                 )
                 severity = _worst_severity(severity, "low")
 
@@ -662,18 +675,19 @@ class DataLeakageChecker:
         if isinstance(X_test, np.ndarray):
             X_test = pd.DataFrame(X_test)
 
-        # Create hash of each row
-        train_hashes = pd.util.hash_pandas_object(X_train)
-        test_hashes = pd.util.hash_pandas_object(X_test)
+        # Hash row values only; the DataFrame index is not part of the sample.
+        train_hashes = pd.util.hash_pandas_object(X_train, index=False)
+        test_hashes = pd.util.hash_pandas_object(X_test, index=False)
 
-        # Find overlaps
-        common_hashes = set(train_hashes).intersection(set(test_hashes))
+        # Count test rows that have an identical row in training
+        in_train = test_hashes.isin(set(train_hashes)).to_numpy()
+        n_rows = int(in_train.sum())
 
         result: Dict[str, Any] = {
-            "has_leakage": len(common_hashes) > 0,
-            "duplicate_count": len(common_hashes),
+            "has_leakage": n_rows > 0,
+            "duplicate_count": n_rows,
             "duplicate_percentage": (
-                len(common_hashes) / len(test_hashes) * 100
+                n_rows / len(test_hashes) * 100 if len(test_hashes) else 0.0
             ),
         }
 
@@ -1154,6 +1168,7 @@ class DataLeakageChecker:
         auc_threshold: Optional[float] = None,
         correlation_threshold: Optional[float] = None,
         max_features: Optional[int] = None,
+        strong_threshold: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Scan individual features for near-deterministic target encoding.
 
@@ -1172,6 +1187,10 @@ class DataLeakageChecker:
             Absolute Spearman-correlation threshold for regression.
         max_features : int, optional
             Maximum number of columns to inspect.
+        strong_threshold : float, optional
+            Lower tier: features at or above this ROC-AUC (or ``1 - value``),
+            or absolute Spearman correlation, are listed in
+            ``strong_features`` without counting as leakage.
 
         Returns
         -------
@@ -1221,6 +1240,11 @@ class DataLeakageChecker:
                 else self.target_correlation_threshold
             )
         )
+        strong_cutoff = (
+            float(strong_threshold)
+            if strong_threshold is not None
+            else self.target_strong_threshold
+        )
         limit = (
             max(int(max_features), 1)
             if max_features is not None
@@ -1252,6 +1276,7 @@ class DataLeakageChecker:
             }
 
         suspicious_features: List[Dict[str, Any]] = []
+        strong_features: List[Dict[str, Any]] = []
         scores: List[float] = []
         if is_binary:
             from sklearn.metrics import roc_auc_score
@@ -1263,14 +1288,11 @@ class DataLeakageChecker:
                 except (TypeError, ValueError):
                     continue
                 scores.append(auc)
+                record = {"index": i, "name": feature_names[i], "roc_auc": auc}
                 if auc >= auc_cutoff or auc <= 1.0 - auc_cutoff:
-                    suspicious_features.append(
-                        {
-                            "index": i,
-                            "name": feature_names[i],
-                            "roc_auc": auc,
-                        }
-                    )
+                    suspicious_features.append(record)
+                elif auc >= strong_cutoff or auc <= 1.0 - strong_cutoff:
+                    strong_features.append(record)
             metric = "roc_auc"
         else:
             from scipy.stats import spearmanr
@@ -1283,14 +1305,11 @@ class DataLeakageChecker:
                 if not np.isfinite(corr):
                     continue
                 scores.append(abs(corr))
+                record = {"index": i, "name": feature_names[i], "spearman": corr}
                 if abs(corr) >= corr_cutoff:
-                    suspicious_features.append(
-                        {
-                            "index": i,
-                            "name": feature_names[i],
-                            "spearman": corr,
-                        }
-                    )
+                    suspicious_features.append(record)
+                elif abs(corr) >= strong_cutoff:
+                    strong_features.append(record)
             metric = "spearman"
 
         result: Dict[str, Any] = {
@@ -1298,6 +1317,8 @@ class DataLeakageChecker:
             "not_applicable": False,
             "suspicious_features": suspicious_features,
             "num_suspicious": len(suspicious_features),
+            "strong_features": strong_features,
+            "strong_threshold": strong_cutoff,
             "metric": metric,
             "auc_threshold": auc_cutoff,
             "correlation_threshold": corr_cutoff,

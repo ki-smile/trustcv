@@ -1,6 +1,19 @@
 """Shared pytest configuration for trustcv's test suite."""
 
+import os
+
 import pytest
+
+import trustcv
+
+_REPO_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), os.pardir))
+_IMPORTED_FROM = os.path.realpath(os.path.dirname(trustcv.__file__))
+if os.path.dirname(_IMPORTED_FROM) != _REPO_ROOT:
+    # Another trustcv (e.g. an older editable install) would be tested instead of this code.
+    raise pytest.UsageError(
+        f"tests are running against trustcv at {_IMPORTED_FROM}, not this checkout "
+        f"({_REPO_ROOT}). Install it with `pip install -e .` or run from the repo root."
+    )
 
 
 _PROTECTED_SLOW_TESTS = {

@@ -103,33 +103,36 @@ result = TrustCV(
 print(result.summary())
 ```
 
-Real output from v1.1.0:
+Real output from v1.2.0 (unreleased):
 
 ```text
-iid stratified_kfold StratifiedKFold
+iid stratified_kfold StratifiedKFoldMedical
 === Trustworthy Cross-Validation Results ===
 
 Performance Metrics (mean +/- std) (method: corrected_t):
-  accuracy: 0.974 +/- 0.019 [95% CI (corrected_t): 0.939-1.008]
-  roc_auc: 0.995 +/- 0.006 [95% CI (corrected_t): 0.984-1.006]
-  sensitivity: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.015]
-  specificity: 0.944 +/- 0.059 [95% CI (corrected_t): 0.834-1.053]
-  precision: 0.968 +/- 0.032 [95% CI (corrected_t): 0.908-1.029]
-  recall: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.015]
-  f1: 0.979 +/- 0.014 [95% CI (corrected_t): 0.953-1.006]
+  accuracy: 0.974 +/- 0.019 [95% CI (corrected_t): 0.939-1.000]
+  roc_auc: 0.995 +/- 0.006 [95% CI (corrected_t): 0.984-1.000]
+  sensitivity: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.000]
+  specificity: 0.944 +/- 0.059 [95% CI (corrected_t): 0.834-1.000]
+  precision: 0.968 +/- 0.032 [95% CI (corrected_t): 0.908-1.000]
+  recall: 0.992 +/- 0.013 [95% CI (corrected_t): 0.968-1.000]
+  f1: 0.979 +/- 0.014 [95% CI (corrected_t): 0.953-1.000]
 
 Data Integrity Checks:
   Duplicate Samples: PASSED — No exact duplicate feature rows were found.
   Group Leakage: NOT_APPLICABLE — Samples were explicitly declared independent; no groups were supplied.
-  Preprocessing Leakage: PASSED — Preprocessing steps are inside an sklearn Pipeline and are refit within each fold.
-  External Leakage Detector: PASSED — The external leakage detector found no supported leakage pattern.
-  Target Leakage Features: PASSED — No feature crossed the configured univariate target-leakage threshold.
+  Preprocessing Leakage: PASSED — The model is an sklearn Pipeline, so its steps are refit within each fold. Preprocessing applied to X before validate() (feature selection, imputation, scaling, encoding, resampling) is not visible to this check.
+  External Leakage Detector: PASSED — The external leakage detector found no supported leakage pattern (5 of 5 scored folds audited).
+  Target Leakage Features: PASSED — No feature almost determines the target on its own. 11 feature(s) are very strong single predictors: feature_0 (AUC 0.94, inverse), feature_2 (AUC 0.95, inverse), feature_3 (AUC 0.94, inverse), ...; confirm they are known at prediction time.
   Permutation Sanity: NOT_CHECKED — Permutation sanity checking is disabled.
   Class Balance: INFO — Minority-to-majority class ratio is 0.594.
   Covariate Shift: INFO — No statistically significant covariate shift was detected.
 
 Overall Status: PASSED
 Leakage Check: PASSED
+
+Recommendations:
+  - Very strong single predictor(s) 'feature_0', 'feature_2', 'feature_3': confirm each is available before the outcome is known; leaked fields (codes or results recorded after diagnosis) often look like this.
 ```
 
 ## Integrity checks and status semantics
@@ -138,16 +141,23 @@ Every `ValidationResult.checks` mapping contains the following keys:
 
 | Check | Status behavior | Meaning |
 | --- | --- | --- |
-| `duplicate_samples` | `PASSED` or `WARNING` | Exact row hashes; works for NumPy arrays and DataFrames. |
-| `group_leakage` | `PASSED`, `FAILED`, `ERROR`, `NOT_CHECKED`, or `NOT_APPLICABLE` | Group overlap can be verified only when groups are supplied, unless independence is explicitly declared. |
+| `duplicate_samples` | `PASSED` or `WARNING` | Exact row-value hashes (the DataFrame index is ignored); reports how many test rows have an identical training row in the scored folds. |
+| `group_leakage` | `PASSED`, `FAILED`, `WARNING`, `ERROR`, `NOT_CHECKED`, or `NOT_APPLICABLE` | With groups: overlap is checked on every scored fold. Without groups: `WARNING` when rows look clustered (repeated subjects, augmentation, oversampling) or an identifier column repeats, even if independence was declared. |
 | `preprocessing_leakage` | `PASSED` or `NOT_CHECKED` | Passes only when preprocessing is inside an sklearn `Pipeline` before the final estimator. |
-| `external_leakage_detector` | `PASSED`, `FAILED`, or `ERROR` | A detector crash is an error, never a silent pass. |
-| `target_leakage_features` | `PASSED`, `WARNING`, or `NOT_APPLICABLE` | Flags near-deterministic binary AUC or regression Spearman association. |
+| `external_leakage_detector` | `PASSED`, `FAILED`, `ERROR`, or `NOT_CHECKED` | Audits the folds that were scored (up to `max_audit_folds` for distance checks). A crash is an error, never a silent pass; multi-input features are `NOT_CHECKED`. |
+| `target_leakage_features` | `PASSED`, `WARNING`, `NOT_CHECKED`, or `NOT_APPLICABLE` | `WARNING` names features that almost determine the target. Very strong single predictors (`target_strong_threshold`, default 0.90) are listed without changing the status, because real biomarkers look the same. |
 | `permutation_sanity` | `PASSED`, `FAILED`, or `NOT_CHECKED` | Opt-in check for shuffled labels scoring above chance inside the CV loop. |
 | `class_balance` | `INFO` or `WARNING` | Imbalance describes the data and is never a failed leakage check. |
-| `covariate_shift` | `INFO`, `WARNING`, or `NOT_CHECKED` | Bonferroni-corrected KS shift report; shift is not leakage. |
+| `covariate_shift` | `INFO`, `WARNING`, or `NOT_CHECKED` | Bonferroni-corrected KS shift report; shift is not leakage. `INFO` when group separation was verified, since held-out groups are expected to differ. |
 
-`overall_status` considers the first five leakage-relevant checks and the permutation check when enabled. It is `FAILED` for any `FAILED`/`ERROR`, `PASSED` only when all relevant checks are `PASSED`/`NOT_APPLICABLE`, and `NOT_FULLY_VERIFIED` otherwise.
+`overall_status` considers the first five leakage-relevant checks and the permutation check when enabled:
+
+| Status | Meaning |
+| --- | --- |
+| `FAILED` | A relevant check is `FAILED` or `ERROR`. |
+| `NEEDS_REVIEW` | A relevant check found signs of possible leakage (`WARNING`) that cannot be proven automatically. A person should confirm them. |
+| `NOT_FULLY_VERIFIED` | Nothing suspicious, but some condition could not be checked. |
+| `PASSED` | Every relevant check is `PASSED` or `NOT_APPLICABLE`. |
 
 `leakage_check` remains for compatibility. Use `external_leakage_detected` for non-inverted semantics. The legacy `has_leakage` key is deprecated for one release and is inverted: `external_leakage_detected == (not has_leakage)`.
 
@@ -155,7 +165,7 @@ Every `ValidationResult.checks` mapping contains the following keys:
 
 TrustCV can verify exact duplicates, supplied-group separation, whether visible sklearn preprocessing is inside a `Pipeline`, selected leakage patterns in `DataLeakageChecker`, near-deterministic single-feature target encodings, class balance, covariate shift, and—when enabled—whether shuffled labels score above chance inside the CV loop.
 
-TrustCV cannot infer missing patient IDs, timestamps, coordinates, or causal relationships. It cannot detect preprocessing or feature selection already applied to the full dataset before `validate()` receives `X`. The permutation check is not a general leakage detector: with a fixed pre-selected matrix its null scores may remain at chance while the observed score is inflated. A `PASSED` status therefore means every applicable supported check passed; it is not proof that all possible leakage is absent.
+When no groups are supplied, a scan looks for rows that come in unusually tight clusters (repeated subjects, augmentation, oversampling) and for identifier-like columns. A hit means `NEEDS_REVIEW`, not proof: tight clusters of genuinely independent samples look the same (`check_independence=False` turns the scan off). TrustCV cannot otherwise infer missing patient IDs, timestamps, coordinates, or causal relationships. It cannot detect preprocessing or feature selection already applied to the full dataset before `validate()` receives `X`. The permutation check is not a general leakage detector: with a fixed pre-selected matrix its null scores may remain at chance while the observed score is inflated. A `PASSED` status therefore means every applicable supported check passed; it is not proof that all possible leakage is absent.
 
 ### Confidence intervals
 

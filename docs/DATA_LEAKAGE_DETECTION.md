@@ -441,3 +441,22 @@ for train_idx, test_idx in cv.split(X, y, groups=hospital_ids):
 TrustCV reports only what it verified. It can check supplied-group separation, exact and calibrated near-duplicates, visible Pipeline placement, supported external leakage patterns, near-deterministic target features, CV-loop permutation behavior, class balance, and covariate shift.
 
 It cannot infer missing group/time/space metadata, establish causal validity, or detect preprocessing completed before it receives the feature matrix. Treat `PASSED` as “all applicable supported checks passed,” not as proof that every possible source of leakage is absent.
+
+## Rows that may not be independent (no groups supplied)
+
+When `validate()` gets no `groups=`, it scans for rows that come in unusually tight clusters. For each sampled row it compares successive nearest-neighbour distances; for independent points these follow a known law set by the local dimension, and a cluster of near-copies shows up as a sharp jump after the last copy. Only complete rows and columns with many distinct values are used; binary, coarse-integer or mostly-missing data is reported as not applicable.
+
+A hit makes `group_leakage` a `WARNING` and the overall status `NEEDS_REVIEW`, also when `declare_independent_samples=True`. It is evidence, not proof: tight clusters of genuinely independent samples look the same. Typical causes are repeated visits or several images per patient (pass `groups=`), and augmentation or oversampling done before `validate()` (do it inside the Pipeline). Turn the scan off with `TrustCV(check_independence=False)`. Limits: rows of one subject that differ a lot (e.g. ICU time series) are not near-copies and are not flagged, nor are clusters larger than 30 rows.
+
+## What the checks cannot see
+
+These leaks happen before `validate()` receives `X`, so no check can detect them. Each one inflates scores on data with no signal:
+
+| Done on the full dataset before CV | Fix |
+| --- | --- |
+| Feature selection (e.g. `SelectKBest` on 2,000 noise features gives AUC 0.88) | Put the selector in the Pipeline |
+| Oversampling (SMOTE) or augmentation | Resample inside the Pipeline (e.g. `imblearn.pipeline.Pipeline`); the independence scan may still flag it |
+| Imputation, scaling, target encoding | Put the transformer in the Pipeline |
+| Hyperparameter tuning on the same folds you report | Use nested CV |
+| Early stopping or checkpoint choice on the test fold (deep learning) | Hold out a validation split inside each training fold |
+

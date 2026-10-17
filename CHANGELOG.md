@@ -2,6 +2,33 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- New overall status `NEEDS_REVIEW`: a leakage-relevant check found signs of possible leakage (`WARNING`) that cannot be proven automatically. It ranks between `FAILED` and `NOT_FULLY_VERIFIED`.
+- Independence scan when no groups are supplied: rows that come in unusually tight clusters (repeated subjects, augmentation, oversampling) make `group_leakage` a `WARNING`, also when independence was declared. Turn off with `TrustCV(check_independence=False)`.
+- Identifier-column detection for DataFrames (`patient_id`, `PatientID`, `mrn`, ...), with a hint to drop the column and pass it as `groups=`. Repeated identifier values without groups make `group_leakage` a `WARNING`.
+- `DataLeakageChecker.check(folds=...)` audits given `(train_idx, test_idx)` splits.
+- Strong single predictors (`target_strong_threshold`, default 0.90) are named in the target-leakage message and recommendations without changing its status.
+- `TrustCV(max_audit_folds=10)` caps how many scored folds the distance-based detector audits; overlap and exact-duplicate checks always cover every fold. Coverage is in `result.diagnostics["fold_audit"]`.
+- The test suite refuses to run against a trustcv other than the checkout under test.
+
+### Changed
+
+- `validate()` audits the folds that were actually scored. Group-overlap, legacy integrity keys and the external detector no longer re-run the splitter or use the detector's own splits. Custom `leakage_checker`s without a `folds` parameter still work and say they used their own splits.
+- Hints are actionable and use current API names, for example `TrustCV(method='stratified_group_kfold')` for group overlap. Repeated per-fold hints are deduplicated.
+- Target-leakage messages name the features and their scores; inverse associations are shown as such.
+- The Pipeline preprocessing message states that preprocessing applied before `validate()` is not visible.
+- Covariate shift is `INFO` when group separation was verified on the scored folds.
+- Confidence intervals of built-in metrics bounded to [0, 1] are clipped to that range (raw bounds kept in `diagnostics["confidence_intervals"][metric]["clipped_from"]`). Custom scorers are not clipped.
+- Behaviour change: results that were `NOT_FULLY_VERIFIED` only because of a `WARNING` are now `NEEDS_REVIEW`, and declared-independent data that looks clustered changes from `PASSED` to `NEEDS_REVIEW`.
+
+### Fixed
+
+- Multi-input (dict/list) features no longer make the detector and the target scan error, which turned `overall_status` into `FAILED`; they are `NOT_CHECKED`.
+- The detector's exact-duplicate check hashed the DataFrame index along with the values, so identical rows with different indices were missed. It now hashes values only and counts test rows.
+
 ## [1.1.2] - 2026-10-17
 
 ### Added
