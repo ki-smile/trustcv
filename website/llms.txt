@@ -1,6 +1,6 @@
 # trustcv
 
-> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.1.1)
+> Framework-agnostic toolkit for trustworthy cross-validation in medical AI (v1.1.2)
 > Developed at SMAILE, Karolinska Institutet — https://smile.ki.se
 > GitHub: https://github.com/ki-smile/trustcv | PyPI: https://pypi.org/project/trustcv/
 
