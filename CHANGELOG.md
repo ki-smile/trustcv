@@ -2,6 +2,19 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `ClinicalMetrics.calculate_all(..., groups=...)`: the AUC confidence interval resamples whole patients when group ids are given, so repeated measures no longer give too-narrow intervals.
+- `groups` must be 1-D with one entry per observation; a mismatch raises `ValueError` instead of silently resampling a different population.
+- Regression tests for the AUC interval (pandas input with a non-default index, cluster bootstrap, single-class input).
+- CI job that runs the TensorFlow/Keras tests against `trustcv[tensorflow]`.
+
+### Fixed
+
+- The AUC interval returns `(nan, nan)` instead of raising `IndexError` when no resample contains both classes. The `_auc_ci` docstring no longer claims DeLong; it is a bootstrap.
+
 ## [1.1.1] - 2026-10-17
 
 ### Added

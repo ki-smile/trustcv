@@ -64,6 +64,7 @@ class ClinicalMetrics:
         y_pred: np.ndarray,
         y_proba: Optional[np.ndarray] = None,
         sample_weight: Optional[np.ndarray] = None,
+        groups: Optional[np.ndarray] = None,
     ) -> Dict:
         """
         Calculate all clinical metrics
@@ -78,12 +79,19 @@ class ClinicalMetrics:
             Predicted probabilities
         sample_weight : array-like, optional
             Sample weights
+        groups : array-like, optional
+            Patient (cluster) ids. When given, the AUC confidence interval
+            resamples whole patients instead of rows, which keeps repeated
+            measures from one patient together and avoids too-narrow intervals.
 
         Returns
         -------
         dict
             Dictionary containing all metrics with confidence intervals
         """
+        if groups is not None:
+            groups = self._check_groups(groups, len(y_true))
+
         # Get confusion matrix
         tn, fp, fn, tp = confusion_matrix(y_true, y_pred, sample_weight=sample_weight).ravel()
 
@@ -140,7 +148,7 @@ class ClinicalMetrics:
         # AUC if probabilities provided
         if y_proba is not None:
             metrics["auc_roc"] = roc_auc_score(y_true, y_proba, sample_weight=sample_weight)
-            metrics["auc_roc_ci"] = self._auc_ci(y_true, y_proba)
+            metrics["auc_roc_ci"] = self._auc_ci(y_true, y_proba, groups)
 
             # Average Precision (AP)
             metrics["average_precision"] = average_precision_score(
@@ -196,9 +204,19 @@ class ClinicalMetrics:
 
         return (max(0, center - margin), min(1, center + margin))
 
-    def _auc_ci(self, y_true: np.ndarray, y_proba: np.ndarray) -> Tuple[float, float]:
+    @staticmethod
+    def _check_groups(groups, n_samples):
+        groups = np.asarray(groups)
+        if groups.ndim != 1 or len(groups) != n_samples:
+            raise ValueError(
+                f"groups must be 1-D with one entry per observation: "
+                f"expected length {n_samples}, got shape {groups.shape}"
+            )
+        return groups
+
+    def _auc_ci(self, y_true: np.ndarray, y_proba: np.ndarray, groups=None) -> Tuple[float, float]:
         """
-        Calculate confidence interval for AUC using DeLong method
+        Bootstrap percentile confidence interval for AUC.
 
         Parameters
         ----------
@@ -206,25 +224,37 @@ class ClinicalMetrics:
             True labels
         y_proba : array-like
             Predicted probabilities
+        groups : array-like, optional
+            Cluster ids; resamples whole clusters when given, rows otherwise.
 
         Returns
         -------
         tuple
-            (lower_bound, upper_bound)
+            (lower_bound, upper_bound); (nan, nan) if no resample contains both classes
         """
-        # Simplified bootstrap CI for AUC
         y_true, y_proba = np.asarray(y_true), np.asarray(y_proba)
         n_bootstraps = 1000
         rng = np.random.RandomState(42)
+        if groups is None:
+            members = None
+        else:
+            groups = self._check_groups(groups, len(y_true))
+            _, inverse = np.unique(groups, return_inverse=True)
+            members = [np.flatnonzero(inverse == g) for g in range(inverse.max() + 1)]
         bootstrapped_scores = []
 
         for _ in range(n_bootstraps):
-            indices = rng.randint(0, len(y_true), len(y_true))
+            if members is None:
+                indices = rng.randint(0, len(y_true), len(y_true))
+            else:
+                picked = rng.randint(0, len(members), len(members))
+                indices = np.concatenate([members[i] for i in picked])
             if len(np.unique(y_true[indices])) < 2:
                 continue
-            score = roc_auc_score(y_true[indices], y_proba[indices])
-            bootstrapped_scores.append(score)
+            bootstrapped_scores.append(roc_auc_score(y_true[indices], y_proba[indices]))
 
+        if not bootstrapped_scores:
+            return (np.nan, np.nan)
         sorted_scores = np.sort(bootstrapped_scores)
         alpha = 1 - self.confidence_level
         lower = sorted_scores[int(alpha / 2 * len(sorted_scores))]
