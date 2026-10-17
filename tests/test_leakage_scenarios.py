@@ -407,5 +407,24 @@ def test_retained_folds_are_exactly_the_scored_indices():
 def test_duplicate_column_labels_do_not_abort_validation():
     X, y, _ = _patients()
     df = pd.DataFrame(X[:, :4], columns=["a", "b", "patient_id", "patient_id"])
-    r = _validate(df, y, tv_kwargs={"declare_independent_samples": True})
+    assert [c["index"] for c in _identifier_columns(df)] == [2, 3]
+
+    class ArrayModel:  # scikit-learn >= 1.9 itself rejects duplicate column names
+        def get_params(self, deep=True):
+            return {}
+
+        def set_params(self, **k):
+            return self
+
+        def fit(self, X, y):
+            self.m = LogisticRegression().fit(np.asarray(X), y)
+            return self
+
+        def predict(self, X):
+            return self.m.predict(np.asarray(X))
+
+        def predict_proba(self, X):
+            return self.m.predict_proba(np.asarray(X))
+
+    r = _validate(df, y, tv_kwargs={"declare_independent_samples": True}, model=ArrayModel())
     assert r.overall_status in {"PASSED", "NEEDS_REVIEW", "NOT_FULLY_VERIFIED", "FAILED"}
