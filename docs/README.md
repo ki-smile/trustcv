@@ -1,6 +1,6 @@
 # TrustCV Documentation
 
-**Version 1.2.0** | Framework-Agnostic Cross-Validation for Medical AI
+**Version 1.2.1** | Framework-Agnostic Cross-Validation for Medical AI
 
 This directory contains comprehensive documentation for TrustCV, a toolkit implementing 29 cross-validation methods with automatic data leakage detection.
 

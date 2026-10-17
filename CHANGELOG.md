@@ -2,7 +2,7 @@
 
 All notable changes to trustcv are documented in this file.
 
-## [Unreleased]
+## [1.2.1] - 2026-10-17
 
 ### Fixed
 
