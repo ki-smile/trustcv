@@ -18,7 +18,7 @@ It builds on familiar scikit-learn idioms, but adds:
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.1.2 – Conservative check statuses, corrected confidence intervals, calibrated leakage diagnostics, and an actionable CV advisor.
+> **Status:** v1.2.0 – Leakage checks audit the folds that were actually scored, a new `NEEDS_REVIEW` status for signs of leakage that need a person to confirm, a scan for clustered rows and identifier columns, and fix-oriented hints.
 
 ---
 
@@ -103,7 +103,7 @@ result = TrustCV(
 print(result.summary())
 ```
 
-Real output from v1.2.0 (unreleased):
+Real output from v1.2.0:
 
 ```text
 iid stratified_kfold StratifiedKFoldMedical

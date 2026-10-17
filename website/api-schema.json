@@ -1,6 +1,6 @@
 {
   "name": "trustcv",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Framework-agnostic toolkit for trustworthy cross-validation in medical AI",
   "install": "pip install trustcv",
   "repository": "https://github.com/ki-smile/trustcv",
