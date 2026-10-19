@@ -72,10 +72,6 @@ markdown_extensions:
 
 exclude_docs: |
   maintainers/
-  LEAKAGE_DETECTION_IMPLEMENTATION.md
-  README.md
-  /*.md
-  !/index.md
 
 validation:
   nav:

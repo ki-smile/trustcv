@@ -255,19 +255,17 @@ Please see:
 
 ## 3. Quickstart: IID CV with TrustCV – outline
 
-**See file:** `docs/quickstart_iid.md`  
-(and a matching notebook: `notebooks/Quickstart_IID_TrustCV.ipynb`)
+See the [quickstart](https://ki-smile.github.io/trustcv/get-started/quickstart.html) on the documentation site.
 
 
 ## Repository Structure
 
 ```
 trustcv/       # Python package (splitters, validators, metrics, core, CLI, bundled examples)
-docs/          # Documentation & guides
+docs/          # Documentation site source (MkDocs Material; build with `mkdocs serve`)
 notebooks/     # Jupyter tutorials
 examples/      # Heavier framework examples (PyTorch, TensorFlow, JAX, MONAI)
-tests/         # Unit & integration tests
-website/       # Static site and visualizations
+tests/         # Unit & integration tests (including executed documentation snippets)
 ```
 
 ## Development
