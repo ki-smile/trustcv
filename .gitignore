@@ -28,3 +28,4 @@ notebooks/*.log
 notebooks/reports/
 trustcv_dashboard.html
 fda_validation_report.json
+site/

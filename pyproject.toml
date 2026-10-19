@@ -58,11 +58,10 @@ dev = [
     "bandit>=1.7.0",
 ]
 docs = [
-    "sphinx>=4.5.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "sphinx-autodoc-typehints>=1.12.0",
-    "myst-parser>=0.18.0",
-    "nbsphinx>=0.9.0",
+    "mkdocs-material>=9.5,<10",
+    "mkdocstrings[python]>=0.26",
+    "mkdocs-redirects>=1.2",
+    "mkdocs-llmstxt>=0.2",
 ]
 viz = [
     "bokeh>=2.4.0",
@@ -102,8 +101,6 @@ all = [
     "flake8>=4.0.0",
     "mypy>=0.950",
     "black>=22.0.0",
-    "sphinx>=4.5.0",
-    "nbsphinx>=0.9.0",
     "pytest-cov>=3.0.0",
 ]
 multilabel = [

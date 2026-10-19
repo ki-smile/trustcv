@@ -93,10 +93,10 @@ setup(
         ],
         # Documentation dependencies
         "docs": [
-            "sphinx>=4.0",
-            "sphinx-rtd-theme>=0.5",
-            "sphinx-autodoc-typehints>=1.12.0",
-            "myst-parser>=0.18.0",
+            "mkdocs-material>=9.5,<10",
+            "mkdocstrings[python]>=0.26",
+            "mkdocs-redirects>=1.2",
+            "mkdocs-llmstxt>=0.2",
         ],
     },
     keywords=[

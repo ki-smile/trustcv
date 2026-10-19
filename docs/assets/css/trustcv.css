@@ -1,0 +1,87 @@
+/* trustcv design tokens on top of Material for MkDocs.
+   Light-first; KI plum is the brand colour. Contrast pairs are WCAG 2.2 AA. */
+
+:root {
+  --tcv-plum: #4f0433;          /* Karolinska Institutet plum */
+  --tcv-plum-ink: #3a0326;
+  --tcv-accent: #870052;
+  --tcv-train: #2f6db5;         /* train vs test differ in luminance, not only hue */
+  --tcv-test: #c25e00;
+  --tcv-radius: 10px;
+  --tcv-ok: #1e7a3c;
+  --tcv-review: #8a5a00;
+  --tcv-fail: #b3261e;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: var(--tcv-plum);
+  --md-primary-fg-color--light: #6d1b52;
+  --md-primary-fg-color--dark: var(--tcv-plum-ink);
+  --md-accent-fg-color: var(--tcv-accent);
+  --md-typeset-a-color: #7a1460;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-hue: 300;
+  --md-primary-fg-color: #2a1024;
+  --md-primary-fg-color--light: #3b1733;
+  --md-primary-fg-color--dark: #1c0a18;
+  --md-accent-fg-color: #e59ad3;
+  --md-typeset-a-color: #e8a6d8;
+  --tcv-train: #7fb0ec;
+  --tcv-test: #f0a35e;
+  --tcv-ok: #6fcf8f;
+  --tcv-review: #f2c46d;
+  --tcv-fail: #ff8a80;
+}
+
+/* Fluid type scale */
+.md-typeset h1 { font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; }
+.md-typeset h2 { font-size: clamp(1.35rem, 1.15rem + 0.7vw, 1.7rem); font-weight: 650; letter-spacing: -0.01em; }
+.md-typeset h3 { font-size: clamp(1.1rem, 1rem + 0.35vw, 1.3rem); font-weight: 600; }
+.md-typeset { font-size: 0.82rem; line-height: 1.7; }
+
+/* Visible keyboard focus everywhere */
+:focus-visible {
+  outline: 3px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Long tables and code scroll inside their box, never the page */
+.md-typeset__table, .md-typeset pre { max-width: 100%; }
+.md-typeset__scrollwrap { overflow-x: auto; }
+
+/* Hero on the home page */
+.tcv-hero { padding: 1.5rem 0 0.5rem; }
+.tcv-hero h1 { margin-bottom: 0.4rem; }
+.tcv-hero .tcv-lede { font-size: 1.05rem; max-width: 46rem; opacity: 0.9; }
+
+/* Card grid that reflows without orphans */
+.tcv-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); margin: 1.2rem 0; }
+.tcv-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: var(--tcv-radius);
+  padding: 1rem 1.1rem;
+  background: var(--md-default-bg-color);
+}
+.tcv-card h3 { margin-top: 0.2rem; }
+.tcv-card p { margin-bottom: 0; }
+
+/* Status pills for overall_status */
+.tcv-status { display: inline-block; font-weight: 700; font-size: 0.72rem; padding: 0.1rem 0.5rem; border-radius: 999px; border: 2px solid currentColor; }
+.tcv-status.passed { color: var(--tcv-ok); }
+.tcv-status.review { color: var(--tcv-review); }
+.tcv-status.unverified { color: var(--md-default-fg-color--light); }
+.tcv-status.failed { color: var(--tcv-fail); }
+
+/* "Simulated" badge for illustrative, randomly generated outputs */
+.tcv-sim-badge { display: inline-block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.45rem; border-radius: 4px; background: var(--md-default-fg-color--lightest); }
+
+/* Regulatory disclaimer */
+.tcv-disclaimer { border-left: 4px solid var(--tcv-plum); padding: 0.6rem 0.9rem; background: var(--md-code-bg-color); border-radius: 0 var(--tcv-radius) var(--tcv-radius) 0; }
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
