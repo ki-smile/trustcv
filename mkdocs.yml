@@ -115,13 +115,42 @@ plugins:
         FAILED), corrected confidence intervals and documentation support.
       full_output: llms-full.txt
       sections:
+        Get started:
+          - index.md
+          - get-started/*.md
+        Guides:
+          - guides/*.md
+        Regulatory:
+          - regulatory/documentation-guide.md
         Reference:
           - reference/api.md
+          - reference/ai-agents.md
           - reference/changelog.md
 
 nav:
   - Home: index.md
+  - Get started:
+      - Install: get-started/install.md
+      - Quickstart: get-started/quickstart.md
+      - Reading results: get-started/reading-results.md
+      - Command line and examples: get-started/cli.md
+  - Guides:
+      - Choosing a split: guides/choosing-cv.md
+      - Data leakage: guides/data-leakage.md
+      - Best practices: guides/best-practices.md
+      - Deep learning: guides/deep-learning.md
+      - Confidence intervals: guides/confidence-intervals.md
+      - Compared with other toolkits: guides/methods-comparison.md
+  - Learn:
+      - Interactive visualisations: learn/visualisations.md
+      - Tutorials: learn/tutorials.md
+      - Quiz: learn/quiz.md
+      - Notebooks: learn/notebooks.md
+  - Regulatory:
+      - Documenting validation: regulatory/documentation-guide.md
+      - Report draft tool: regulatory/report-draft.md
   - Reference:
       - API: reference/api.md
+      - For AI agents: reference/ai-agents.md
       - Changelog: reference/changelog.md
       - License: reference/license.md
