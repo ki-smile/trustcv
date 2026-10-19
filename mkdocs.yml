@@ -107,6 +107,23 @@ plugins:
             members_order: source
             filters: ["!^_"]
             heading_level: 3
+  - redirects:
+      redirect_maps:
+        getting-started.md: get-started/quickstart.md
+        tutorials.md: learn/tutorials.md
+        notebooks.md: learn/notebooks.md
+        demonstrations.md: learn/visualisations.md
+        quiz.md: learn/quiz.md
+        frameworks.md: guides/deep-learning.md
+        ai-agents.md: reference/ai-agents.md
+        data-leakage.md: guides/data-leakage.md
+        best-practices.md: guides/best-practices.md
+        cv-selection-guide.md: guides/choosing-cv.md
+        methods-comparison.md: guides/methods-comparison.md
+        regulatory-cv-tutorial.md: regulatory/documentation-guide.md
+        regulatory-report.md: regulatory/report-draft.md
+        docs/API_REFERENCE.md: reference/api.md
+        docs/LICENSE.md: reference/license.md
   - llmstxt:
       markdown_description: >-
         trustcv is a Python toolkit for trustworthy cross-validation in medical

@@ -54,3 +54,36 @@ def test_machine_readable_files_are_published(site):
     llms = (site / "llms.txt").read_text()
     assert llms.startswith("# trustcv") and "NEEDS_REVIEW" in llms
     assert "inner_validation" in (site / "llms-full.txt").read_text()
+
+
+OLD_URLS = {
+    "getting-started.html": "get-started/quickstart.html",
+    "tutorials.html": "learn/tutorials.html",
+    "notebooks.html": "learn/notebooks.html",
+    "demonstrations.html": "learn/visualisations.html",
+    "quiz.html": "learn/quiz.html",
+    "frameworks.html": "guides/deep-learning.html",
+    "ai-agents.html": "reference/ai-agents.html",
+    "data-leakage.html": "guides/data-leakage.html",
+    "best-practices.html": "guides/best-practices.html",
+    "cv-selection-guide.html": "guides/choosing-cv.html",
+    "methods-comparison.html": "guides/methods-comparison.html",
+    "regulatory-cv-tutorial.html": "regulatory/documentation-guide.html",
+    "regulatory-report.html": "regulatory/report-draft.html",
+    "docs/API_REFERENCE.html": "reference/api.html",
+    "docs/LICENSE.html": "reference/license.html",
+}
+
+
+def test_old_urls_redirect_to_their_new_pages(site):
+    import posixpath
+    import re
+
+    for old, new in OLD_URLS.items():
+        page = (site / old).read_text(encoding="utf-8")
+        target = re.search(r'http-equiv="refresh" content="0; url=([^"]+)"', page).group(1)
+        resolved = posixpath.normpath(posixpath.join(posixpath.dirname(old), target))
+        assert resolved == new, (old, target)
+        assert (site / new).is_file(), new
+    home = (site / "index.html").read_text(encoding="utf-8")
+    assert 'http-equiv="refresh"' not in home  # Home is never a redirect
