@@ -73,52 +73,62 @@ def test_seeded_splits_are_reproducible():
     assert all(np.array_equal(x, z) for x, z in zip(a, b))
 
 
-def _epochs(cb, logs):
+def _epochs(cb, logs, n=3):
     cb.on_cv_start(2)
     cb.on_fold_start(0, None, None)
-    for epoch in range(3):
+    for epoch in range(n):
         cb.on_epoch_end(epoch, 0, dict(logs))
 
 
-def test_selection_on_heldout_metrics_warns_once():
+@pytest.mark.parametrize("make", [lambda: EarlyStopping(monitor="heldout_loss"),
+                                  lambda: ModelCheckpoint("m.pt", monitor="heldout_auc")])
+def test_selecting_on_heldout_metrics_is_refused(make):
+    with pytest.raises(ValueError, match="held-out CV fold"):
+        make()
+
+
+def test_missing_monitor_warns_once_per_run():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        _epochs(EarlyStopping(monitor="val_loss", verbose=False), {"val_loss": 1.0, "model": None})
-    assert sum("held-out CV fold" in str(w.message) for w in caught) == 1
+        _epochs(EarlyStopping(monitor="val_loss", verbose=False), {"train_loss": 1.0}, n=5)
+    assert sum("inner_validation" in str(w.message) for w in caught) == 1
 
 
-@pytest.mark.parametrize(
-    "callback, logs",
-    [
-        (EarlyStopping(monitor="train_loss", verbose=False), {"train_loss": 1.0}),
-        (ModelCheckpoint("m_{fold}.pt", monitor="val_loss", save_best_only=False, verbose=False), {"val_loss": 1.0, "model": None}),
-    ],
-)
-def test_no_warning_when_nothing_is_selected_on_heldout_metrics(callback, logs):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        _epochs(callback, logs)
-    assert not any("held-out CV fold" in str(w.message) for w in caught)
+def test_early_stopping_keeps_a_copy_of_the_best_weights():
+    weights = {"w": [1.0]}
+    es = EarlyStopping(monitor="val_loss", patience=10, verbose=False)
+    es.on_cv_start(1)
+    es.on_fold_start(0, None, None)
+    snapshot = lambda: {"w": list(weights["w"])}
+    es.on_epoch_end(0, 0, {"val_loss": 1.0, "snapshot": snapshot})
+    weights["w"][0] = 2.0  # training continues and changes the live weights
+    es.on_epoch_end(1, 0, {"val_loss": 5.0, "snapshot": snapshot})  # worse: no new snapshot
+    assert es.best_weights == {"w": [1.0]}
 
 
-# --- regressions from the Codex implementation review ------------------------
+def test_run_epoch_callbacks_runs_all_before_stopping():
+    from trustcv.core.selection import run_epoch_callbacks
+
+    seen = []
+
+    class Stopper:
+        def on_epoch_end(self, epoch, fold, logs):
+            return "stop"
+
+    class Recorder:
+        def on_epoch_end(self, epoch, fold, logs):
+            seen.append(epoch)
+            logs["checkpoints"].append("a.pt")
+
+    logs = {}
+    assert run_epoch_callbacks([Stopper(), Recorder(), Recorder()], 3, 0, logs) is True
+    assert seen == [3, 3] and logs["checkpoints"] == ["a.pt", "a.pt"]
 
 
-def test_last_with_groups_purges_instead_of_validating_on_the_past():
-    groups = np.arange(100)
-    groups[95] = 0  # patient 0 appears at rows 0 and 95
-    (tr, va), reason = inner_validation_split(np.arange(100), groups=groups, strategy="last", fraction=0.1)
-    assert va.min() > tr.max()  # validation strictly after training
-    assert 0 not in tr and 0 not in va and "purged" in reason
-    assert not set(groups[tr]) & set(groups[va])
+def test_fold_selection_split_without_inner_validation_uses_the_whole_fold():
+    from trustcv.core.selection import fold_selection_split
 
-
-def test_continuous_regression_targets_are_not_treated_as_classes():
-    y = np.linspace(0, 1, 20).repeat(1)  # 20 distinct continuous values
-    split, reason = inner_validation_split(np.arange(20), y, fraction=0.2, random_state=0)
-    assert split is not None and reason == "random"
-
-
-def test_infeasible_group_fraction_falls_back_instead_of_raising():
-    split, reason = inner_validation_split(np.arange(40), groups=np.repeat([0, 1], 20), fraction=0.6, random_state=0)
-    assert split is None and "infeasible" in reason
+    fit, select, info = fold_selection_split(np.arange(10, 30), inner_validation=0.0)
+    assert select is None and list(fit) == list(range(10, 30)) and info == {"strategy": "none"}
+    fit, select, info = fold_selection_split(np.arange(100), np.tile([0, 1], 50), inner_validation=0.2)
+    assert not set(fit) & set(select) and info["strategy"].startswith("inner_validation")

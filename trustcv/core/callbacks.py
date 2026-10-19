@@ -54,19 +54,26 @@ class CVCallback(ABC):
         pass
 
 
-def _heldout_selection_warning(callback: Any, logs: Optional[Dict[str, Any]]) -> None:
-    """Warn once per CV run when a callback selects on a held-out ``val_*`` metric."""
-    if getattr(callback, "_warned_heldout", False) or not logs:
+def _refuse_heldout_monitor(callback: Any) -> None:
+    """Selection callbacks must not watch held-out metrics."""
+    if str(callback.monitor).startswith("heldout"):
+        raise ValueError(
+            f"{type(callback).__name__}(monitor={callback.monitor!r}) would select the model on the "
+            "held-out CV fold, which then scores it. Monitor a val_* metric computed on an inner "
+            "validation split (runner.run(..., inner_validation=0.1))."
+        )
+
+
+def _warn_missing_monitor(callback: Any) -> None:
+    """Warn once per CV run that the monitored metric is absent."""
+    if getattr(callback, "_warned_missing", False):
         return
-    if not str(callback.monitor).startswith("val") or callback.monitor not in logs:
-        return
-    callback._warned_heldout = True
+    callback._warned_missing = True
     warnings.warn(
-        f"{type(callback).__name__} selects on {callback.monitor!r}. In trustcv's Torch, MONAI, JAX "
-        "and Universal runners, val_* metrics are computed on the held-out CV fold, which then "
-        "scores the selected model, so scores are optimistically biased. Until these runners get "
-        "an inner validation split, train for a fixed number of epochs or select on an inner split "
-        "of the training fold yourself; KerasCVRunner(inner_validation=...) already does this.",
+        f"{type(callback).__name__}: no {callback.monitor!r} in the epoch logs, so it does nothing. "
+        "Since 1.3.0 the deep-learning runners compute val_* metrics only on an inner validation "
+        "split of the training fold, never on the held-out fold: pass inner_validation=0.1 (for "
+        "example) to the runner's run().",
         UserWarning,
         stacklevel=3,
     )
@@ -96,7 +103,8 @@ class EarlyStopping(CVCallback):
             monitor: Metric to monitor
             patience: Number of epochs with no improvement to wait
             mode: 'min' or 'max' - whether lower or higher is better
-            restore_best: Whether to restore best model weights
+            restore_best: Keep a copy of the best epoch's weights; the runner restores
+                them when training for the fold ends (early stop or last epoch)
             min_delta: Minimum change to qualify as improvement
             verbose: Whether to print messages
         """
@@ -111,9 +119,15 @@ class EarlyStopping(CVCallback):
         self.best_score = None
         self.best_epoch = 0
         self.best_weights = None
+        _refuse_heldout_monitor(self)
 
     def on_cv_start(self, n_splits: int) -> None:
-        self._warned_heldout = False
+        self._warned_missing = False
+
+    def _snapshot(self, logs: Dict[str, Any]) -> None:
+        snap = logs.get("snapshot")
+        if self.restore_best and callable(snap):
+            self.best_weights = snap()  # a copy, not a reference to the live model
 
     def on_fold_start(self, fold_idx: int, train_idx: np.ndarray, val_idx: np.ndarray) -> None:
         """Reset early stopping for new fold"""
@@ -126,9 +140,8 @@ class EarlyStopping(CVCallback):
         self, epoch: int, fold_idx: int, logs: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """Check if training should stop"""
-        _heldout_selection_warning(self, logs)
         if logs is None or self.monitor not in logs:
-            warnings.warn(f"Early stopping: monitored metric '{self.monitor}' not found in logs")
+            _warn_missing_monitor(self)
             return None
 
         current = logs[self.monitor]
@@ -136,8 +149,7 @@ class EarlyStopping(CVCallback):
         if self.best_score is None:
             self.best_score = current
             self.best_epoch = epoch
-            if self.restore_best and "model" in logs:
-                self.best_weights = logs["model"]
+            self._snapshot(logs)
         else:
             if self.mode == "min":
                 improved = current < (self.best_score - self.min_delta)
@@ -148,8 +160,7 @@ class EarlyStopping(CVCallback):
                 self.best_score = current
                 self.best_epoch = epoch
                 self.wait = 0
-                if self.restore_best and "model" in logs:
-                    self.best_weights = logs["model"]
+                self._snapshot(logs)
 
                 if self.verbose:
                     print(
@@ -166,10 +177,6 @@ class EarlyStopping(CVCallback):
                 if self.wait >= self.patience:
                     if self.verbose:
                         print(f"Early stopping triggered at epoch {epoch}")
-
-                    if self.restore_best and self.best_weights is not None:
-                        logs["restore_weights"] = self.best_weights
-
                     return "stop"
 
         return None
@@ -211,9 +218,10 @@ class ModelCheckpoint(CVCallback):
         self.verbose = verbose
 
         self.best_score = None
+        _refuse_heldout_monitor(self)
 
     def on_cv_start(self, n_splits: int) -> None:
-        self._warned_heldout = False
+        self._warned_missing = False
 
     def on_fold_start(self, fold_idx: int, train_idx: np.ndarray, val_idx: np.ndarray) -> None:
         """Reset best score for new fold"""
@@ -230,9 +238,8 @@ class ModelCheckpoint(CVCallback):
         should_save = False
 
         if self.save_best_only:
-            _heldout_selection_warning(self, logs)
             if self.monitor not in logs:
-                warnings.warn(f"Checkpoint: monitored metric '{self.monitor}' not found")
+                _warn_missing_monitor(self)
                 return None
 
             current = logs[self.monitor]
@@ -263,8 +270,9 @@ class ModelCheckpoint(CVCallback):
                 else:
                     print(f"Saving checkpoint to {filepath}")
 
-            # Request model save
-            logs["save_checkpoint"] = filepath
+            # Request a save; the runner writes it with the framework adapter's save_model
+            logs.setdefault("checkpoints", []).append(filepath)
+            logs["save_checkpoint"] = filepath  # kept for custom runners that read one key
 
         return None
 
