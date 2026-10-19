@@ -324,10 +324,10 @@ class TestSpatialMethods:
         y_same = rng.integers(0, 2, 20)
         
         cv2 = SpatialBlockCV(n_splits=4, random_state=42)
-        splits2 = list(cv2.split(X_same, y_same, coordinates=coords_same))
-        
-        # Should fall back to random splitting
-        assert len(splits2) == 4, "Should handle data with no spatial variation"
+        # No spatial variation: refuse rather than split rows at random, which
+        # would put the same location in training and test
+        with pytest.raises(ValueError, match="occupied spatial blocks"):
+            list(cv2.split(X_same, y_same, coordinates=coords_same))
     
     def test_spatial_cv_with_model(self):
         """Test spatial CV with actual model training"""

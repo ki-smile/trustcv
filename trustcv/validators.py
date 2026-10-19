@@ -963,7 +963,7 @@ class TrustCVValidator:
             max_retained=self.max_audit_folds,
             n_folds_hint=n_folds_hint,
         )
-        # Bootstrap .632/.632+: score each fold's model on its own training rows too
+        # Bootstrap .632/.632+ is computed after the loop from pooled out-of-bag predictions
         from .splitters.iid import BootstrapValidation as _BootstrapValidation
 
         bootstrap_estimator = (
@@ -971,17 +971,6 @@ class TrustCVValidator:
             if isinstance(splitter, _BootstrapValidation)
             else None
         )
-        bootstrap_correctable: List[str] = []
-        if (
-            bootstrap_estimator in (".632", ".632+")
-            and scorer_dict is None
-            and not is_multilabel
-            and not isinstance(y_raw, (Mapping, list, tuple))
-        ):
-            bootstrap_correctable = [
-                m for m in metric_list if m in _UNIT_INTERVAL_METRICS or m in _ERROR_METRICS
-            ]
-        per_metric_train_scores: Dict[str, List[float]] = {m: [] for m in bootstrap_correctable}
 
         def _fold_predict(est, X_te, y_te_eval):
             """Predictions and scores of a fitted fold model on (X_te, y_te_eval)."""
@@ -1213,14 +1202,6 @@ class TrustCVValidator:
             fold_metric_values = _fold_metrics(est, X_te, y_te_eval, y_pred, y_score, k)
             for m, val in fold_metric_values.items():
                 per_metric_scores[m].append(val)
-            if bootstrap_correctable:
-                tr_pred, tr_score = _fold_predict(est, X_tr, y_tr)
-                tr_values = _fold_metrics(est, X_tr, y_tr, tr_pred, tr_score, k)
-                for m in bootstrap_correctable:
-                    # NaN keeps folds aligned when a metric cannot be computed on one side
-                    per_metric_train_scores[m].append(tr_values.get(m, float("nan")))
-                    if m not in fold_metric_values:
-                        per_metric_scores[m].append(float("nan"))
 
             fold_details.append(
                 {
@@ -1242,18 +1223,6 @@ class TrustCVValidator:
                 "The cross-validation splitter produced no folds, so nothing was validated. "
                 "Check the splitter's settings against the data (for example, "
                 "group_exclusive=True when every group spans all time points)."
-            )
-
-        bootstrap_diagnostics = None
-        if bootstrap_estimator is not None:
-            bootstrap_diagnostics = self._apply_bootstrap_632(
-                bootstrap_estimator,
-                metric_list,
-                bootstrap_correctable,
-                per_metric_scores,
-                per_metric_train_scores,
-                oof_records,
-                _fold_metrics,
             )
 
         # aggregate
@@ -1303,7 +1272,6 @@ class TrustCVValidator:
         rng = _np.random.default_rng(self.random_state)
         for m, vals in per_metric_scores.items():
             arr = _np.asarray(vals, dtype=float)
-            arr = arr[_np.isfinite(arr)]
             if arr.size == 0:
                 continue
             mean_scores[m] = float(arr.mean())
@@ -1362,6 +1330,21 @@ class TrustCVValidator:
                     "ci_method must be 'corrected_t', 'oof_bootstrap', "
                     "'bootstrap', or 't-interval'."
                 )
+        bootstrap_diagnostics = None
+        if bootstrap_estimator is not None:
+            bootstrap_diagnostics = self._efron_bootstrap(
+                bootstrap_estimator,
+                metric_list,
+                scorer_dict is None and not is_multilabel and not isinstance(y_raw, (Mapping, list, tuple)),
+                oof_records,
+                model,
+                X_arr,
+                y_arr,
+                mean_scores,
+                std_scores,
+                conf_ints,
+            )
+
         # Built-in metrics bounded to [0, 1]: keep intervals inside the range.
         # Custom scorers are left alone because their names say nothing about bounds.
         if scorer_dict is None:
@@ -1722,105 +1705,118 @@ class TrustCVValidator:
             pass
         return result
 
-    def _apply_bootstrap_632(
+    def _efron_bootstrap(
         self,
         estimator: str,
         metric_list: List[str],
-        correctable: List[str],
-        per_metric_scores: Dict[str, List[float]],
-        per_metric_train_scores: Dict[str, List[float]],
+        supported: bool,
         oof_records: List[Dict[str, Any]],
-        fold_metrics: Callable,
+        model: Any,
+        X: Any,
+        y: Any,
+        mean_scores: Dict[str, float],
+        std_scores: Dict[str, float],
+        conf_ints: Dict[str, Tuple[float, float]],
     ) -> Dict[str, Any]:
-        """Apply the bootstrap .632 / .632+ estimator to per-fold scores in place.
+        """Apply Efron & Tibshirani's (1997) .632 / .632+ estimator in place.
 
-        Scores in [0, 1] become errors as ``1 - score``; built-in error metrics
-        are used as they are. With out-of-bag error ``Err1`` and training
-        (resubstitution) error ``err``, the corrected error is
-        ``w * Err1 + (1 - w) * err``: ``w = 0.632`` for ``.632``, and for
-        ``.632+`` ``w = 0.632 / (1 - 0.368 R)`` with the relative overfitting
-        rate ``R`` computed from the no-information error (pooled out-of-bag
-        predictions scored against shuffled labels; Efron & Tibshirani 1997).
-        The same weight is applied fold by fold, so intervals use corrected
-        values. Metrics that cannot be corrected keep the out-of-bag mean and
-        are listed in ``not_corrected``.
+        Only per-observation losses can be corrected: 0-1 loss (reported as
+        ``accuracy``), squared error (``mse``) and absolute error (``mae``).
+
+        - ``Err1``: leave-one-out bootstrap error. Each observation's losses
+          are averaged over the bootstrap fits that left it out, then averaged
+          over observations (eq. 7).
+        - ``err``: apparent error of the model refit on the full data.
+        - ``.632 = 0.368 err + 0.632 Err1`` (eq. 24).
+        - ``.632+``: ``gamma`` is the no-information error of the full-data
+          predictions (eq. 27); ``Err1' = min(Err1, gamma)``; the relative
+          overfitting rate ``R'`` (eq. 31); ``Err.632+ = Err.632 +
+          (Err1' - err) * 0.368 * 0.632 * R' / (1 - 0.368 R')`` (eq. 32).
+
+        No simple confidence interval is valid for this estimator, so corrected
+        metrics report a ``(nan, nan)`` interval and ``nan`` standard deviation.
+        Other metrics keep the out-of-bag mean and are listed in
+        ``not_corrected``.
         """
         info: Dict[str, Any] = {"estimator": estimator, "corrected": {}, "not_corrected": []}
         if estimator not in (".632", ".632+"):
             return info
+        losses = {
+            "accuracy": lambda t, p: (t != p).astype(float),
+            "mse": lambda t, p: (t - p) ** 2,
+            "mean_squared_error": lambda t, p: (t - p) ** 2,
+            "mae": lambda t, p: np.abs(t - p),
+            "mean_absolute_error": lambda t, p: np.abs(t - p),
+        }
+        wanted = [m for m in metric_list if m in losses] if supported else []
+        usable = wanted and all(r["y_pred"] is not None for r in oof_records)
+        full_pred = None
+        if usable:
+            try:
+                from sklearn.base import clone as _clone
 
-        gamma_scores: Dict[str, float] = {}
-        if estimator == ".632+" and correctable:
-            y_true = np.concatenate([r["y_true"] for r in oof_records])
-            y_pred = (
-                np.concatenate([r["y_pred"] for r in oof_records])
-                if all(r["y_pred"] is not None for r in oof_records)
-                else None
-            )
-            y_score = (
-                np.concatenate([r["y_score"] for r in oof_records])
-                if all(r["y_score"] is not None for r in oof_records)
-                else None
-            )
-            rng = np.random.default_rng(self.random_state)
-            draws: Dict[str, List[float]] = {m: [] for m in correctable}
-            for _ in range(20):
-                perm = rng.permutation(len(y_true))
-                values = fold_metrics(
-                    None,
-                    None,
-                    y_true[perm],
-                    y_pred,
-                    y_score,
-                    "no-information",
-                )
-                for m in correctable:
-                    if m in values:
-                        draws[m].append(values[m])
-            gamma_scores = {m: float(np.mean(v)) for m, v in draws.items() if v}
+                full_model = _clone(model).fit(X, y)
+                full_pred = np.asarray(full_model.predict(X))
+            except Exception as exc:  # pragma: no cover - model-specific
+                info["error"] = f"full-data refit failed: {exc}"
+                usable = False
+        y_full = y.to_numpy() if hasattr(y, "to_numpy") else np.asarray(y)
 
-        for m in correctable:
-            test = np.asarray(per_metric_scores.get(m, []), dtype=float)
-            train = np.asarray(per_metric_train_scores.get(m, []), dtype=float)
-            ok = np.isfinite(test) & np.isfinite(train)
-            if test.size == 0 or test.size != train.size or not ok.any():
+        for m in wanted if usable else []:
+            loss = losses[m]
+            n = len(y_full)
+            total, count = np.zeros(n), np.zeros(n)
+            for r in oof_records:
+                idx = np.asarray(r["indices"], dtype=int)
+                np.add.at(total, idx, loss(np.asarray(r["y_true"]), np.asarray(r["y_pred"])))
+                np.add.at(count, idx, 1)
+            seen = count > 0
+            if not seen.any():
                 info["not_corrected"].append(m)
                 continue
-            is_score = m in _UNIT_INTERVAL_METRICS
-            to_err = (lambda v: 1.0 - v) if is_score else (lambda v: v)
-            e_test, e_train = to_err(test[ok]), to_err(train[ok])
-            err1, err = float(e_test.mean()), float(e_train.mean())
-            weight, gamma_err = 0.632, None
+            err1 = float(np.mean(total[seen] / count[seen]))
+            err = float(np.mean(loss(y_full, full_pred)))
+            estimate = 0.368 * err + 0.632 * err1
+            detail = {"err1": err1, "apparent_error": err, "n_observations_out_of_bag": int(seen.sum())}
             if estimator == ".632+":
-                if m not in gamma_scores:
-                    info["not_corrected"].append(m)
-                    continue
-                gamma_err = float(to_err(gamma_scores[m]))
-                err1_capped = min(err1, gamma_err)
-                rate = (
-                    (err1_capped - err) / (gamma_err - err)
-                    if err1_capped > err and gamma_err > err
-                    else 0.0
-                )
+                if m == "accuracy":
+                    labels = np.union1d(y_full, full_pred)
+                    p = np.array([np.mean(y_full == c) for c in labels])
+                    q = np.array([np.mean(full_pred == c) for c in labels])
+                    gamma = float(np.sum(p * (1.0 - q)))
+                elif m in ("mse", "mean_squared_error"):
+                    yf, pf = y_full.astype(float), full_pred.astype(float)
+                    gamma = float(np.mean(yf**2) - 2 * np.mean(yf) * np.mean(pf) + np.mean(pf**2))
+                else:  # absolute error over all (i, j) pairs, subsampled for large n
+                    rng = np.random.default_rng(self.random_state)
+                    take = min(n, 2000)
+                    yi = y_full[rng.choice(n, take, replace=False)].astype(float)
+                    pj = full_pred[rng.choice(n, take, replace=False)].astype(float)
+                    gamma = float(np.mean(np.abs(yi[:, None] - pj[None, :])))
+                err1_capped = min(err1, gamma)
+                rate = (err1_capped - err) / (gamma - err) if (err1 > err and gamma > err) else 0.0
                 rate = min(max(rate, 0.0), 1.0)
-                weight = 0.632 / (1.0 - 0.368 * rate)
-            corrected = weight * e_test + (1.0 - weight) * e_train
-            per_metric_scores[m] = list(1.0 - corrected if is_score else corrected)
-            info["corrected"][m] = {
-                "oob_mean": float(test[ok].mean()),
-                "train_mean": float(train[ok].mean()),
-                "weight": float(weight),
-                "no_information_error": gamma_err,
-            }
+                estimate = estimate + (err1_capped - err) * (0.368 * 0.632 * rate) / (1.0 - 0.368 * rate)
+                detail.update({"no_information_error": gamma, "relative_overfitting": rate})
+            detail["estimate_error"] = float(estimate)
+            mean_scores[m] = 1.0 - estimate if m == "accuracy" else float(estimate)
+            std_scores[m] = float("nan")
+            conf_ints[m] = (float("nan"), float("nan"))
+            info["corrected"][m] = detail
 
-        info["not_corrected"] += [m for m in metric_list if m not in correctable and m not in info["not_corrected"]]
+        info["not_corrected"] += [m for m in metric_list if m not in info["corrected"] and m not in info["not_corrected"]]
         if info["not_corrected"]:
             warnings.warn(
                 f"Bootstrap {estimator}: metrics not corrected ({', '.join(info['not_corrected'])}) "
-                "report the plain out-of-bag mean. The correction applies to built-in scores in "
-                "[0, 1] and to mse/rmse/mae.",
+                "report the plain out-of-bag mean. The correction applies only to per-observation "
+                "losses: accuracy (0-1 loss), mse and mae.",
                 UserWarning,
                 stacklevel=3,
+            )
+        if info["corrected"]:
+            info["interval_note"] = (
+                "Corrected metrics have no confidence interval: a valid interval for the "
+                ".632 estimator would need an outer bootstrap of the whole procedure."
             )
         return info
 

@@ -419,17 +419,15 @@ class BootstrapValidation:
             y_pred_permuted = rng.permutation(y_pred_train)
             gamma = 1 - accuracy_score(y_true, y_pred_permuted)
 
-            # Calculate relative overfitting rate
+            # Relative overfitting rate with the out-of-bag error capped at gamma
+            # (Efron & Tibshirani 1997, eqs. 31-32)
             err_test = np.mean(test_errors)
             err_train = np.mean(train_errors)
-            R = (err_test - err_train) / (gamma - err_train) if gamma > err_train else 0
-            R = min(max(R, 0), 1)  # Clip to [0, 1]
-
-            # .632+ weight
-            w = 0.632 / (1 - 0.368 * R)
-
-            # .632+ estimator
-            return w * err_test + (1 - w) * err_train
+            err_test_capped = min(err_test, gamma)
+            R = (err_test_capped - err_train) / (gamma - err_train) if (err_test > err_train and gamma > err_train) else 0.0
+            R = min(max(R, 0.0), 1.0)
+            base = 0.368 * err_train + 0.632 * err_test
+            return base + (err_test_capped - err_train) * (0.368 * 0.632 * R) / (1 - 0.368 * R)
 
     def get_n_splits(self, X=None, y=None, groups=None):
         """Returns the number of splitting iterations"""

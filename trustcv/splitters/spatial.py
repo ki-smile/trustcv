@@ -242,14 +242,11 @@ class SpatialBlockCV(BaseCrossValidator):
 
         unique_blocks = np.unique(blocks)
         if len(unique_blocks) < self.n_splits:
-            # Fall back to random assignment when spatial variation is insufficient
-            warnings.warn(
-                f"Insufficient spatial variation: got {len(unique_blocks)} unique blocks, "
-                f"need {self.n_splits}. Falling back to random assignment."
+            # Splitting rows at random would put one location on both sides; refuse instead.
+            raise ValueError(
+                f"Only {len(unique_blocks)} occupied spatial blocks for n_splits={self.n_splits}. "
+                "Use fewer folds, a smaller block_size, or more distinct locations."
             )
-            rng = np.random.default_rng(self.random_state)
-            blocks = rng.integers(0, self.n_splits, size=len(X))
-            unique_blocks = np.unique(blocks)
 
         folds = self._assign_blocks_to_folds(blocks, unique_blocks)
         for k in range(self.n_splits):
