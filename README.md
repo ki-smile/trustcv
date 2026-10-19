@@ -18,7 +18,7 @@ It builds on familiar scikit-learn idioms, but adds:
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.2.2 – New documentation site with a generated API reference and executed examples; Torch/MONAI runners work with stratified splitters; validation refuses splitters that produce no folds; reports and docstrings no longer claim regulatory compliance.
+> **Status:** v1.3.0 – The PyTorch, MONAI, JAX and Universal runners select models on an inner split of the training fold, never the held-out fold; `EarlyStopping` restores the best weights and `ModelCheckpoint` writes files; bootstrap `.632`/`.632+` and `SpatialBlockCV` fixed.
 
 ---
 
