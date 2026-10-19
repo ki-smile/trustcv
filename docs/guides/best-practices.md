@@ -151,6 +151,7 @@ from trustcv import NestedGroupedCV, GroupKFoldMedical
 nested = NestedGroupedCV(
     outer_cv=GroupKFoldMedical(n_splits=5, random_state=0),
     inner_cv=GroupKFoldMedical(n_splits=3, random_state=0),
+    n_jobs=1,  # inner grid search in this process; -1 (default) uses all cores
 )
 outer_scores, chosen = nested.fit_predict(
     LogisticRegression(max_iter=1000), X_rep, y_rep, groups=patients, param_grid={"C": [0.1, 1, 10]}

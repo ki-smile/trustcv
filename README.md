@@ -18,7 +18,7 @@ It builds on familiar scikit-learn idioms, but adds:
 - **Clinical/industrial metrics** with confidence intervals.
 - Simple **reporting utilities** that support regulatory documentation.
 
-> **Status:** v1.2.1 – Leakage checks audit the folds that were actually scored, a new `NEEDS_REVIEW` status for signs of leakage that need a person to confirm, a scan for clustered rows and identifier columns, and fix-oriented hints.
+> **Status:** v1.2.2 – New documentation site with a generated API reference and executed examples; Torch/MONAI runners work with stratified splitters; validation refuses splitters that produce no folds; reports and docstrings no longer claim regulatory compliance.
 
 ---
 

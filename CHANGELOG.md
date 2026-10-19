@@ -2,7 +2,7 @@
 
 All notable changes to trustcv are documented in this file.
 
-## [Unreleased]
+## [1.2.2] - 2026-10-19
 
 ### Fixed
 
@@ -12,6 +12,10 @@ All notable changes to trustcv are documented in this file.
 - `RegulatoryReport` HTML no longer states that the report "complies with" the chosen standard; a scope section says it does not establish compliance, and the approval block is a review and sign-off section. Docstrings no longer call the reports "FDA/CE-compliant".
 
 - Docstrings of `TorchCVRunner`, `KerasCVRunner`, `ProgressLogger`, `RegulatoryComplianceLogger` and the `compliance` parameter of `TrustCVValidator` no longer claim to ensure regulatory compliance; the logger now prints "Validation log saved to ...".
+
+### Added
+
+- `NestedCV`, `NestedGroupedCV` and `NestedTemporalCV` take `n_jobs` (default `-1`, as before) for the inner grid search. It was hard-coded to all cores, which failed where worker processes cannot receive the estimator (for example code run with `python -c`, some notebook and cluster setups).
 
 ### Changed
 

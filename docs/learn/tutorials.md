@@ -170,7 +170,8 @@ print(f"outer accuracy: {np.mean(scores):.2f}")
 
 # Option 2: NestedGroupedCV does the same loop
 nested = NestedGroupedCV(outer_cv=GroupKFoldMedical(n_splits=4, random_state=0),
-                         inner_cv=GroupKFoldMedical(n_splits=3, random_state=0))
+                         inner_cv=GroupKFoldMedical(n_splits=3, random_state=0),
+                         n_jobs=1)  # inner grid search in this process
 outer_scores, best_params = nested.fit_predict(LogisticRegression(), X, y, groups, param_grid)
 print(f"outer accuracy: {np.mean(outer_scores):.2f}", best_params[0])
 ```

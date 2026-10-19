@@ -430,9 +430,12 @@ class NestedGroupedCV:
         Outer CV for model evaluation
     inner_cv : grouped CV object
         Inner CV for hyperparameter tuning
+    n_jobs : int or None, default=-1
+        Parallel jobs for the inner grid search (``-1`` = all cores, ``1`` = no
+        worker processes; ``None`` follows the active joblib backend)
     """
 
-    def __init__(self, outer_cv=None, inner_cv=None):
+    def __init__(self, outer_cv=None, inner_cv=None, n_jobs=-1):
         if outer_cv is None:
             outer_cv = GroupKFoldMedical(n_splits=5)
         if inner_cv is None:
@@ -440,6 +443,7 @@ class NestedGroupedCV:
 
         self.outer_cv = outer_cv
         self.inner_cv = inner_cv
+        self.n_jobs = n_jobs
 
     def fit_predict(self, estimator, X, y, groups, param_grid):
         """
@@ -483,7 +487,7 @@ class NestedGroupedCV:
 
             # Inner CV for hyperparameter tuning
             grid_search = GridSearchCV(
-                estimator, param_grid, cv=inner_cv_generator(), scoring="accuracy", n_jobs=-1
+                estimator, param_grid, cv=inner_cv_generator(), scoring="accuracy", n_jobs=self.n_jobs
             )
             grid_search.fit(X_train, y_train)
 

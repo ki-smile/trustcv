@@ -761,9 +761,12 @@ class NestedTemporalCV:
         Outer CV for model evaluation
     inner_cv : temporal CV object
         Inner CV for hyperparameter tuning
+    n_jobs : int or None, default=-1
+        Parallel jobs for the inner grid search (``-1`` = all cores, ``1`` = no
+        worker processes; ``None`` follows the active joblib backend)
     """
 
-    def __init__(self, outer_cv=None, inner_cv=None):
+    def __init__(self, outer_cv=None, inner_cv=None, n_jobs=-1):
         if outer_cv is None:
             outer_cv = ExpandingWindowCV(min_train_size=100)
         if inner_cv is None:
@@ -771,6 +774,7 @@ class NestedTemporalCV:
 
         self.outer_cv = outer_cv
         self.inner_cv = inner_cv
+        self.n_jobs = n_jobs
 
     def split(self, X, y=None, groups=None):
         """
@@ -840,7 +844,7 @@ class NestedTemporalCV:
                 param_grid,
                 cv=inner_cv_generator(),
                 scoring="neg_mean_squared_error",
-                n_jobs=-1,
+                n_jobs=self.n_jobs,
             )
             grid_search.fit(X_train, y_train)
 

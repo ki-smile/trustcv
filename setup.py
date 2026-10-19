@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="trustcv",
-    version="1.2.1",
+    version="1.2.2",
     author="SMAILE (Stockholm Medical AI and Learning Environments), Karolinska Institutet",
     description="Trustworthy Cross-Validation: Framework-agnostic CV with data leakage detection",
     long_description=long_description,
