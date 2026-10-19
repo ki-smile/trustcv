@@ -5,6 +5,7 @@ restoration and checkpoints use an inner selection split of the training
 fold, or nothing at all.
 """
 
+import copy
 import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -82,6 +83,15 @@ def save_checkpoints(logs: Dict[str, Any], save_fn: Any) -> None:
         if parent:
             os.makedirs(parent, exist_ok=True)
         save_fn(path)
+
+
+def copy_state_dict(model: Any) -> Dict[str, Any]:
+    """A CPU copy of a torch ``state_dict``; non-tensor extra state is deep-copied."""
+    state = model.state_dict()
+    out = copy.copy(state)  # keeps the OrderedDict type and its _metadata
+    for key, value in state.items():
+        out[key] = value.detach().cpu().clone() if hasattr(value, "detach") else copy.deepcopy(value)
+    return out
 
 
 def best_weights_to_restore(callbacks: List[Any]) -> Any:

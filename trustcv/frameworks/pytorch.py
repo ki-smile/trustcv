@@ -13,6 +13,7 @@ import numpy as np
 from ..core.base import CVResults, FrameworkAdapter
 from ..core.selection import (
     best_weights_to_restore,
+    copy_state_dict,
     fold_selection_split,
     run_epoch_callbacks,
     save_checkpoints,
@@ -458,8 +459,8 @@ class TorchCVRunner:
                 ModelCheckpoint) are computed on it; the held-out fold is only
                 scored once, after training. 0 trains for the full epochs with
                 no ``val_*`` metrics.
-            inner_validation_strategy: "auto" (group, then stratified, then
-                random), "group", "stratified" or "random".
+            inner_validation_strategy: "auto" (group, then stratified, then random) or
+                "last" (the last part of each training fold, for time-ordered data).
             inner_random_state: Seed for the inner split (offset by the fold index).
             report_heldout_per_epoch: Also record held-out loss per epoch in
                 ``metadata["heldout_curves"]``, for plotting only. Callbacks never see it.
@@ -519,7 +520,7 @@ class TorchCVRunner:
                 select_loader = self.adapter.create_data_splits(dataset, select_idx, select_idx)[1]
 
             def snapshot():
-                return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+                return copy_state_dict(model)
 
             curve = []
             epochs_trained = 0

@@ -84,3 +84,14 @@ def test_best_weights_are_restored(tmp_path):
     assert result.metadata["model_selection"][-1]["epochs_trained"] == 5
     saved = torch.load(tmp_path / "f1" / "best.pt")["model_state_dict"]
     assert all(torch.equal(saved[k], best[k]) for k in saved)  # the checkpoint is the selected epoch
+
+
+def test_periodic_checkpoints_follow_the_evaluation_cadence(tmp_path):
+    adapter = RecordingAdapter()
+    ckpt = ModelCheckpoint(str(tmp_path / "f{fold}" / "e{epoch}.pt"), save_best_only=False, save_freq=5, verbose=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        MONAICVRunner(_model, KFold(2), adapter=adapter).run(
+            _data(), epochs=10, train_transforms=lambda d: d, val_transforms=lambda d: d,
+            loss_fn=DiceCELoss(to_onehot_y=True, softmax=True), metrics=[], callbacks=[ckpt])
+    assert sorted(p.name for p in (tmp_path / "f0").iterdir()) == ["e4.pt", "e9.pt"]  # epochs 5 and 10

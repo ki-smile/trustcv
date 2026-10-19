@@ -13,6 +13,7 @@ import numpy as np
 from ..core.base import CVResults
 from ..core.selection import (
     best_weights_to_restore,
+    copy_state_dict,
     fold_selection_split,
     run_epoch_callbacks,
     save_checkpoints,
@@ -452,7 +453,8 @@ class MONAICVRunner:
                 selection. ``val_*`` metrics for EarlyStopping and ModelCheckpoint
                 are computed on it; the held-out fold is scored once, after
                 training. 0 trains for the full epochs with no ``val_*`` metrics.
-            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_validation_strategy: "auto" (group, then stratified, then random) or
+                "last" (the last part of each training fold, for time-ordered data).
             inner_random_state: Seed for the inner split (offset by the fold index).
             eval_every: Callbacks run every ``eval_every`` epochs and on the last
                 epoch, after the inner validation split is evaluated.
@@ -543,7 +545,7 @@ class MONAICVRunner:
                 select_loader = self.adapter.make_loader(data_dicts, select_idx, val_transforms, shuffle=False)
 
             def snapshot():
-                return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+                return copy_state_dict(model)
 
             curve = []
             epochs_trained = 0

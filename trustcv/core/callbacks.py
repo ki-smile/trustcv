@@ -207,7 +207,8 @@ class ModelCheckpoint(CVCallback):
             monitor: Metric to monitor for best model
             mode: 'min' or 'max' - whether lower or higher is better
             save_best_only: Only save when monitored metric improves
-            save_freq: Frequency of saving (in epochs)
+            save_freq: Without save_best_only, save every ``save_freq``-th epoch
+                (epochs 5, 10, ... for 5, counting from 1)
             verbose: Whether to print messages
         """
         self.filepath = filepath
@@ -256,7 +257,7 @@ class ModelCheckpoint(CVCallback):
                 if should_save:
                     self.best_score = current
         else:
-            should_save = (epoch % self.save_freq) == 0
+            should_save = (epoch + 1) % self.save_freq == 0  # every save_freq-th epoch
 
         if should_save:
             filepath = self.filepath.format(fold=fold_idx, epoch=epoch)

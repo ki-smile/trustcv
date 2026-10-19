@@ -121,3 +121,28 @@ def test_heldout_curves_are_metadata_only():
     curves = result.metadata["heldout_curves"]
     assert len(curves) == 3 and [c["epoch"] for c in curves[0]] == [0, 1, 2]
     assert not any(k.startswith(("val_", "heldout")) for keys in logs.keys for k in keys)
+
+
+class WithExtraState(torch.nn.Linear):
+    def get_extra_state(self):
+        return {"calibration": [1.0, 2.0]}
+
+    def set_extra_state(self, state):
+        self.calibration = state["calibration"]
+
+
+def test_snapshot_handles_non_tensor_extra_state():
+    def model():
+        torch.manual_seed(0)
+        return WithExtraState(4, 2)
+
+    runner = TorchCVRunner(model, KFold(2), adapter=PyTorchAdapter(device="cpu"), store_models=True)
+    result = runner.run(_data(), epochs=3, loss_fn=torch.nn.CrossEntropyLoss(), inner_validation=0.25,
+                        callbacks=[EarlyStopping(patience=1, verbose=False)])
+    assert result.models[0].calibration == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("strategy", ["auto", "last"])
+def test_documented_inner_strategies_run(strategy):
+    result, _ = _run(epochs=1, inner_validation=0.25, inner_validation_strategy=strategy)
+    assert result.metadata["model_selection"][0]["strategy"].startswith("inner_validation")

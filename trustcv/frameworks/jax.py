@@ -14,6 +14,7 @@ Requirements:
     pip install jax jaxlib flax optax
 """
 
+import os
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -409,7 +410,8 @@ class JAXAdapter(FrameworkAdapter):
         try:
             from flax.training import checkpoints
 
-            checkpoints.save_checkpoint(path, state, step=0, overwrite=True)
+            # Orbax needs absolute paths
+            checkpoints.save_checkpoint(os.path.abspath(path), state, step=0, overwrite=True)
         except ImportError:
             # Fallback to pickle
             import pickle
@@ -431,7 +433,7 @@ class JAXAdapter(FrameworkAdapter):
         try:
             from flax.training import checkpoints
 
-            return checkpoints.restore_checkpoint(path, state_template)
+            return checkpoints.restore_checkpoint(os.path.abspath(path), state_template)
         except ImportError:
             import pickle
 
@@ -522,7 +524,8 @@ class JAXCVRunner:
                 training. 0 trains for the full epochs with no ``val_*`` metrics.
                 Restoring best weights restores the TrainState; non-parameter
                 collections (BatchNorm statistics) are not handled.
-            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_validation_strategy: "auto" (group, then stratified, then random) or
+                "last" (the last part of each training fold, for time-ordered data).
             inner_random_state: Seed for the inner split (offset by the fold index).
             report_heldout_per_epoch: Also record held-out loss per epoch in
                 ``metadata["heldout_curves"]``, for plotting only. Callbacks never see it.

@@ -17,7 +17,7 @@ from sklearn.metrics import f1_score, mean_squared_error, mean_absolute_error, r
 
 from .base import CVResults, FrameworkAdapter, SklearnAdapter
 from .callbacks import CVCallback, ProgressLogger
-from .selection import best_weights_to_restore, fold_selection_split, run_epoch_callbacks, save_checkpoints
+from .selection import best_weights_to_restore, copy_state_dict, fold_selection_split, run_epoch_callbacks, save_checkpoints
 from ..checks import CheckResult, default_checks, overall_status as compute_overall_status
 from ..metrics.diagnostics import (
     check_fold_metric_feasibility,
@@ -214,7 +214,8 @@ class UniversalCVRunner:
                 (for EarlyStopping and ModelCheckpoint) are computed on it, and
                 the held-out fold is scored once, after training. 0 trains for
                 the full epochs with no ``val_*`` metrics.
-            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_validation_strategy: "auto" (group, then stratified, then random) or
+                "last" (the last part of each training fold, for time-ordered data).
             inner_random_state: Seed for the inner split (offset by the fold index).
             report_heldout_per_epoch: Also record held-out metrics per epoch in
                 ``metadata["heldout_curves"]``, for plotting only. Callbacks never see them.
@@ -503,9 +504,7 @@ class UniversalCVRunner:
                 elif self.framework == "tensorflow":
                     snapshot = fold_model.get_weights  # a list of numpy copies
                 else:
-                    snapshot = lambda: {
-                        k: v.detach().cpu().clone() for k, v in fold_model.state_dict().items()
-                    }
+                    snapshot = lambda: copy_state_dict(fold_model)
 
                 def _save(path):
                     self.adapter.save_model(state if self.framework == "jax" else fold_model, path)

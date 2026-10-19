@@ -85,3 +85,9 @@ def test_checkpoints_are_written(tmp_path):
     _run([ModelCheckpoint(pattern, save_best_only=False, verbose=False)], cv=KFold(2), epochs=2)
     assert {p.name for p in tmp_path.iterdir()} == {"fold0", "fold1"}
     assert any((tmp_path / "fold1").iterdir())
+
+
+def test_relative_checkpoint_paths_work(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _run([ModelCheckpoint("ckpt/fold{fold}", save_best_only=False, verbose=False)], cv=KFold(2), epochs=1)
+    assert any((tmp_path / "ckpt" / "fold0").iterdir())
