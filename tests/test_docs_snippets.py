@@ -16,7 +16,8 @@ from pathlib import Path
 
 import pytest
 
-DOCS = Path(__file__).resolve().parent.parent / "docs"
+REPO = Path(__file__).resolve().parent.parent
+DOCS = REPO / "docs"
 SECTIONS = ("get-started", "guides", "learn", "regulatory", "reference")
 FRAMEWORKS = ("torch", "tensorflow", "keras", "monai", "jax", "flax")
 FENCE = re.compile(r"^(?P<indent>[ \t]*)```python[^\n]*\n(?P<body>.*?)^(?P=indent)```[ \t]*$", re.M | re.S)
@@ -49,7 +50,12 @@ def runnable_blocks(text):
 
 
 def page_script(blocks):
-    parts = ["import sys, random, numpy as np", "random.seed(0); np.random.seed(0)"]
+    # the child must run this checkout's trustcv, not another installed copy
+    parts = [
+        "import os, sys, random, numpy as np, trustcv",
+        f"assert os.path.realpath(trustcv.__file__).startswith({str(REPO) + os.sep!r}), trustcv.__file__",
+        "random.seed(0); np.random.seed(0)",
+    ]
     for i, (code, reason) in enumerate(blocks, 1):
         if reason is None:
             parts.append(f"print('--- block {i}', file=sys.stderr, flush=True)")
@@ -63,7 +69,8 @@ def test_page_snippets_run(page, tmp_path):
     if not any(reason is None for _, reason in blocks):
         pytest.skip("no runnable python blocks")
     env = dict(os.environ, MPLBACKEND="Agg", PYTHONHASHSEED="0", OMP_NUM_THREADS="1",
-               TF_CPP_MIN_LOG_LEVEL="3", CUDA_VISIBLE_DEVICES="")
+               TF_CPP_MIN_LOG_LEVEL="3", CUDA_VISIBLE_DEVICES="",
+               PYTHONPATH=os.pathsep.join(filter(None, [str(REPO), os.environ.get("PYTHONPATH")])))
     proc = subprocess.run(
         [sys.executable, "-c", page_script(blocks)],
         cwd=tmp_path, env=env, capture_output=True, text=True, timeout=120,

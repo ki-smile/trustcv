@@ -1193,6 +1193,13 @@ class TrustCVValidator:
                 except Exception:
                     pass
 
+        if fold_audit.n_folds == 0:
+            raise ValueError(
+                "The cross-validation splitter produced no folds, so nothing was validated. "
+                "Check the splitter's settings against the data (for example, "
+                "group_exclusive=True when every group spans all time points)."
+            )
+
         # aggregate
         mean_scores: Dict[str, float] = {}
         std_scores: Dict[str, float] = {}

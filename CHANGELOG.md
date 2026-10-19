@@ -8,6 +8,9 @@ All notable changes to trustcv are documented in this file.
 
 - `TorchCVRunner` and `MONAICVRunner` called the splitter without labels, so stratified splitters (`StratifiedGroupKFold`, `RepeatedKFold(stratify=True)`, ...) failed with "missing y". They now pass labels from a `(X, y)` tuple, a dataset's `targets`/`labels` attribute, or scalar MONAI `label` values, without loading items.
 
+- `TrustCV.validate()` raises `ValueError` when the splitter produces no folds, instead of returning a result with no scores (with `groups=`, the group check could report PASSED over zero folds).
+- `RegulatoryReport` HTML no longer states that the report "complies with" the chosen standard; a scope section says it does not establish compliance, and the approval block is a review and sign-off section. Docstrings no longer call the reports "FDA/CE-compliant".
+
 ### Changed
 
 - Documentation moves to MkDocs Material, with a generated API reference, `api-schema.json` and `llms.txt`; documentation code snippets run in CI. Several docstrings that contradicted their signatures are fixed.

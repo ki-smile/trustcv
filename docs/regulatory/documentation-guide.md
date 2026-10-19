@@ -172,7 +172,7 @@ Prefer `format="json"` as the record. The HTML format in 1.2.1 has known limitat
 
 - it shows 0 for sensitivity, specificity, AUC and the confusion matrix unless `calculate_clinical_metrics` was called;
 - it labels the summary score "Mean Accuracy" whichever metric was recorded, and shows no confidence interval for it;
-- it contains a fixed "Regulatory Compliance" sentence stating that the report complies with the chosen standard, and an approval block. Remove both: neither trustcv nor this report can establish compliance.
+- it contains a fixed "Regulatory Compliance" sentence stating that the report complies with the chosen standard. Remove it: neither trustcv nor this report can establish compliance. From the next release this section is replaced by a scope statement saying exactly that, and the approval block becomes a review and sign-off section.
 
 To draft a summary from numbers you already have, see the [report draft tool](report-draft.md).
 

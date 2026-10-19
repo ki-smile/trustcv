@@ -1,6 +1,9 @@
 ﻿"""
-Regulatory Compliance Report Generator for Trustworthy Cross-Validation
-Generates FDA/CE-compliant validation reports from cross-validation results
+Validation report generator for trustworthy cross-validation.
+
+Documents the validation methodology and results of a cross-validation run.
+The reports support regulatory documentation; they do not establish
+compliance with FDA, EU MDR or any other regulation.
 """
 
 import datetime
@@ -17,10 +20,12 @@ from ..checks import CHECK_KEYS, CheckResult, default_checks, overall_status
 
 class RegulatoryReport:
     """
-    Generate regulatory-compliant validation reports for AI systems.
+    Generate validation reports that document how an AI model was validated.
 
-    This class creates FDA 510(k) and CE MDR compliant reports documenting
-    the validation methodology and performance of AI models.
+    The reports record the cross-validation method, data, integrity checks and
+    performance with confidence intervals, in a form that can support
+    regulatory documentation (for example a 510(k) or an EU MDR technical file).
+    They do not by themselves establish compliance with any regulation.
     """
 
     def __init__(
@@ -498,10 +503,10 @@ class RegulatoryReport:
                 </tr>
             </table>
             
-            <h2>5. Regulatory Compliance</h2>
-            <p>This report complies with {report['metadata']['compliance_standard']} requirements for medical device software validation.</p>
+            <h2>5. Scope of this report</h2>
+            <p>This report documents a cross-validation analysis prepared with reference to {escape(str(report['metadata']['compliance_standard']))}. It does not by itself establish compliance with that standard or with any regulation.</p>
             
-            <h2>6. Approval</h2>
+            <h2>6. Review and sign-off</h2>
             <div style="margin-top: 50px;">
                 <table style="border: none;">
                     <tr>
@@ -966,7 +971,7 @@ def validate_medical_model(model, data, patient_ids=None, compliance="FDA"):
     Validate a ML model with proper cross-validation and generate reports.
 
     This is a high-level wrapper that performs validation and generates
-    regulatory-compliant reports in one call.
+    validation reports in one call.
     """
     from sklearn.model_selection import cross_val_predict, cross_val_score
 
