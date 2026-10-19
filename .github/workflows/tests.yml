@@ -51,3 +51,23 @@ jobs:
           tests/test_framework_integration.py tests/test_keras_inner_validation.py
         env:
           TF_CPP_MIN_LOG_LEVEL: "3"
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package with docs extra
+        run: python -m pip install -e ".[docs]" pytest
+
+      - name: Build site (strict) and test docs
+        run: >
+          python -m pytest -q -o addopts="-ra -q --strict-markers"
+          tests/test_docs_build.py tests/test_docs_snippets.py
