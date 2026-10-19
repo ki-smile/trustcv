@@ -10,7 +10,7 @@ trustcv builds on scikit-learn rather than replacing it. Its splitters follow th
 
 | | scikit-learn 1.7 | trustcv |
 | --- | --- | --- |
-| Splitters | 15 (K-fold, stratified, grouped, shuffle, leave-out, repeated, `TimeSeriesSplit`, `PredefinedSplit`) | 32 splitters: independent, grouped, temporal, spatial and multilabel |
+| Splitters | 15 (K-fold, stratified, grouped, shuffle, leave-out, repeated, `TimeSeriesSplit`, `PredefinedSplit`) | 32 methods (the 29 in the paper plus later additions): independent, grouped, temporal, spatial and multilabel |
 | Patient grouping | `GroupKFold`, `StratifiedGroupKFold`, `LeaveOneGroupOut`, `LeavePGroupsOut`, `GroupShuffleSplit` | The same ideas, plus `RepeatedGroupKFold`, `HierarchicalGroupKFold` and `NestedGroupedCV` |
 | Time order | `TimeSeriesSplit` with `gap` and `max_train_size` | Adds rolling and expanding windows, blocked splits, purging and embargo (`PurgedKFoldCV`, `CombinatorialPurgedCV`, `PurgedGroupTimeSeriesSplit`) |
 | Spatial data | None | `SpatialBlockCV`, `BufferedSpatialCV`, `SpatiotemporalBlockCV`, `EnvironmentalHealthCV` |

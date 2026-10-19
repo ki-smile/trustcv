@@ -38,21 +38,24 @@ TrustCV addresses these issues by:
 
 ---
 
-## What's in v1.1.0
+## What's in trustcv
 
-This release includes **29 cross-validation methods** across four categories:
+trustcv includes **32 cross-validation methods** (the 29 in the paper plus later additions):
 
 - **IID splitters** (9 methods):
   `HoldOut`, `KFold`, `StratifiedKFold`, `RepeatedKFold`, `LeaveOneOut`, `LeavePOut`, `BootstrapValidation`, `MonteCarloCV`, `NestedCV`
 
-- **Grouped splitters** (6 methods):
-  `GroupKFold`, `StratifiedGroupKFold`, `LeaveOneGroupOut`, `RepeatedGroupKFold`, `NestedGroupedCV`, `HierarchicalGroupKFold`
+- **Grouped splitters** (8 methods):
+  `GroupKFold`, `StratifiedGroupKFold`, `LeaveOneGroupOut`, `LeavePGroupsOut`, `RepeatedGroupKFold`, `HierarchicalGroupKFold`, `MultilevelCV`, `NestedGroupedCV`
 
 - **Temporal splitters** (8 methods):
   `TimeSeriesSplit`, `BlockedTimeSeriesSplit`, `RollingWindowCV`, `ExpandingWindowCV`, `PurgedKFold`, `CombinatorialPurgedKFold`, `PurgedGroupTimeSeriesSplit`, `NestedTemporalCV`
 
 - **Spatial splitters** (4 methods):
   `SpatialBlockCV`, `BufferedSpatialCV`, `SpatiotemporalBlockCV`, `EnvironmentalHealthCV`
+
+- **Multilabel splitters** (3 methods, added after the paper):
+  `MultilabelStratifiedKFold`, `MultilabelStratifiedGroupKFold`, `MultiLabelGroupSplitter`
 
 - **Framework-agnostic runner & `split_kwargs`**:
   `UniversalCVRunner` + `CVResults` for consistent, reusable CV loops across scikit-learn, PyTorch, TensorFlow, MONAI, and JAX with support for split-specific arguments (`split_kwargs`).

@@ -48,6 +48,8 @@ Generated from the docstrings of the installed source. Import everything from th
 
 ::: trustcv.splitters.grouped.HierarchicalGroupKFold
 
+::: trustcv.splitters.grouped.MultilevelCV
+
 ::: trustcv.splitters.grouped.NestedGroupedCV
 
 ## Splitters: temporal
@@ -83,6 +85,8 @@ Generated from the docstrings of the installed source. Import everything from th
 ::: trustcv.splitters.multilabel.MultilabelStratifiedKFold
 
 ::: trustcv.splitters.multilabel_group.MultilabelStratifiedGroupKFold
+
+::: trustcv.splitters.multilabel_group.MultiLabelGroupSplitter
 
 ## Leakage and balance checks
 

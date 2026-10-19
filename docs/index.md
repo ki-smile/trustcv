@@ -25,7 +25,7 @@ pip install trustcv
 
 <div class="tcv-card" markdown>
 ### :material-source-branch: The right split
-32 splitters for independent, grouped, temporal, spatial and multilabel data. `recommend_cv` picks one from how your data is structured.
+32 methods (the 29 in the paper plus later additions) for independent, grouped, temporal, spatial and multilabel data. `recommend_cv` picks one from how your data is structured.
 </div>
 
 <div class="tcv-card" markdown>

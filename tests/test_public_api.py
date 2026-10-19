@@ -36,4 +36,4 @@ def test_home_page_states_the_real_splitter_count():
 
     count = len({id(getattr(splitters, n)) for n in splitters.__all__ if inspect.isclass(getattr(splitters, n))})
     home = (API_PAGE.parent.parent / "index.md").read_text(encoding="utf-8")
-    assert f"{count} splitters" in home
+    assert f"{count} methods (the 29 in the paper plus later additions)" in home
