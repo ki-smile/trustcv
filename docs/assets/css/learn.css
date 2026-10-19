@@ -1,0 +1,79 @@
+/* Learn pages: split visualiser, simulated scenarios and quiz.
+   Colours come from trustcv tokens, so both colour schemes work. */
+
+.tcv-widget {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: var(--tcv-radius);
+  padding: 0.9rem 1rem;
+  margin: 1rem 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.tcv-controls { display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; align-items: end; margin-bottom: 0.8rem; }
+.tcv-controls > div { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+.tcv-controls label { font-size: 0.72rem; font-weight: 600; margin-bottom: 0.15rem; }
+.tcv-controls select, .tcv-controls input[type="range"] { max-width: 100%; font: inherit; font-size: 0.75rem; }
+.tcv-controls select {
+  padding: 0.25rem 0.4rem;
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--light);
+  border-radius: 4px;
+}
+.tcv-controls input[type="range"]:disabled { opacity: 0.45; }
+.tcv-controls output { font-size: 0.72rem; }
+
+/* Split diagrams */
+.tcv-split-scroll { max-width: 100%; overflow-x: auto; }
+.tcv-split-svg { display: block; width: 100%; height: auto; }
+.tcv-maps { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.tcv-map-svg { width: 7.5rem; max-width: 30%; height: auto; }
+.tcv-rowlabel { fill: var(--md-default-fg-color--light); font-family: var(--md-text-font-family, sans-serif); }
+.tcv-c { stroke-width: 0.6; }
+.tcv-c-train { fill: var(--tcv-train); }
+.tcv-c-test { fill: var(--tcv-test); }
+.tcv-c-val { fill: var(--tcv-train); fill-opacity: 0.45; stroke: var(--tcv-train); }
+.tcv-c-gap { fill: none; stroke: var(--md-default-fg-color--light); stroke-dasharray: 1.5 1; }
+.tcv-c-unused { fill: var(--md-default-fg-color--lightest); }
+.tcv-c-hdr { fill: var(--md-default-fg-color--lightest); }
+.tcv-hatch { fill: var(--md-default-bg-color); opacity: 0.75; }
+.tcv-leak { fill: var(--md-default-fg-color); stroke: var(--md-default-bg-color); stroke-width: 0.8; }
+.tcv-ctext { fill: #fff; font-family: var(--md-text-font-family, sans-serif); font-weight: 700; pointer-events: none; }
+.tcv-ctext-hdr { fill: var(--md-default-fg-color); }
+[data-md-color-scheme="slate"] .tcv-ctext:not(.tcv-ctext-hdr) { fill: #111; }
+
+.tcv-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; padding: 0; margin: 0.6rem 0 0 !important; font-size: 0.72rem; }
+.tcv-legend li { display: flex; align-items: center; gap: 0.3rem; margin: 0 !important; }
+.tcv-split-desc { font-size: 0.75rem; margin-top: 0.6rem; }
+
+/* Simulated scenario bars */
+.tcv-bars { margin: 0.5rem 0; }
+.tcv-bar-row { display: grid; grid-template-columns: 3.2rem 1fr 2.4rem; gap: 0.5rem; align-items: center; font-size: 0.72rem; margin: 0.2rem 0; }
+.tcv-bar-track { display: block; height: 0.8rem; background: var(--md-default-fg-color--lightest); border-radius: 3px; overflow: hidden; }
+.tcv-bar { display: block; height: 100%; background: var(--tcv-train); }
+.tcv-bar-optimistic { background: repeating-linear-gradient(45deg, var(--tcv-test) 0 6px, var(--md-default-bg-color) 6px 8px); }
+.tcv-bar-value { text-align: right; font-variant-numeric: tabular-nums; }
+.tcv-sim-note { font-size: 0.72rem; opacity: 0.85; }
+.tcv-scn-setting { font-size: 0.75rem; }
+
+/* Quiz */
+.tcv-quiz-q { border: 1px solid var(--md-default-fg-color--lightest); border-radius: var(--tcv-radius); padding: 0.6rem 1rem 0.8rem; margin: 0 0 1rem; min-width: 0; }
+.tcv-quiz-q legend { font-weight: 700; padding: 0 0.3rem; }
+.tcv-quiz-q.is-correct { border-left: 4px solid var(--tcv-ok); }
+.tcv-quiz-q.is-incorrect { border-left: 4px solid var(--tcv-fail); }
+.tcv-quiz-text { margin-top: 0.2rem; }
+.tcv-quiz-opt { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.25rem 0; }
+.tcv-quiz-opt input { flex: none; }
+.tcv-quiz-check { margin-top: 0.5rem !important; }
+.tcv-quiz-verdict { font-weight: 700; margin-bottom: 0.2rem; }
+.is-correct .tcv-quiz-verdict { color: var(--tcv-ok); }
+.is-incorrect .tcv-quiz-verdict { color: var(--tcv-fail); }
+.tcv-quiz-insight { font-style: italic; }
+.tcv-quiz-status { font-weight: 600; }
+
+/* Buttons: Material's slate primary colour is too dark for text on the dark background */
+[data-md-color-scheme="slate"] .tcv-quiz .md-button,
+[data-md-color-scheme="slate"] .tcv-widget .md-button { color: var(--md-typeset-a-color); border-color: currentColor; }
+[data-md-color-scheme="slate"] .tcv-widget .md-button--primary { color: #1c0a18; background-color: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); }
+[data-md-color-scheme="slate"] .tcv-quiz .md-button:is(:hover, :focus),
+[data-md-color-scheme="slate"] .tcv-widget .md-button:is(:hover, :focus) { color: #1c0a18; background-color: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); }

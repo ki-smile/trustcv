@@ -89,3 +89,24 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Links in running text are underlined, so they are not distinguished by colour alone (WCAG 1.4.1) */
+.md-typeset a:not(.md-button):not(.headerlink),
+.md-copyright a { text-decoration: underline; text-underline-offset: 0.15em; text-decoration-thickness: 0.06em; }
+
+/* Code highlighting at >= 4.5:1 on the code background in both schemes */
+[data-md-color-scheme="default"] {
+  --md-code-hl-comment-color: #5e5e5e;
+  --md-code-hl-operator-color: #5e5e5e;
+}
+[data-md-color-scheme="slate"] {
+  --md-code-hl-keyword-color: #8db0f0;
+  --md-code-hl-constant-color: #ab9ff0;
+  --md-code-hl-function-color: #c9a2f0;
+  --md-code-hl-number-color: #f08a7e;
+}
+.md-copyright, .md-copyright__highlight { color: rgba(255, 255, 255, 0.72); }
+
+/* Buttons stay readable in the dark scheme (the dark primary is for the header only) */
+[data-md-color-scheme="slate"] .md-typeset .md-button { color: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); }
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary { background-color: var(--md-accent-fg-color); border-color: var(--md-accent-fg-color); color: #1c0a18; }
