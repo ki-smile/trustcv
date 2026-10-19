@@ -28,14 +28,26 @@ class SpatialBlockCV(BaseCrossValidator):
     Divides spatial data into blocks to handle spatial autocorrelation.
     Essential for geographic medical data analysis.
 
+    Rows are grouped into spatial blocks, and whole blocks are assigned to
+    ``n_splits`` folds, so every row is tested exactly once and no block is
+    split between training and test.
+
     Parameters
     ----------
     n_splits : int, default=5
-        Number of spatial blocks
-    block_shape : str or tuple, default='grid'
-        Shape of blocks: 'grid', 'random', or custom shape
+        Number of folds
+    block_shape : {'grid', 'kmeans'}, default='grid'
+        ``'grid'``: rectangular cells; ``'kmeans'``: one k-means cluster of
+        the coordinates per fold
+    block_size : float, optional
+        Side length of square grid cells, in coordinate units, on a fixed
+        grid anchored at 0. When omitted, the bounding box is cut into about
+        ``n_splits`` cells. Only used with
+        ``block_shape='grid'``.
     random_state : int or None, default=None
-        Random state for reproducibility
+        Seed for assigning blocks to folds (and for k-means)
+    coordinates : array-like of shape (n_samples, 2), optional
+        Default coordinates, used when ``split`` gets none
     """
 
     def __init__(
@@ -50,6 +62,8 @@ class SpatialBlockCV(BaseCrossValidator):
         super().__init__()
         if n_splits < 2:
             raise ValueError("n_splits must be at least 2")
+        if block_size is not None and not block_size > 0:
+            raise ValueError("block_size must be a positive number of coordinate units")
 
         self.n_splits = n_splits
         self.block_shape = block_shape
@@ -137,6 +151,12 @@ class SpatialBlockCV(BaseCrossValidator):
         n_samples = len(coordinates)
         x_coords = coordinates[:, 0]
         y_coords = coordinates[:, 1]
+
+        if self.block_size is not None:
+            # square cells on a fixed grid of block_size coordinate units (origin 0),
+            # so a cell means the same area whatever the data's extent
+            cells = np.floor(coordinates / self.block_size).astype(np.int64)
+            return np.unique(cells, axis=0, return_inverse=True)[1].ravel()
 
         # Calculate grid dimensions to get approximately n_splits blocks
         grid_size = int(np.ceil(np.sqrt(self.n_splits)))
@@ -231,23 +251,29 @@ class SpatialBlockCV(BaseCrossValidator):
             blocks = rng.integers(0, self.n_splits, size=len(X))
             unique_blocks = np.unique(blocks)
 
+        folds = self._assign_blocks_to_folds(blocks, unique_blocks)
+        for k in range(self.n_splits):
+            test_mask = folds == k
+            if test_mask.any():
+                yield np.where(~test_mask)[0], np.where(test_mask)[0]
+
+    def _assign_blocks_to_folds(self, blocks: np.ndarray, unique_blocks: np.ndarray) -> np.ndarray:
+        """Assign whole blocks to folds, largest first, each to the smallest fold.
+
+        Every row lands in exactly one test fold. Ties are broken by a shuffle
+        seeded with ``random_state``.
+        """
         rng = np.random.default_rng(self.random_state)
-
-        # Select exactly n_splits blocks if we have more
-        if len(unique_blocks) > self.n_splits:
-            selected_blocks = rng.choice(
-                unique_blocks,
-                size=self.n_splits,
-                replace=False,
-            )
-        else:
-            selected_blocks = unique_blocks
-
-        for block in selected_blocks:
-            test_mask = blocks == block
-            if test_mask.sum() == 0:
-                continue
-            yield np.where(~test_mask)[0], np.where(test_mask)[0]
+        order = rng.permutation(unique_blocks)
+        sizes = np.array([np.count_nonzero(blocks == b) for b in order])
+        order = order[np.argsort(-sizes, kind="stable")]
+        fold_sizes = np.zeros(self.n_splits, dtype=int)
+        fold_of_block = {}
+        for b in order:
+            k = int(np.argmin(fold_sizes))
+            fold_of_block[b] = k
+            fold_sizes[k] += np.count_nonzero(blocks == b)
+        return np.array([fold_of_block[b] for b in blocks])
 
     def get_n_splits(self, X=None, y=None, groups=None):
         return self.n_splits

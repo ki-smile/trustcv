@@ -56,14 +56,14 @@ Use these only when every row is a different patient and nothing links rows (no 
 | `LOOCV` | Close to unbiased | High | n fits | Very small datasets with cheap models; not a variance remedy |
 | `LPOCV` | Close to unbiased | High | Combinatorial | Tiny datasets only |
 | `MonteCarloCV` | Pessimistic, depending on `test_size` | Moderate | `n_iterations` fits | Flexible train/test ratio |
-| `BootstrapValidation` | Through `validate()`: the plain out-of-bag mean (pessimistic). The `.632`/`.632+` corrections are not applied automatically | Low | `n_iterations` fits | Small datasets |
+| `BootstrapValidation` | `estimator="standard"`: the out-of-bag mean (pessimistic). `".632"` / `".632+"` correct it with the training error (since 1.2.3) | Low | `n_iterations` fits | Small datasets |
 | `NestedCV` | Less biased when hyperparameters are tuned | Moderate | outer × inner × grid fits | Any tuning: see [Best practices](best-practices.md#tune-inside-the-training-folds) |
 
 Stratify classification folds (`StratifiedKFoldMedical`, or `RepeatedKFold(stratify=True)`) so every fold has both classes in similar proportion. This matters most for rare outcomes.
 
 **How many folds.** Five or ten folds is the usual choice. More folds train each model on more data, so the estimate is less pessimistic, at the cost of more fits; the variance of the estimate does not reliably fall as k grows. To reduce the variance that comes from one particular partition, repeat k-fold with different seeds rather than increasing k. With very few events, use fewer folds so each test fold still holds enough positives to compute the metrics you report.
 
-**Bootstrap .632 is a point estimate, computed separately.** `validate()` reports the out-of-bag mean whatever `estimator` you choose. To get the `.632` or `.632+` value, collect training and out-of-bag errors yourself and call `BootstrapValidation.compute_error(train_errors, test_errors)`. The result is a corrected point estimate, not a confidence interval. For intervals, use trustcv's `ci_method` (default `corrected_t`); intervals built naively from overlapping folds or resamples are too narrow. See [Confidence intervals](confidence-intervals.md).
+**Bootstrap .632.** Since 1.2.3, `TrustCV(method="bootstrap", bootstrap_validation_estimator=".632")` (or `".632+"`, or `cv=BootstrapValidation(estimator=...)`) applies the correction: each fold's model is also scored on its own training rows, and the reported score combines out-of-bag and training error. It applies to built-in scores in [0, 1] and to mse/rmse/mae; other metrics keep the out-of-bag mean, with a warning. `result.diagnostics["bootstrap"]` shows the out-of-bag mean, training mean and weight per metric. The intervals come from `ci_method` on the corrected fold scores; the `.632` estimate itself is a point estimate. For intervals, use trustcv's `ci_method` (default `corrected_t`); intervals built naively from overlapping folds or resamples are too narrow. See [Confidence intervals](confidence-intervals.md).
 
 ## Grouped data
 

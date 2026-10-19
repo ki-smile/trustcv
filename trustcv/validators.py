@@ -63,6 +63,10 @@ _UNIT_INTERVAL_METRICS = {
 }
 
 
+# Built-in error metrics (lower is better) that the bootstrap .632 correction applies to directly
+_ERROR_METRICS = {"mse", "mean_squared_error", "rmse", "mae", "mean_absolute_error"}
+
+
 def _accepts_kwarg(func: Callable, name: str) -> bool:
     """True if ``func`` declares a keyword-capable parameter ``name``.
 
@@ -959,62 +963,28 @@ class TrustCVValidator:
             max_retained=self.max_audit_folds,
             n_folds_hint=n_folds_hint,
         )
-        for k, (tr, te) in enumerate(
-            splitter.split(X_for_split, y_arr, groups_for_splitter), 1
+        # Bootstrap .632/.632+: score each fold's model on its own training rows too
+        from .splitters.iid import BootstrapValidation as _BootstrapValidation
+
+        bootstrap_estimator = (
+            getattr(splitter, "estimator", "standard")
+            if isinstance(splitter, _BootstrapValidation)
+            else None
+        )
+        bootstrap_correctable: List[str] = []
+        if (
+            bootstrap_estimator in (".632", ".632+")
+            and scorer_dict is None
+            and not is_multilabel
+            and not isinstance(y_raw, (Mapping, list, tuple))
         ):
-            test_indices_by_fold.append(np.asarray(te, dtype=int))
-            fold_audit.add(tr, te)
-            # train/val slices
-            if isinstance(X_arr, Mapping):
-                X_tr = {k2: v[tr] for k2, v in X_arr.items()}
-                X_te = {k2: v[te] for k2, v in X_arr.items()}
-            elif isinstance(X_arr, (list, tuple)) and not hasattr(X_arr, "shape"):
-                X_tr = [v[tr] for v in X_arr]
-                X_te = [v[te] for v in X_arr]
-            elif hasattr(X_arr, "iloc"):
-                X_tr, X_te = X_arr.iloc[tr], X_arr.iloc[te]
-            else:
-                X_tr, X_te = X_arr[tr], X_arr[te]
-            if isinstance(y_raw, Mapping):
-                y_tr = {k2: v[tr] for k2, v in y_raw.items()}
-                y_te = y_raw  # keep full mapping for potential use later
-                y_te_eval = y_raw[selected_key][te]
-            elif isinstance(y_raw, (list, tuple)) and not hasattr(y_raw, "shape"):
-                y_tr = [v[tr] for v in y_raw]
-                y_te_eval = y_target[te]
-            elif hasattr(y_arr, "iloc"):
-                y_tr = y_arr.iloc[tr]
-                y_te_eval = y_arr.iloc[te]
-            else:
-                y_tr = y_arr[tr]
-                y_te_eval = y_arr[te]
+            bootstrap_correctable = [
+                m for m in metric_list if m in _UNIT_INTERVAL_METRICS or m in _ERROR_METRICS
+            ]
+        per_metric_train_scores: Dict[str, List[float]] = {m: [] for m in bootstrap_correctable}
 
-            # clone model if possible
-            try:
-                est = _sk_clone(model)
-            except Exception:
-                est = model
-
-            fit_kwargs = {}
-            # Prefer explicit sample_weight passed to validate; otherwise, if the model
-            # carries default fit_kwargs with a full-length sample_weight, slice it per fold.
-            if sample_weight is not None:
-                sw_tr = sample_weight[tr]
-                fit_kwargs["sample_weight"] = sw_tr
-            elif hasattr(est, "fit_kwargs") and isinstance(getattr(est, "fit_kwargs"), Mapping):
-                sw_full = est.fit_kwargs.get("sample_weight", None)
-                try:
-                    if sw_full is not None and len(sw_full) == len(y_arr):
-                        fit_kwargs["sample_weight"] = sw_full[tr]
-                except Exception:
-                    # fall back silently if slicing fails
-                    pass
-            try:
-                est.fit(X_tr, y_tr, **fit_kwargs)
-            except TypeError:
-                est.fit(X_tr, y_tr)
-
-            # predictions/scores
+        def _fold_predict(est, X_te, y_te_eval):
+            """Predictions and scores of a fitted fold model on (X_te, y_te_eval)."""
             y_pred_raw = None
             y_score_raw = None
             if hasattr(est, "predict"):
@@ -1034,22 +1004,10 @@ class TrustCVValidator:
                 except Exception:
                     y_score_raw = None
 
-            y_pred, y_score = self._coerce_predictions(y_te_eval, y_pred_raw, y_score_raw)
-            y_true_oof = (
-                y_te_eval.to_numpy()
-                if hasattr(y_te_eval, "to_numpy")
-                else _np.asarray(y_te_eval)
-            )
-            oof_records.append(
-                {
-                    "indices": _np.asarray(te, dtype=int),
-                    "y_true": _np.asarray(y_true_oof),
-                    "y_pred": None if y_pred is None else _np.asarray(y_pred),
-                    "y_score": None if y_score is None else _np.asarray(y_score),
-                }
-            )
+            return self._coerce_predictions(y_te_eval, y_pred_raw, y_score_raw)
 
-            # compute metrics
+        def _fold_metrics(est, X_te, y_te_eval, y_pred, y_score, k):
+            """Metric values of a fitted fold model; also used on training rows (bootstrap .632)."""
             fold_metric_values: Dict[str, float] = {}
             for m in metric_list:
                 try:
@@ -1174,12 +1132,95 @@ class TrustCVValidator:
                                 val = float(est.score(X_te, y_te_eval))
                             else:
                                 continue
-                    per_metric_scores[m].append(val)
                     fold_metric_values[m] = val
                 except Exception as exc:
                     if getattr(self, "debug", False):
                         print(f"[TrustCV] scorer '{m}' failed on fold {k}: {exc}")
                     # skip non-computable metric for this fold
+            return fold_metric_values
+
+        for k, (tr, te) in enumerate(
+            splitter.split(X_for_split, y_arr, groups_for_splitter), 1
+        ):
+            test_indices_by_fold.append(np.asarray(te, dtype=int))
+            fold_audit.add(tr, te)
+            # train/val slices
+            if isinstance(X_arr, Mapping):
+                X_tr = {k2: v[tr] for k2, v in X_arr.items()}
+                X_te = {k2: v[te] for k2, v in X_arr.items()}
+            elif isinstance(X_arr, (list, tuple)) and not hasattr(X_arr, "shape"):
+                X_tr = [v[tr] for v in X_arr]
+                X_te = [v[te] for v in X_arr]
+            elif hasattr(X_arr, "iloc"):
+                X_tr, X_te = X_arr.iloc[tr], X_arr.iloc[te]
+            else:
+                X_tr, X_te = X_arr[tr], X_arr[te]
+            if isinstance(y_raw, Mapping):
+                y_tr = {k2: v[tr] for k2, v in y_raw.items()}
+                y_te = y_raw  # keep full mapping for potential use later
+                y_te_eval = y_raw[selected_key][te]
+            elif isinstance(y_raw, (list, tuple)) and not hasattr(y_raw, "shape"):
+                y_tr = [v[tr] for v in y_raw]
+                y_te_eval = y_target[te]
+            elif hasattr(y_arr, "iloc"):
+                y_tr = y_arr.iloc[tr]
+                y_te_eval = y_arr.iloc[te]
+            else:
+                y_tr = y_arr[tr]
+                y_te_eval = y_arr[te]
+
+            # clone model if possible
+            try:
+                est = _sk_clone(model)
+            except Exception:
+                est = model
+
+            fit_kwargs = {}
+            # Prefer explicit sample_weight passed to validate; otherwise, if the model
+            # carries default fit_kwargs with a full-length sample_weight, slice it per fold.
+            if sample_weight is not None:
+                sw_tr = sample_weight[tr]
+                fit_kwargs["sample_weight"] = sw_tr
+            elif hasattr(est, "fit_kwargs") and isinstance(getattr(est, "fit_kwargs"), Mapping):
+                sw_full = est.fit_kwargs.get("sample_weight", None)
+                try:
+                    if sw_full is not None and len(sw_full) == len(y_arr):
+                        fit_kwargs["sample_weight"] = sw_full[tr]
+                except Exception:
+                    # fall back silently if slicing fails
+                    pass
+            try:
+                est.fit(X_tr, y_tr, **fit_kwargs)
+            except TypeError:
+                est.fit(X_tr, y_tr)
+
+            y_pred, y_score = _fold_predict(est, X_te, y_te_eval)
+            y_true_oof = (
+                y_te_eval.to_numpy()
+                if hasattr(y_te_eval, "to_numpy")
+                else _np.asarray(y_te_eval)
+            )
+            oof_records.append(
+                {
+                    "indices": _np.asarray(te, dtype=int),
+                    "y_true": _np.asarray(y_true_oof),
+                    "y_pred": None if y_pred is None else _np.asarray(y_pred),
+                    "y_score": None if y_score is None else _np.asarray(y_score),
+                }
+            )
+
+            # compute metrics
+            fold_metric_values = _fold_metrics(est, X_te, y_te_eval, y_pred, y_score, k)
+            for m, val in fold_metric_values.items():
+                per_metric_scores[m].append(val)
+            if bootstrap_correctable:
+                tr_pred, tr_score = _fold_predict(est, X_tr, y_tr)
+                tr_values = _fold_metrics(est, X_tr, y_tr, tr_pred, tr_score, k)
+                for m in bootstrap_correctable:
+                    # NaN keeps folds aligned when a metric cannot be computed on one side
+                    per_metric_train_scores[m].append(tr_values.get(m, float("nan")))
+                    if m not in fold_metric_values:
+                        per_metric_scores[m].append(float("nan"))
 
             fold_details.append(
                 {
@@ -1201,6 +1242,18 @@ class TrustCVValidator:
                 "The cross-validation splitter produced no folds, so nothing was validated. "
                 "Check the splitter's settings against the data (for example, "
                 "group_exclusive=True when every group spans all time points)."
+            )
+
+        bootstrap_diagnostics = None
+        if bootstrap_estimator is not None:
+            bootstrap_diagnostics = self._apply_bootstrap_632(
+                bootstrap_estimator,
+                metric_list,
+                bootstrap_correctable,
+                per_metric_scores,
+                per_metric_train_scores,
+                oof_records,
+                _fold_metrics,
             )
 
         # aggregate
@@ -1250,6 +1303,7 @@ class TrustCVValidator:
         rng = _np.random.default_rng(self.random_state)
         for m, vals in per_metric_scores.items():
             arr = _np.asarray(vals, dtype=float)
+            arr = arr[_np.isfinite(arr)]
             if arr.size == 0:
                 continue
             mean_scores[m] = float(arr.mean())
@@ -1621,6 +1675,8 @@ class TrustCVValidator:
 
         recommendations = list(dict.fromkeys(recommendations))
         diagnostics: Dict[str, Any] = {"fold_audit": fold_audit.coverage()}
+        if bootstrap_diagnostics is not None:
+            diagnostics["bootstrap"] = bootstrap_diagnostics
         if ci_diagnostics:
             diagnostics["confidence_intervals"] = ci_diagnostics
         if test_indices_by_fold:
@@ -1665,6 +1721,108 @@ class TrustCVValidator:
         except Exception:
             pass
         return result
+
+    def _apply_bootstrap_632(
+        self,
+        estimator: str,
+        metric_list: List[str],
+        correctable: List[str],
+        per_metric_scores: Dict[str, List[float]],
+        per_metric_train_scores: Dict[str, List[float]],
+        oof_records: List[Dict[str, Any]],
+        fold_metrics: Callable,
+    ) -> Dict[str, Any]:
+        """Apply the bootstrap .632 / .632+ estimator to per-fold scores in place.
+
+        Scores in [0, 1] become errors as ``1 - score``; built-in error metrics
+        are used as they are. With out-of-bag error ``Err1`` and training
+        (resubstitution) error ``err``, the corrected error is
+        ``w * Err1 + (1 - w) * err``: ``w = 0.632`` for ``.632``, and for
+        ``.632+`` ``w = 0.632 / (1 - 0.368 R)`` with the relative overfitting
+        rate ``R`` computed from the no-information error (pooled out-of-bag
+        predictions scored against shuffled labels; Efron & Tibshirani 1997).
+        The same weight is applied fold by fold, so intervals use corrected
+        values. Metrics that cannot be corrected keep the out-of-bag mean and
+        are listed in ``not_corrected``.
+        """
+        info: Dict[str, Any] = {"estimator": estimator, "corrected": {}, "not_corrected": []}
+        if estimator not in (".632", ".632+"):
+            return info
+
+        gamma_scores: Dict[str, float] = {}
+        if estimator == ".632+" and correctable:
+            y_true = np.concatenate([r["y_true"] for r in oof_records])
+            y_pred = (
+                np.concatenate([r["y_pred"] for r in oof_records])
+                if all(r["y_pred"] is not None for r in oof_records)
+                else None
+            )
+            y_score = (
+                np.concatenate([r["y_score"] for r in oof_records])
+                if all(r["y_score"] is not None for r in oof_records)
+                else None
+            )
+            rng = np.random.default_rng(self.random_state)
+            draws: Dict[str, List[float]] = {m: [] for m in correctable}
+            for _ in range(20):
+                perm = rng.permutation(len(y_true))
+                values = fold_metrics(
+                    None,
+                    None,
+                    y_true[perm],
+                    y_pred,
+                    y_score,
+                    "no-information",
+                )
+                for m in correctable:
+                    if m in values:
+                        draws[m].append(values[m])
+            gamma_scores = {m: float(np.mean(v)) for m, v in draws.items() if v}
+
+        for m in correctable:
+            test = np.asarray(per_metric_scores.get(m, []), dtype=float)
+            train = np.asarray(per_metric_train_scores.get(m, []), dtype=float)
+            ok = np.isfinite(test) & np.isfinite(train)
+            if test.size == 0 or test.size != train.size or not ok.any():
+                info["not_corrected"].append(m)
+                continue
+            is_score = m in _UNIT_INTERVAL_METRICS
+            to_err = (lambda v: 1.0 - v) if is_score else (lambda v: v)
+            e_test, e_train = to_err(test[ok]), to_err(train[ok])
+            err1, err = float(e_test.mean()), float(e_train.mean())
+            weight, gamma_err = 0.632, None
+            if estimator == ".632+":
+                if m not in gamma_scores:
+                    info["not_corrected"].append(m)
+                    continue
+                gamma_err = float(to_err(gamma_scores[m]))
+                err1_capped = min(err1, gamma_err)
+                rate = (
+                    (err1_capped - err) / (gamma_err - err)
+                    if err1_capped > err and gamma_err > err
+                    else 0.0
+                )
+                rate = min(max(rate, 0.0), 1.0)
+                weight = 0.632 / (1.0 - 0.368 * rate)
+            corrected = weight * e_test + (1.0 - weight) * e_train
+            per_metric_scores[m] = list(1.0 - corrected if is_score else corrected)
+            info["corrected"][m] = {
+                "oob_mean": float(test[ok].mean()),
+                "train_mean": float(train[ok].mean()),
+                "weight": float(weight),
+                "no_information_error": gamma_err,
+            }
+
+        info["not_corrected"] += [m for m in metric_list if m not in correctable and m not in info["not_corrected"]]
+        if info["not_corrected"]:
+            warnings.warn(
+                f"Bootstrap {estimator}: metrics not corrected ({', '.join(info['not_corrected'])}) "
+                "report the plain out-of-bag mean. The correction applies to built-in scores in "
+                "[0, 1] and to mse/rmse/mae.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return info
 
     @staticmethod
     def _coerce_predictions(

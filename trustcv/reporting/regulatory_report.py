@@ -11,7 +11,7 @@ import json
 from html import escape
 from pathlib import Path
 from string import Template
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -162,6 +162,7 @@ class RegulatoryReport:
         # Pull last validation result if available
         valres = getattr(validator, "last_result", None)
         scores_list = []
+        chosen = None
         if valres is not None:
             # Choose a primary metric to summarize per-fold results
             metric_priority = ["accuracy", "roc_auc", "f1", "score"]
@@ -194,10 +195,16 @@ class RegulatoryReport:
             )
 
         # Fill CV section
+        ci = None
+        if valres is not None and chosen is not None:
+            ci = (getattr(valres, "confidence_intervals", None) or {}).get(chosen)
         self.add_cv_results(
             method=str(method) if method else "unknown",
             n_splits=n_splits or (len(scores_list) or 0),
             scores=scores_list or [],
+            metric=chosen or "score",
+            confidence_interval=ci,
+            ci_method=getattr(valres, "ci_method", None) if valres is not None else None,
         )
 
         # Include run id in metadata if provided via generate_regulatory_report
@@ -237,15 +244,25 @@ class RegulatoryReport:
         n_splits: int,
         scores: List[float],
         confusion_matrices: Optional[List] = None,
+        metric: str = "score",
+        confidence_interval: Optional[Tuple[float, float]] = None,
+        ci_method: Optional[str] = None,
     ):
-        """Add cross-validation results."""
+        """Add cross-validation results.
+
+        ``metric`` names what ``scores`` measure (it labels the report), and
+        ``confidence_interval`` / ``ci_method`` record the interval of the mean.
+        """
         self.validation_method = method
         self.cv_results = {
             "method": method,
             "n_splits": n_splits,
+            "metric": metric,
             "scores": scores,
-            "mean_score": np.mean(scores),
-            "std_score": np.std(scores),
+            "mean_score": float(np.mean(scores)) if len(scores) else None,
+            "std_score": float(np.std(scores)) if len(scores) else None,
+            "confidence_interval": None if confidence_interval is None else [float(v) for v in confidence_interval],
+            "ci_method": ci_method,
             "confusion_matrices": confusion_matrices,
         }
 
@@ -361,10 +378,24 @@ class RegulatoryReport:
             else {}
         )
         cm = metrics.get("confusion_matrix", {}) if isinstance(metrics, dict) else {}
-        tp = cm.get("tp", cm.get("true_positives", 0))
-        tn = cm.get("tn", cm.get("true_negatives", 0))
-        fp = cm.get("fp", cm.get("false_positives", 0))
-        fn = cm.get("fn", cm.get("false_negatives", 0))
+        missing = "not computed"  # never show an invented 0 for a value that was not calculated
+        tp = cm.get("tp", cm.get("true_positives", missing))
+        tn = cm.get("tn", cm.get("true_negatives", missing))
+        fp = cm.get("fp", cm.get("false_positives", missing))
+        fn = cm.get("fn", cm.get("false_negatives", missing))
+
+        def value(key, fmt):
+            v = metrics.get(key) if isinstance(metrics, dict) else None
+            return missing if v is None else format(float(v), fmt)
+
+        cv = report["validation"]["cv_results"] or {}
+        if cv.get("mean_score") is not None:
+            cv_text = f"{escape(str(cv.get('metric', 'score')))}: {cv['mean_score']:.3f} &plusmn; {cv.get('std_score') or 0:.3f} (SD across folds)"
+            if cv.get("confidence_interval"):
+                lo, hi = cv["confidence_interval"]
+                cv_text += f"; {lo:.3f}&ndash;{hi:.3f} ({escape(str(cv.get('ci_method') or 'interval'))})"
+        else:
+            cv_text = f"{escape(str(cv.get('metric', 'score')))}: {missing}"
 
         def format_ci(ci_value, *, percent=False, decimals=3) -> str:
             """Format confidence intervals consistently."""
@@ -434,17 +465,17 @@ class RegulatoryReport:
                     </tr>
                     <tr>
                         <td>Sensitivity</td>
-                        <td>{metrics.get('sensitivity', 0):.1%}</td>
+                        <td>{value('sensitivity', '.1%')}</td>
                         <td>{sensitivity_ci}</td>
                     </tr>
                     <tr>
                         <td>Specificity</td>
-                        <td>{metrics.get('specificity', 0):.1%}</td>
+                        <td>{value('specificity', '.1%')}</td>
                         <td>{specificity_ci}</td>
                     </tr>
                     <tr>
                         <td>AUC-ROC</td>
-                        <td>{metrics.get('auc_roc', 0):.3f}</td>
+                        <td>{value('auc_roc', '.3f')}</td>
                         <td>{auc_ci}</td>
                     </tr>
                 </table>
@@ -476,7 +507,7 @@ class RegulatoryReport:
             <h2>3. Validation Methodology</h2>
             <p><strong>Method:</strong> {report['validation']['method']}</p>
             <p><strong>Number of Folds:</strong> {report['validation']['cv_results'].get('n_splits', 'N/A')}</p>
-            <p><strong>Mean Accuracy:</strong> {report['validation']['cv_results'].get('mean_score', 0):.3f} &plusmn; {report['validation']['cv_results'].get('std_score', 0):.3f}</p>
+            <p><strong>Mean {cv_text}</strong></p>
             
             {integrity_html}
 
@@ -722,16 +753,20 @@ class RegulatoryReport:
 
         cv_mean = cv_info.get("mean_score")
         cv_std = cv_info.get("std_score")
+        cv_metric = str(cv_info.get("metric", "score"))
         if isinstance(cv_mean, (int, float)) and isinstance(cv_std, (int, float)):
             mean_accuracy_text = f"{cv_mean:.3f} ± {cv_std:.3f}"
+            if cv_info.get("confidence_interval"):
+                lo, hi = cv_info["confidence_interval"]
+                mean_accuracy_text += f" ({lo:.3f}–{hi:.3f}, {cv_info.get('ci_method') or 'interval'})"
         else:
-            mean_accuracy_text = "N/A"
+            mean_accuracy_text = "not computed"
 
         confusion = metrics.get("confusion_matrix", {})
-        tp = confusion.get("true_positives", confusion.get("tp", 0))
-        tn = confusion.get("true_negatives", confusion.get("tn", 0))
-        fp = confusion.get("false_positives", confusion.get("fp", 0))
-        fn = confusion.get("false_negatives", confusion.get("fn", 0))
+        tp = confusion.get("true_positives", confusion.get("tp", "not computed"))
+        tn = confusion.get("true_negatives", confusion.get("tn", "not computed"))
+        fp = confusion.get("false_positives", confusion.get("fp", "not computed"))
+        fn = confusion.get("false_negatives", confusion.get("fn", "not computed"))
 
         auc_val = metrics.get("auc_roc")
         if isinstance(auc_val, (int, float)):
@@ -847,7 +882,7 @@ class RegulatoryReport:
                     <table class="clean-table">
                         <tr><td>Method</td><td style="text-align:right; color:#870052; font-weight:bold;">$validation_method</td></tr>
                         <tr><td>Number of Folds</td><td style="text-align:right;">$n_folds</td></tr>
-                        <tr><td>Mean Accuracy</td><td style="text-align:right;">$mean_accuracy_text</td></tr>
+                        <tr><td>Mean $cv_metric</td><td style="text-align:right;">$mean_accuracy_text</td></tr>
                     </table>
                     <p style="font-size:12px; color:#666; margin-top:15px; line-height:1.5;">
                         $validation_notes
@@ -919,13 +954,13 @@ class RegulatoryReport:
             "report_id": report_id,
             "report_date": report_date,
             "compliance_standard": self.compliance_standard,
-            "sensitivity_value": pct(metrics.get("sensitivity"), "0.0%"),
+            "sensitivity_value": pct(metrics.get("sensitivity"), "not computed"),
             "sensitivity_ci": ci_pct(metrics.get("sensitivity_ci")),
-            "specificity_value": pct(metrics.get("specificity"), "0.0%"),
+            "specificity_value": pct(metrics.get("specificity"), "not computed"),
             "specificity_ci": ci_pct(metrics.get("specificity_ci")),
-            "ppv_value": pct(metrics.get("ppv"), "0.0%"),
+            "ppv_value": pct(metrics.get("ppv"), "not computed"),
             "ppv_ci": ci_pct(metrics.get("ppv_ci")),
-            "npv_value": pct(metrics.get("npv"), "0.0%"),
+            "npv_value": pct(metrics.get("npv"), "not computed"),
             "npv_ci": ci_pct(metrics.get("npv_ci")),
             "n_patients": dataset.get("n_patients", dataset.get("n_samples", "N/A")),
             "n_samples": dataset.get("n_samples", "N/A"),
@@ -934,6 +969,7 @@ class RegulatoryReport:
             "validation_method": self.validation_method or cv_info.get("method", "Unknown"),
             "n_folds": cv_info.get("n_splits", "N/A"),
             "mean_accuracy_text": mean_accuracy_text,
+            "cv_metric": escape(cv_metric),
             "validation_notes": (
                 "Cross-validation performance is reported separately from integrity evidence."
                 if self.validation_method

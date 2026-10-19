@@ -2,6 +2,14 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- `TrustCV(method="bootstrap", bootstrap_validation_estimator=".632")` (and `".632+"`, or `cv=BootstrapValidation(estimator=...)`) silently reported the plain out-of-bag mean. `validate()` now applies the estimator: each fold's model is also scored on its training rows, and built-in scores in [0, 1] and mse/rmse/mae are corrected (`.632+` uses Efron's relative overfitting rate with a no-information error from shuffled out-of-bag labels). Other metrics keep the out-of-bag mean with a warning; details are in `result.diagnostics["bootstrap"]`.
+- `SpatialBlockCV` tested only `n_splits` randomly chosen grid cells, so rows in the other cells were never tested (for example 4 of 9 cells with `n_splits=5`). Whole blocks are now assigned to folds, so every row is tested exactly once and no block is split. `block_size` (previously accepted but ignored) sets square cells on a fixed grid in coordinate units.
+- `RegulatoryReport` HTML showed 0 for metrics and the confusion matrix when `calculate_clinical_metrics` was not called, and labelled the cross-validation score "Mean Accuracy" whatever metric it was. Missing values now read "not computed", and the score is labelled with its metric and shown with its interval and method.
+
 ## [1.2.2] - 2026-10-19
 
 ### Fixed
