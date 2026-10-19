@@ -4,7 +4,26 @@ All notable changes to trustcv are documented in this file.
 
 ## [Unreleased]
 
+### Changed (behaviour)
+
+- **The deep-learning runners no longer select models on the held-out fold.** `TorchCVRunner`, `MONAICVRunner`, `JAXCVRunner` and the epoch loop of `UniversalCVRunner` used to compute per-epoch `val_*` metrics on the held-out fold and pass them to `EarlyStopping` and `ModelCheckpoint`, which therefore chose the epoch on the data that then scored it. Per-epoch `val_*` metrics now come only from an inner validation split of the training fold, `run(..., inner_validation=0.1)` (the same option as `KerasCVRunner` in 1.2.1). Without it, no `val_*` metrics exist, models train for the full epochs, and selection callbacks warn once that they have nothing to monitor. The held-out fold is scored once, after training. `metadata["model_selection"]` records the strategy and sizes per fold.
+- `report_heldout_per_epoch=True` records held-out learning curves in `metadata["heldout_curves"]` for plotting. Callbacks never see them, and `EarlyStopping` / `ModelCheckpoint` refuse a `monitor` starting with `heldout` (`ValueError`). The 1.2.1 warning about selecting on the held-out fold is gone, as the case can no longer arise.
+- Custom callbacks: `logs` no longer carry held-out `val_*` values. `logs["snapshot"]()` returns a copy of the current weights, and `logs["checkpoints"]` collects requested checkpoint paths.
+
+### Added
+
+- `EarlyStopping(restore_best=True)` works: it stores a copy of the best epoch's weights (torch/MONAI `state_dict` on CPU, the JAX `TrainState`, Keras `get_weights()` in `UniversalCVRunner`), and the runner restores them before scoring the held-out fold, both after an early stop and after the last epoch. Previously it kept a reference to the live model, so nothing was restored.
+- `ModelCheckpoint` files are written, through the framework adapter's `save_model`, with `{fold}` / `{epoch}` templating and parent directories created. Previously no runner saved anything.
+- `MONAICVRunner.run(eval_every=5)` makes the evaluation and callback cadence explicit. `MONAIAdapter.make_loader` builds one loader from row indices.
+- `UniversalCVRunner` with PyTorch/MONAI accepts `optimizer` as a function `model -> optimizer`, so each fold's new model gets its own (the default is Adam).
+- CI jobs for PyTorch + MONAI and for JAX on CPU, and smoke tests that run the heavy examples (`TRUSTCV_EXAMPLE_FAST=1`).
+
 ### Fixed
+
+- Every runner calls all callbacks each epoch before acting on a stop request; a callback after an early stopper used to be skipped on the stopping epoch.
+- `JAXCVRunner` ignored the stop request from `EarlyStopping`.
+- `UniversalCVRunner` discarded the JAX training state after each epoch and passed the loss function as the evaluation state.
+- `examples/monai_3d_imaging_cv.py` failed on real MONAI (DenseNet121 cannot downsample a 32×32×16 volume five times) and only ran in its no-MONAI fallback. It now uses a small MONAI DenseNet and a faint, randomly placed lesion; the bright fixed cube made the task trivially separable (AUC 1.00). It splits with `StratifiedGroupKFold`, and a single-class fold reports AUC as undefined rather than 0.5.
 
 - `TrustCV(method="bootstrap", bootstrap_validation_estimator=".632")` (and `".632+"`, or `cv=BootstrapValidation(estimator=...)`) silently reported the plain out-of-bag mean. `validate()` now applies Efron & Tibshirani's (1997) estimator for per-observation losses (accuracy as 0-1 loss, mse, mae): leave-one-out bootstrap error, apparent error of a full-data refit and, for `.632+`, the no-information error with the capped correction of their equation 32. Corrected metrics report no confidence interval (none is valid without an outer bootstrap). Other metrics keep the out-of-bag mean with a warning; details are in `result.diagnostics["bootstrap"]`.
 - `BootstrapValidation.compute_error(".632+")` dropped the cap on the out-of-bag error in the final formula; it now follows equation 32.

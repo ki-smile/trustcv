@@ -34,7 +34,7 @@ Assistants still make the same mistakes people do. Before trusting generated cod
 
 - rows from the same patient are grouped (`groups=`) and a group-aware method is used;
 - scaling, feature selection and resampling happen inside the `Pipeline`, not on the whole dataset;
-- deep-learning early stopping uses an inner split of the training fold (for example `KerasCVRunner.run(..., inner_validation=0.1)`), never the test fold;
+- deep-learning early stopping uses an inner split of the training fold (`run(..., inner_validation=0.1)` on any trustcv runner), never the test fold;
 - the code reads `result.overall_status` and treats `NEEDS_REVIEW` and `NOT_FULLY_VERIFIED` as open questions, not as a pass.
 
 See [Reading results](../get-started/reading-results.md) for what each status means.

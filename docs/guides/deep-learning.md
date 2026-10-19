@@ -20,12 +20,19 @@ The runners report performance. They do not run the leakage checks of `TrustCV.v
 
 Early stopping, best-epoch checkpoints and learning-rate schedules that react to a validation metric all choose the model. If that metric is computed on the CV test fold, the model is chosen on the data that then scores it, and the reported score is optimistic.
 
-| Runner | Where `val_*` metrics come from | What to do |
-| --- | --- | --- |
-| `KerasCVRunner` | An inner split of the training fold, only when you pass `inner_validation=` | Pass `inner_validation=0.1` to stop early on the inner split |
-| `TorchCVRunner`, `MONAICVRunner`, `JAXCVRunner`, `UniversalCVRunner` | The held-out fold | Train for a fixed number of epochs, or select on an inner split you make yourself |
+Every runner computes per-epoch `val_*` metrics only on an inner split of the training fold, and only when you pass `inner_validation=` (for example `0.1`). The held-out fold is scored once, after training.
 
-trustcv's own `EarlyStopping` and `ModelCheckpoint(save_best_only=True)` warn once per CV run when they monitor a `val_*` metric. A fixed schedule such as `StepLR` or `CosineAnnealingLR` is fine; `ReduceLROnPlateau` on a held-out metric is not.
+| `inner_validation` | Training | Per-epoch `val_*` metrics | Early stopping and best checkpoints |
+| --- | --- | --- | --- |
+| `0` (default) | All rows of the training fold, for the full `epochs` | None | Nothing to monitor; trustcv's callbacks warn once |
+| `0.1` | 90% of the training fold | The other 10%, grouped by patient when `groups=` is given | On the inner split |
+
+`EarlyStopping(restore_best=True)` restores the best epoch's weights before the held-out fold is scored. `ModelCheckpoint` writes files with the adapter's `save_model`. Both refuse a `monitor` that starts with `heldout`. A fixed schedule such as `StepLR` or `CosineAnnealingLR` is fine with or without an inner split.
+
+To plot held-out learning curves, pass `report_heldout_per_epoch=True`; they go to `results.metadata["heldout_curves"]`, which callbacks never see.
+
+!!! note "Changed in 1.3.0"
+    Before 1.3.0, `TorchCVRunner`, `MONAICVRunner`, `JAXCVRunner` and `UniversalCVRunner` passed held-out `val_*` metrics to callbacks, so `EarlyStopping` stopped on the test fold, `restore_best` restored nothing, and `ModelCheckpoint` saved nothing. Code that relied on those metrics now gets a warning; pass `inner_validation=` to select on an inner split. The final score keys (`val_loss`, `val_acc`, ...) are unchanged.
 
 !!! note "Changed in 1.2.1"
     Before 1.2.1, `KerasCVRunner` added `EarlyStopping(restore_best_weights=True)` and passed the held-out fold as `validation_data`. It now only scores the held-out fold, and by default trains for `epochs` with no early stopping. Expect small changes in reported Keras scores.
@@ -62,12 +69,13 @@ print(results.overall_status)  # NOT_FULLY_VERIFIED: the runner does not run lea
 
 ## PyTorch
 
-`TorchCVRunner` takes a model factory and a dataset: an `(X, y)` tuple of tensors, or a `torch.utils.data.Dataset`. It scores the held-out fold after the last epoch.
+`TorchCVRunner` takes a model factory and a dataset: an `(X, y)` tuple of tensors, or a `torch.utils.data.Dataset`. Here it stops early on an inner split and restores the best epoch before scoring the held-out fold.
 
 ```python
 import torch
 import torch.nn as nn
 from trustcv import StratifiedGroupKFold
+from trustcv.core.callbacks import EarlyStopping
 from trustcv.frameworks.pytorch import TorchCVRunner
 
 
@@ -78,15 +86,18 @@ def make_net():
 runner = TorchCVRunner(model_fn=make_net, cv_splitter=StratifiedGroupKFold(n_splits=3, random_state=0))
 results = runner.run(
     dataset=(torch.tensor(X), torch.tensor(y)),
-    epochs=2,  # fixed: no early stopping on the held-out fold
+    epochs=5,
     optimizer_fn=lambda m: torch.optim.Adam(m.parameters(), lr=1e-3),
     loss_fn=nn.CrossEntropyLoss(),
     groups=patient_ids,
+    inner_validation=0.2,  # val_loss for early stopping comes from this inner split
+    callbacks=[EarlyStopping(monitor="val_loss", patience=2, verbose=False)],
 )
 print(f"{results.mean_score['val_acc']:.3f}")
+print(results.metadata["model_selection"][0])  # inner split, epochs trained, restored or not
 ```
 
-The score keys start with `val_` (`val_loss`, `val_acc`), but they are computed on the held-out CV fold.
+The final score keys start with `val_` (`val_loss`, `val_acc`), but they are computed on the held-out CV fold.
 
 Since 1.2.2, `TorchCVRunner` and `MONAICVRunner` pass labels to the splitter, so stratified splitters such as `StratifiedGroupKFold` work. Labels are taken from an `(X, y)` tuple, a dataset's `targets` or `labels` attribute, or scalar MONAI `label` values, without loading any item. In 1.2.1 these runners call the splitter without labels, and stratified splitters fail with a "missing y" error; use `GroupKFoldMedical` there.
 
@@ -134,7 +145,7 @@ print(results.metadata["model_selection"][0])  # inner split used in fold 1
 - For chronologically ordered data, `inner_validation_strategy="last"` uses the last part of each training fold, so inner validation never comes before inner training. With `groups=` it also keeps a patient on one side.
 - Keras's own `validation_split=` still works but warns: it takes the last rows without regard to groups and can split a patient. It cannot be combined with `inner_validation`, and passing `validation_data=` is rejected.
 
-For other frameworks, `trustcv.core.inner_split.inner_validation_split` returns the same inner split for your own training loop:
+For your own training loop, `trustcv.core.inner_split.inner_validation_split` returns the same inner split:
 
 ```python
 from trustcv import StratifiedGroupKFold
@@ -162,6 +173,7 @@ from monai.metrics import DiceMetric
 from monai.networks.nets import UNet
 from monai.transforms import Compose, EnsureChannelFirstd, LoadImaged, ScaleIntensityd
 from trustcv import GroupKFoldMedical
+from trustcv.core.callbacks import EarlyStopping
 from trustcv.frameworks.monai import MONAIAdapter, MONAICVRunner
 
 data_dicts = [
@@ -183,22 +195,24 @@ runner = MONAICVRunner(
 )
 results = runner.run(
     data_dicts=data_dicts,
-    epochs=50,  # fixed: val_dice is computed on the held-out fold
+    epochs=50,
+    inner_validation=0.1,  # early stopping and checkpoints use 10% of each training fold
     train_transforms=transforms,
     val_transforms=transforms,
     optimizer_fn=lambda m: torch.optim.AdamW(m.parameters(), lr=1e-4),
     loss_fn=DiceLoss(to_onehot_y=True, softmax=True),
     metrics=[DiceMetric(include_background=False, reduction="mean")],
     groups=patient_ids,
+    callbacks=[EarlyStopping(monitor="val_dice", mode="max", patience=3)],
 )
-print(results.mean_score["val_dice"])
+print(results.mean_score["val_dice"])  # Dice on the held-out fold, scored once
 ```
 
-Do not pass `EarlyStopping` or `ModelCheckpoint` on `val_dice` here: it is the held-out Dice. The labels in this example are mask paths, so there is nothing to stratify on; use `GroupKFoldMedical`. For classification with scalar `label` values, stratified splitters can use them from the next release.
+The inner split is evaluated, and callbacks run, every `eval_every=5` epochs and on the last epoch. The labels in this example are mask paths, so there is nothing to stratify on; use `GroupKFoldMedical`. For classification with scalar `label` values, stratified splitters use them.
 
 ## JAX and Flax
 
-`JAXCVRunner` takes a Flax module factory, `X`, `y` and an Optax optimizer. Like the PyTorch runner, its `val_*` scores are the held-out fold.
+`JAXCVRunner` takes a Flax module factory, `X`, `y` and an Optax optimizer. It takes the same `inner_validation=` option; restoring the best epoch restores the Flax `TrainState` (non-parameter collections such as BatchNorm statistics are not handled).
 
 ```python
 import flax.linen as fnn
@@ -224,13 +238,13 @@ print(f"{results.mean_score['val_acc']:.3f}")
 
 ## Callbacks
 
-Callbacks from `trustcv.core.callbacks` work with the Torch, MONAI, JAX and Universal runners.
+Callbacks from `trustcv.core.callbacks` work with the Torch, MONAI, JAX and Universal runners. Each epoch the runner calls every callback before acting on a stop request. A custom callback can read `logs["snapshot"]()` (a copy of the current weights) and append paths to `logs["checkpoints"]`.
 
 | Callback | Use |
 | --- | --- |
 | `ProgressLogger` | Logs per-fold and per-epoch metrics, optionally to a JSON file |
 | `ClassDistributionLogger` | Prints the class balance of each fold |
-| `EarlyStopping`, `ModelCheckpoint` | Stop or checkpoint on a monitored metric. With these runners a `val_*` metric is the held-out fold, and they warn |
+| `EarlyStopping`, `ModelCheckpoint` | Stop, restore the best weights, or checkpoint on a `val_*` metric from the inner split (`inner_validation=`) |
 | `RegulatoryComplianceLogger` | Writes a JSON log of fold sizes and per-fold results to `output_dir` |
 
 `RegulatoryComplianceLogger` can support documentation of a validation; it does not make a model or device compliant with any regulation. See [documenting validation](../regulatory/documentation-guide.md).

@@ -203,7 +203,7 @@ These leaks happen before `validate()` receives `X`, or in decisions made outsid
 | Oversampling (SMOTE) or augmentation | Resample inside the training fold (for example `imblearn.pipeline.Pipeline`); the independence scan may flag it |
 | Imputation, scaling, target encoding | Put the transformer in the `Pipeline` |
 | Hyperparameter tuning on the same folds you report | Nested CV; see [Best practices](best-practices.md#tune-inside-the-training-folds) |
-| Early stopping or checkpoint choice on the test fold | Hold out a validation split inside each training fold (`KerasCVRunner.run(inner_validation=0.1)`); see [Deep learning](deep-learning.md) |
+| Early stopping or checkpoint choice on the test fold | Hold out a validation split inside each training fold (`run(..., inner_validation=0.1)` on any trustcv runner); see [Deep learning](deep-learning.md) |
 | Missing patient, site or time metadata | Supply `groups=` or a temporal or spatial splitter; trustcv cannot infer them |
 
 The feature-selection case, run end to end:

@@ -17,11 +17,14 @@ Usage:
     python jax_flax_cv.py
 """
 
+import os
 import warnings
 
 warnings.filterwarnings("ignore")
 
 import numpy as np
+
+FAST = os.environ.get("TRUSTCV_EXAMPLE_FAST") == "1"  # quick smoke run
 from sklearn.datasets import make_classification
 from sklearn.preprocessing import StandardScaler
 
@@ -211,7 +214,7 @@ def run_jax_cv_high_level():
 
     # Run cross-validation
     print("\n3. Running 5-fold cross-validation...")
-    results = runner.run(X, y, epochs=15, optimizer=optax.adam(1e-3))
+    results = runner.run(X, y, epochs=2 if FAST else 15, optimizer=optax.adam(1e-3))
 
     # Print results
     print("\n" + "=" * 60)
@@ -257,7 +260,7 @@ def run_grouped_cv_example():
 
     # Run with groups
     print("\n3. Running cross-validation with patient grouping...")
-    results = runner.run(X, y, epochs=10, groups=patient_ids)
+    results = runner.run(X, y, epochs=2 if FAST else 10, groups=patient_ids)
 
     print("\n" + "=" * 60)
     print("RESULTS (Patient-Grouped CV)")
@@ -305,7 +308,7 @@ def compare_with_sklearn():
         cv_splitter=StratifiedKFold(n_splits=5, shuffle=True, random_state=42),
         adapter=JAXAdapter(batch_size=32, seed=42),
     )
-    jax_results = runner.run(X, y, epochs=20)
+    jax_results = runner.run(X, y, epochs=2 if FAST else 20)
 
     # Compare
     print("\n" + "=" * 60)

@@ -250,5 +250,5 @@ if __name__ == "__main__":
     print("\nKey Points:")
     print("- Used trustcv splitters for proper patient-level validation")
     print("- No patient appears in both train and validation sets")
-    print("- Early stopping prevents overfitting")
+    print("- Fixed epochs: no model selection on the held-out fold (runners: inner_validation=)")
     print("- Memory cleanup between folds")

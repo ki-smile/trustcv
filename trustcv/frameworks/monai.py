@@ -11,6 +11,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..core.base import CVResults
+from ..core.selection import (
+    best_weights_to_restore,
+    fold_selection_split,
+    run_epoch_callbacks,
+    save_checkpoints,
+)
 from ._labels import split_labels
 from .pytorch import PyTorchAdapter
 
@@ -94,66 +100,35 @@ class MONAIAdapter(PyTorchAdapter):
             train_loader: MONAI DataLoader for training
             val_loader: MONAI DataLoader for validation
         """
-        from monai.data import (
-            CacheDataset,
-            DataLoader,
-            Dataset,
-            SmartCacheDataset,
-            list_data_collate,
+        return (
+            self.make_loader(data, train_idx, train_transforms, shuffle=self.config["shuffle_train"]),
+            self.make_loader(data, val_idx, val_transforms, shuffle=False),
         )
 
-        # Handle different data formats
-        if isinstance(data, list):
-            # List of dictionaries (MONAI format)
-            train_data = [data[i] for i in train_idx]
-            val_data = [data[i] for i in val_idx]
-        elif hasattr(data, "__getitem__"):
-            # Dataset-like object
-            train_data = [data[i] for i in train_idx]
-            val_data = [data[i] for i in val_idx]
-        else:
+    def make_loader(self, data: Any, idx: np.ndarray, transforms: Optional[Any], shuffle: bool) -> Any:
+        """One MONAI DataLoader over ``data[idx]``, cached when ``cache_rate > 0``."""
+        from monai.data import CacheDataset, DataLoader, Dataset, list_data_collate
+
+        if not (isinstance(data, list) or hasattr(data, "__getitem__")):
             raise ValueError("Data must be a list of dictionaries or a MONAI Dataset")
-
-        # Create MONAI datasets with caching if specified
+        items = [data[i] for i in idx]
         if self.cache_rate > 0:
-            # Use CacheDataset for better performance
-            train_dataset = CacheDataset(
-                data=train_data,
-                transform=train_transforms,
-                cache_rate=self.cache_rate,
-                num_workers=self.config["num_workers"],
-            )
-            val_dataset = CacheDataset(
-                data=val_data,
-                transform=val_transforms,
+            dataset = CacheDataset(
+                data=items,
+                transform=transforms,
                 cache_rate=self.cache_rate,
                 num_workers=self.config["num_workers"],
             )
         else:
-            # Standard datasets
-            train_dataset = Dataset(data=train_data, transform=train_transforms)
-            val_dataset = Dataset(data=val_data, transform=val_transforms)
-
-        # Create DataLoaders with medical imaging optimizations
-        train_loader = DataLoader(
-            train_dataset,
+            dataset = Dataset(data=items, transform=transforms)
+        return DataLoader(
+            dataset,
             batch_size=self.config["batch_size"],
-            shuffle=self.config["shuffle_train"],
+            shuffle=shuffle,
             num_workers=self.config["num_workers"],
             collate_fn=list_data_collate,
             pin_memory=self.config["pin_memory"] and str(self.device) != "cpu",
         )
-
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=self.config["batch_size"],
-            shuffle=False,
-            num_workers=self.config["num_workers"],
-            collate_fn=list_data_collate,
-            pin_memory=self.config["pin_memory"] and str(self.device) != "cpu",
-        )
-
-        return train_loader, val_loader
 
     def train_epoch(
         self,
@@ -452,6 +427,11 @@ class MONAICVRunner:
         callbacks: Optional[List[Any]] = None,
         groups: Optional[np.ndarray] = None,
         inferer: Optional[Any] = None,
+        inner_validation: float = 0.0,
+        inner_validation_strategy: str = "auto",
+        inner_random_state: Optional[int] = 0,
+        eval_every: int = 5,
+        report_heldout_per_epoch: bool = False,
     ) -> CVResults:
         """
         Run cross-validation with MONAI model
@@ -468,6 +448,16 @@ class MONAICVRunner:
             callbacks: List of callbacks
             groups: Group labels for grouped CV (e.g., patient IDs)
             inferer: MONAI inferer for sliding window inference
+            inner_validation: Fraction of each training fold set aside for model
+                selection. ``val_*`` metrics for EarlyStopping and ModelCheckpoint
+                are computed on it; the held-out fold is scored once, after
+                training. 0 trains for the full epochs with no ``val_*`` metrics.
+            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_random_state: Seed for the inner split (offset by the fold index).
+            eval_every: Callbacks run every ``eval_every`` epochs and on the last
+                epoch, after the inner validation split is evaluated.
+            report_heldout_per_epoch: Also record held-out metrics at those epochs in
+                ``metadata["heldout_curves"]``, for plotting only. Callbacks never see them.
 
         Returns:
             CVResults object with scores and models
@@ -508,9 +498,13 @@ class MONAICVRunner:
         all_scores = []
         all_models = []
         all_indices = []
+        model_selection = []
+        heldout_curves = []
+        warned = {}
 
         n_samples = len(data_dicts)
         n_splits = self.cv_splitter.get_n_splits()
+        labels = split_labels(data_dicts)
 
         # Trigger CV start callbacks
         for callback in callbacks:
@@ -518,7 +512,7 @@ class MONAICVRunner:
 
         # Cross-validation loop
         for fold_idx, (train_idx, val_idx) in enumerate(
-            self.cv_splitter.split(np.arange(n_samples), split_labels(data_dicts), groups=groups)
+            self.cv_splitter.split(np.arange(n_samples), labels, groups=groups)
         ):
             print(f"\n{'='*50}")
             print(f"Fold {fold_idx + 1}/{n_splits}")
@@ -534,60 +528,62 @@ class MONAICVRunner:
             optimizer = optimizer_fn(model)
             scheduler = scheduler_fn(optimizer) if scheduler_fn else None
 
-            # Create data loaders
-            train_loader, val_loader = self.adapter.create_data_splits(
-                data_dicts, train_idx, val_idx, train_transforms, val_transforms
+            # Model selection uses only rows of the training fold
+            fit_idx, select_idx, selection = fold_selection_split(
+                train_idx, labels, groups,
+                inner_validation=inner_validation, strategy=inner_validation_strategy,
+                random_state=inner_random_state, fold_idx=fold_idx, warned=warned,
             )
+            train_loader = self.adapter.make_loader(
+                data_dicts, fit_idx, train_transforms, shuffle=self.adapter.config["shuffle_train"]
+            )
+            val_loader = self.adapter.make_loader(data_dicts, val_idx, val_transforms, shuffle=False)
+            select_loader = None
+            if select_idx is not None:
+                select_loader = self.adapter.make_loader(data_dicts, select_idx, val_transforms, shuffle=False)
 
-            # Best model tracking
-            best_metric = -1
-            best_metric_epoch = -1
+            def snapshot():
+                return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
-            # Training loop
+            curve = []
+            epochs_trained = 0
             for epoch in range(epochs):
                 # Trigger epoch start callbacks
                 for callback in callbacks:
                     callback.on_epoch_start(epoch, fold_idx)
 
-                # Train epoch
                 train_metrics = self.adapter.train_epoch(
                     model, train_loader, optimizer, loss_fn, scheduler, inferer
                 )
+                epochs_trained = epoch + 1
 
-                # Evaluate every 5 epochs to save time
-                if (epoch + 1) % 5 == 0 or epoch == epochs - 1:
-                    val_metrics = self.adapter.evaluate(
-                        model, val_loader, loss_fn, metrics, inferer
-                    )
-
-                    # Track best model
-                    if val_metrics.get("val_dice", 0) > best_metric:
-                        best_metric = val_metrics.get("val_dice", 0)
-                        best_metric_epoch = epoch
-
-                    # Print progress
+                if (epoch + 1) % eval_every == 0 or epoch == epochs - 1:
+                    logs = {**train_metrics, "model": model, "snapshot": snapshot}
                     print(f"Epoch {epoch + 1}/{epochs}")
                     print(f"  Train Loss: {train_metrics['train_loss']:.4f}")
-                    print(f"  Val Loss: {val_metrics['val_loss']:.4f}")
-                    print(f"  Val Dice: {val_metrics.get('val_dice', 0):.4f}")
-                    print(f"  Best Dice: {best_metric:.4f} (epoch {best_metric_epoch + 1})")
+                    if select_loader is not None:
+                        logs.update(self.adapter.evaluate(model, select_loader, loss_fn, metrics, inferer))
+                        print(f"  Inner val loss: {logs['val_loss']:.4f}")
+                    if report_heldout_per_epoch:
+                        heldout = self.adapter.evaluate(model, val_loader, loss_fn, metrics, inferer)
+                        curve.append({"epoch": epoch, **{k[4:]: v for k, v in heldout.items()}})
 
-                    # Prepare logs for callbacks
-                    logs = {**train_metrics, **val_metrics, "model": model}
-
-                    # Trigger epoch end callbacks
-                    stop_training = False
-                    for callback in callbacks:
-                        result = callback.on_epoch_end(epoch, fold_idx, logs)
-                        if result == "stop":
-                            stop_training = True
-                            break
-
+                    stop_training = run_epoch_callbacks(callbacks, epoch, fold_idx, logs)
+                    save_checkpoints(logs, lambda path: self.adapter.save_model(model, path))
                     if stop_training:
                         print(f"Early stopping at epoch {epoch + 1}")
                         break
 
-            # Final evaluation
+            best = best_weights_to_restore(callbacks)
+            if best is not None:
+                model.load_state_dict(best)
+            selection["epochs_trained"] = epochs_trained
+            selection["restored_best_weights"] = best is not None
+            model_selection.append(selection)
+            if report_heldout_per_epoch:
+                heldout_curves.append(curve)
+
+            # Score the held-out fold once
             final_metrics = self.adapter.evaluate(model, val_loader, loss_fn, metrics, inferer)
 
             print(f"\nFold {fold_idx + 1} Final Metrics:")
@@ -611,7 +607,7 @@ class MONAICVRunner:
                 del optimizer
                 if scheduler is not None:
                     del scheduler
-            del train_loader, val_loader
+            del train_loader, val_loader, select_loader
             import gc
             gc.collect()
             # Clear CUDA cache - essential for 3D volumes
@@ -628,5 +624,11 @@ class MONAICVRunner:
             models=all_models if self.store_models else None,
             predictions=None,  # Predictions for 3D volumes would be too large
             indices=all_indices,
-            metadata={"framework": "monai", "epochs": epochs, "n_folds": n_splits},
+            metadata={
+                "framework": "monai",
+                "epochs": epochs,
+                "n_folds": n_splits,
+                "model_selection": model_selection,
+                **({"heldout_curves": heldout_curves} if report_heldout_per_epoch else {}),
+            },
         )

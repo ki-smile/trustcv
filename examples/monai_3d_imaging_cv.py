@@ -10,17 +10,23 @@ Karolinska Institutet - https://smile.ki.se
 
 Requirements:
     pip install monai torch
+
+Set TRUSTCV_EXAMPLE_FAST=1 for a quick smoke run (fewer samples and epochs).
 """
+
+import os
 
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 
 # Import trustcv components
-from trustcv.splitters import GroupKFold, StratifiedGroupKFold, LeaveOneGroupOut
+from trustcv.splitters import StratifiedGroupKFold, LeaveOneGroupOut
 
 np.random.seed(42)
 torch.manual_seed(42)
+FAST = os.environ.get("TRUSTCV_EXAMPLE_FAST") == "1"
+SIGNAL = 0.5  # tumour contrast against unit noise: learnable, not trivially separable
 
 print("=" * 70)
 print("MONAI 3D Medical Imaging Cross-Validation with trustcv")
@@ -29,8 +35,7 @@ print("=" * 70)
 # Check if MONAI is available
 try:
     import monai
-    from monai.networks.nets import DenseNet121, ResNet
-    from monai.transforms import Compose, RandRotate90, RandFlip, ToTensor
+    from monai.networks.nets import DenseNet
     MONAI_AVAILABLE = True
     print(f"MONAI version: {monai.__version__}")
 except ImportError:
@@ -69,16 +74,17 @@ class Synthetic3DMedicalDataset(Dataset):
         self.images = []
         for i in range(n_samples):
             # Create base noise image
-            img = np.random.randn(n_channels, *image_size).astype(np.float32) * 0.1
+            img = np.random.randn(n_channels, *image_size).astype(np.float32)
 
             # Add class-specific patterns
             if self.labels[i] == 1:
-                # Add "tumor-like" region for positive cases
-                center = tuple(s // 2 for s in image_size)
+                # Add a faint "tumor-like" region, at a random place, for positive
+                # cases (a bright fixed cube would make the task trivially separable)
+                center = tuple(np.random.randint(5, s - 5) if s > 10 else s // 2 for s in image_size)
                 for c in range(n_channels):
                     img[c, center[0]-5:center[0]+5,
                           center[1]-5:center[1]+5,
-                          center[2]-3:center[2]+3] += 0.5
+                          center[2]-3:center[2]+3] += SIGNAL
 
             self.images.append(img)
 
@@ -133,11 +139,15 @@ class Simple3DCNN(torch.nn.Module):
 def create_model(use_monai=True, in_channels=1, num_classes=2):
     """Create 3D classification model."""
     if use_monai and MONAI_AVAILABLE:
-        # Use MONAI's pre-built 3D DenseNet
-        model = DenseNet121(
+        # A small MONAI 3D DenseNet: two dense blocks downsample by 8, which suits
+        # these 32x32x16 demo volumes (DenseNet121 needs much larger inputs)
+        model = DenseNet(
             spatial_dims=3,
             in_channels=in_channels,
-            out_channels=num_classes
+            out_channels=num_classes,
+            init_features=16,
+            growth_rate=8,
+            block_config=(2, 2),
         )
     else:
         model = Simple3DCNN(in_channels=in_channels, num_classes=num_classes)
@@ -199,10 +209,8 @@ def evaluate(model, loader, device):
 
     # Calculate AUC if we have both classes
     from sklearn.metrics import roc_auc_score
-    try:
-        auc = roc_auc_score(all_labels, all_probs)
-    except ValueError:
-        auc = 0.5  # Single class in validation
+    # AUC is undefined when the fold holds one class
+    auc = roc_auc_score(all_labels, all_probs) if len(set(all_labels)) == 2 else float("nan")
 
     return {'accuracy': accuracy, 'auc': auc}
 
@@ -276,7 +284,7 @@ if __name__ == "__main__":
     # Create synthetic dataset
     print("\nCreating synthetic 3D medical imaging dataset...")
     dataset = Synthetic3DMedicalDataset(
-        n_samples=60,  # Small for demo (real datasets would be larger)
+        n_samples=24 if FAST else 60,  # Small for demo (real datasets would be larger)
         image_size=(32, 32, 16),  # Smaller for demo
         n_channels=1
     )
@@ -291,10 +299,11 @@ if __name__ == "__main__":
     print("Example 1: Patient-Grouped K-Fold for 3D Medical Imaging")
     print("=" * 70)
 
-    cv_grouped = GroupKFold(n_splits=3)
+    # Stratified by label and grouped by patient: every fold keeps both classes
+    cv_grouped = StratifiedGroupKFold(n_splits=3)
     results_grouped = run_3d_cv(
         dataset, cv_grouped,
-        n_epochs=10, batch_size=4,
+        n_epochs=2 if FAST else 10, batch_size=4,
         use_monai=MONAI_AVAILABLE
     )
 

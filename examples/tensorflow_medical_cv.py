@@ -314,7 +314,7 @@ if __name__ == "__main__":
     print("\nKey Takeaways:")
     print("1. Use GroupKFold or StratifiedGroupKFold for patient-level validation")
     print("2. Never let same patient's data appear in both train and validation")
-    print("3. Early stopping prevents overfitting")
+    print("3. Fixed epochs: no model selection on the held-out fold (runners: inner_validation=)")
     print("4. Clear Keras session between folds to manage memory")
     print("5. Bootstrap methods are great for small datasets")
 

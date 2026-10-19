@@ -163,7 +163,7 @@ The parameters chosen in each outer fold are part of the result: if they vary wi
 
 ### Early stopping on the test fold
 
-In deep learning, choosing the best epoch or checkpoint by the held-out fold's loss is model selection on the test data. Keep the held-out fold for scoring only, and early-stop on a split of the training fold. `KerasCVRunner.run(inner_validation=0.1)` does this, group-aware with `groups=`; trustcv's `EarlyStopping` and `ModelCheckpoint(save_best_only=True)` warn when they select on a `val_*` metric computed on the held-out fold. See [Deep learning](deep-learning.md).
+In deep learning, choosing the best epoch or checkpoint by the held-out fold's loss is model selection on the test data. Keep the held-out fold for scoring only, and early-stop on a split of the training fold. Every trustcv runner does this with `run(..., inner_validation=0.1)`, group-aware with `groups=`; without it the runners compute no per-epoch `val_*` metrics, so nothing can select on the held-out fold. See [Deep learning](deep-learning.md).
 
 ## Medical data
 

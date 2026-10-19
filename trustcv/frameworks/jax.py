@@ -20,6 +20,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..core.base import CVResults, FrameworkAdapter
+from ..core.selection import (
+    best_weights_to_restore,
+    fold_selection_split,
+    run_epoch_callbacks,
+    save_checkpoints,
+)
 
 
 class JAXAdapter(FrameworkAdapter):
@@ -494,6 +500,10 @@ class JAXCVRunner:
         loss_fn: Optional[Callable] = None,
         callbacks: Optional[List[Any]] = None,
         groups: Optional[np.ndarray] = None,
+        inner_validation: float = 0.0,
+        inner_validation_strategy: str = "auto",
+        inner_random_state: Optional[int] = 0,
+        report_heldout_per_epoch: bool = False,
     ) -> CVResults:
         """
         Run cross-validation with JAX/Flax model
@@ -506,6 +516,16 @@ class JAXCVRunner:
             loss_fn: Custom loss function
             callbacks: List of trustcv callbacks
             groups: Group labels for grouped CV
+            inner_validation: Fraction of each training fold set aside for model
+                selection. ``val_*`` metrics for EarlyStopping and ModelCheckpoint
+                are computed on it; the held-out fold is scored once, after
+                training. 0 trains for the full epochs with no ``val_*`` metrics.
+                Restoring best weights restores the TrainState; non-parameter
+                collections (BatchNorm statistics) are not handled.
+            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_random_state: Seed for the inner split (offset by the fold index).
+            report_heldout_per_epoch: Also record held-out loss per epoch in
+                ``metadata["heldout_curves"]``, for plotting only. Callbacks never see it.
 
         Returns:
             CVResults object with scores and optionally states
@@ -518,6 +538,9 @@ class JAXCVRunner:
         all_states = []
         all_predictions = []
         all_indices = []
+        model_selection = []
+        heldout_curves = []
+        warned = {}
 
         n_samples = len(X)
         n_splits = self.cv_splitter.get_n_splits()
@@ -539,23 +562,27 @@ class JAXCVRunner:
                 if hasattr(callback, "on_fold_start"):
                     callback.on_fold_start(fold_idx, train_idx, val_idx)
 
-            # Create new model and data splits
-            model = self.model_fn()
-            train_data, val_data = self.adapter.create_data_splits(
-                (X, y), train_idx, val_idx
+            # Model selection uses only rows of the training fold
+            fit_idx, select_idx, selection = fold_selection_split(
+                train_idx, y, groups,
+                inner_validation=inner_validation, strategy=inner_validation_strategy,
+                random_state=inner_random_state, fold_idx=fold_idx, warned=warned,
             )
+            model = self.model_fn()
+            train_data, val_data = self.adapter.create_data_splits((X, y), fit_idx, val_idx)
+            select_data = None
+            if select_idx is not None:
+                select_data = (X[select_idx], y[select_idx])
 
-            # Training loop
             state = None
-            fold_history = {"train_loss": [], "val_loss": [], "val_acc": []}
-
+            curve = []
+            epochs_trained = 0
             for epoch in range(epochs):
                 # Trigger epoch start callbacks
                 for callback in callbacks:
                     if hasattr(callback, "on_epoch_start"):
                         callback.on_epoch_start(epoch, fold_idx)
 
-                # Train epoch
                 train_result = self.adapter.train_epoch(
                     model,
                     train_data,
@@ -565,31 +592,37 @@ class JAXCVRunner:
                 )
                 state = train_result["state"]
                 train_loss = train_result["train_loss"]
+                epochs_trained = epoch + 1
 
-                # Evaluate
-                val_metrics = self.adapter.evaluate(model, val_data, state=state)
+                # A TrainState is immutable, so the state itself is a snapshot
+                logs = {"train_loss": train_loss, "model": model, "snapshot": lambda: state}
+                if select_data is not None:
+                    select_metrics = self.adapter.evaluate(model, select_data, state=state)
+                    logs.update({k: v for k, v in select_metrics.items() if k.startswith("val_")})
+                if report_heldout_per_epoch:
+                    heldout = self.adapter.evaluate(model, val_data, state=state)
+                    curve.append({"epoch": epoch, "loss": heldout["val_loss"], "acc": heldout["val_acc"]})
 
-                # Store history
-                fold_history["train_loss"].append(train_loss)
-                fold_history["val_loss"].append(val_metrics.get("val_loss", 0))
-                fold_history["val_acc"].append(val_metrics.get("val_acc", 0))
-
-                # Print progress
                 if (epoch + 1) % max(1, epochs // 5) == 0 or epoch == epochs - 1:
-                    print(
-                        f"  Epoch {epoch + 1}/{epochs} - "
-                        f"loss: {train_loss:.4f} - "
-                        f"val_loss: {val_metrics.get('val_loss', 0):.4f} - "
-                        f"val_acc: {val_metrics.get('val_acc', 0):.4f}"
-                    )
+                    extra = f" - val_loss: {logs['val_loss']:.4f}" if "val_loss" in logs else ""
+                    print(f"  Epoch {epoch + 1}/{epochs} - loss: {train_loss:.4f}{extra}")
 
-                # Trigger epoch end callbacks
-                for callback in callbacks:
-                    if hasattr(callback, "on_epoch_end"):
-                        logs = {"train_loss": train_loss, **val_metrics}
-                        callback.on_epoch_end(epoch, fold_idx, logs)
+                stop_training = run_epoch_callbacks(callbacks, epoch, fold_idx, logs)
+                save_checkpoints(logs, lambda path: self.adapter.save_model(state, path))
+                if stop_training:
+                    print(f"  Early stopping at epoch {epoch + 1}")
+                    break
 
-            # Final evaluation
+            best = best_weights_to_restore(callbacks)
+            if best is not None:
+                state = best
+            selection["epochs_trained"] = epochs_trained
+            selection["restored_best_weights"] = best is not None
+            model_selection.append(selection)
+            if report_heldout_per_epoch:
+                heldout_curves.append(curve)
+
+            # Score the held-out fold once
             final_metrics = self.adapter.evaluate(model, val_data, state=state)
 
             # Store results
@@ -622,5 +655,10 @@ class JAXCVRunner:
             models=all_states if self.store_models else None,
             predictions=all_predictions if all_predictions else None,
             indices=all_indices,
-            metadata={"framework": "jax", "epochs": epochs},
+            metadata={
+                "framework": "jax",
+                "epochs": epochs,
+                "model_selection": model_selection,
+                **({"heldout_curves": heldout_curves} if report_heldout_per_epoch else {}),
+            },
         )

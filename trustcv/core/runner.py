@@ -17,6 +17,7 @@ from sklearn.metrics import f1_score, mean_squared_error, mean_absolute_error, r
 
 from .base import CVResults, FrameworkAdapter, SklearnAdapter
 from .callbacks import CVCallback, ProgressLogger
+from .selection import best_weights_to_restore, fold_selection_split, run_epoch_callbacks, save_checkpoints
 from ..checks import CheckResult, default_checks, overall_status as compute_overall_status
 from ..metrics.diagnostics import (
     check_fold_metric_feasibility,
@@ -177,6 +178,10 @@ class UniversalCVRunner:
         warn_metric_feasibility: bool = True,
         recommend_pooled_oof: bool = True,
         min_test_samples: int = 5,
+        inner_validation: float = 0.0,
+        inner_validation_strategy: str = "auto",
+        inner_random_state: Optional[int] = 0,
+        report_heldout_per_epoch: bool = False,
         **kwargs,
     ) -> CVResults:
         """
@@ -186,7 +191,9 @@ class UniversalCVRunner:
             model: Model instance or function that returns model
             data: Data in framework-appropriate format
             epochs: Number of epochs (for neural networks)
-            optimizer: Optimizer (framework-specific)
+            optimizer: Optimizer (framework-specific). For PyTorch and MONAI pass a
+                function ``model -> optimizer`` so each fold's new model gets its
+                own; the default is Adam.
             loss_fn: Loss function (framework-specific)
             metrics: List of metrics to compute
             callbacks: List of callbacks
@@ -202,6 +209,15 @@ class UniversalCVRunner:
             warn_metric_feasibility: If True, warn when group-based validation folds are too small or single-class for fold-wise AUC, sensitivity, or specificity.
             recommend_pooled_oof: If True, include pooled out-of-fold metric aggregation guidance in diagnostics.
             min_test_samples: Minimum held-out fold size considered stable for fold-wise classification metrics.
+            inner_validation: Neural networks only. Fraction of each training
+                fold set aside for model selection: per-epoch ``val_*`` metrics
+                (for EarlyStopping and ModelCheckpoint) are computed on it, and
+                the held-out fold is scored once, after training. 0 trains for
+                the full epochs with no ``val_*`` metrics.
+            inner_validation_strategy: "auto", "group", "stratified" or "random".
+            inner_random_state: Seed for the inner split (offset by the fold index).
+            report_heldout_per_epoch: Also record held-out metrics per epoch in
+                ``metadata["heldout_curves"]``, for plotting only. Callbacks never see them.
             **kwargs: Backward-compatible legacy arguments. Known splitter
                 metadata is routed only to splitting; other legacy arguments
                 are routed to splitting and fitting when explicit dictionaries
@@ -272,11 +288,11 @@ class UniversalCVRunner:
                 if key in parameters and key not in base_kwargs
             }
 
-        def _evaluate_adapter(fold_model, val_data, loss_fn=None, metrics=None):
+        def _evaluate_adapter(fold_model, val_data, loss_fn=None, metrics=None, state=None):
             if self.framework in ["pytorch", "monai"]:
                 base_kwargs = {"loss_fn": loss_fn, "metrics": metrics}
             elif self.framework == "jax":
-                base_kwargs = {"state": loss_fn, "metrics": metrics}
+                base_kwargs = {"state": state, "metrics": metrics}
             else:
                 base_kwargs = {"metrics": metrics}
 
@@ -321,6 +337,9 @@ class UniversalCVRunner:
         all_probabilities = []
         fold_sizes = []
         all_indices = []
+        model_selection = []
+        heldout_curves = []
+        warned = {}
 
         # Get number of samples and optional groups from data tuple
         groups_from_data = None
@@ -456,7 +475,43 @@ class UniversalCVRunner:
                     epochs = 10
                     warnings.warn(f"No epochs specified for {self.framework}. Using default: 10")
 
-                fold_history = []
+                # Model selection uses only rows of the training fold
+                fit_idx, select_idx, selection = fold_selection_split(
+                    train_idx, y_for_split, groups,
+                    inner_validation=inner_validation, strategy=inner_validation_strategy,
+                    random_state=inner_random_state, fold_idx=fold_idx, warned=warned,
+                )
+                select_data = None
+                if select_idx is not None:
+                    train_data, val_data = self.adapter.create_data_splits(
+                        data_for_adapter, fit_idx, val_idx
+                    )
+                    select_data = self.adapter.create_data_splits(
+                        data_for_adapter, select_idx, select_idx
+                    )[1]
+
+                fold_optimizer = optimizer
+                if self.framework in ["pytorch", "monai"]:
+                    if optimizer is None:
+                        fold_optimizer = self.adapter.torch.optim.Adam(fold_model.parameters())
+                    elif callable(optimizer):
+                        fold_optimizer = optimizer(fold_model)
+
+                state = None  # JAX TrainState, threaded through training and evaluation
+                if self.framework == "jax":
+                    snapshot = lambda: state  # immutable, so the state itself is a copy
+                elif self.framework == "tensorflow":
+                    snapshot = fold_model.get_weights  # a list of numpy copies
+                else:
+                    snapshot = lambda: {
+                        k: v.detach().cpu().clone() for k, v in fold_model.state_dict().items()
+                    }
+
+                def _save(path):
+                    self.adapter.save_model(state if self.framework == "jax" else fold_model, path)
+
+                curve = []
+                epochs_trained = 0
                 for epoch in range(epochs):
                     # Trigger epoch start callbacks
                     for callback in all_callbacks:
@@ -464,31 +519,49 @@ class UniversalCVRunner:
                             callback.on_epoch_start(epoch, fold_idx)
 
                     # Train epoch
-                    train_metrics = self.adapter.train_epoch(
-                        fold_model, train_data, optimizer, loss_fn, **fit_kwargs
-                    )
+                    if self.framework == "jax":
+                        train_metrics = self.adapter.train_epoch(
+                            fold_model, train_data, fold_optimizer, loss_fn, state=state, **fit_kwargs
+                        )
+                        state = train_metrics.pop("state")
+                    else:
+                        train_metrics = self.adapter.train_epoch(
+                            fold_model, train_data, fold_optimizer, loss_fn, **fit_kwargs
+                        )
+                    epochs_trained = epoch + 1
 
-                    # Evaluate
-                    val_metrics = _evaluate_adapter(fold_model, val_data, loss_fn, metrics)
+                    epoch_logs = {**train_metrics, "model": fold_model, "snapshot": snapshot}
+                    if select_data is not None:
+                        select_metrics = _evaluate_adapter(fold_model, select_data, loss_fn, metrics, state)
+                        epoch_logs.update({k: v for k, v in select_metrics.items() if k.startswith("val_")})
+                    if report_heldout_per_epoch:
+                        heldout = _evaluate_adapter(fold_model, val_data, loss_fn, metrics, state)
+                        curve.append({"epoch": epoch, **{k[4:]: v for k, v in heldout.items()
+                                                         if k.startswith("val_")}})
 
-                    # Combine metrics
-                    epoch_logs = {**train_metrics, **val_metrics}
-                    fold_history.append(epoch_logs)
-
-                    # Trigger epoch end callbacks
-                    stop_training = False
-                    for callback in all_callbacks:
-                        if hasattr(callback, "on_epoch_end"):
-                            result = callback.on_epoch_end(epoch, fold_idx, epoch_logs)
-                            if result == "stop":
-                                stop_training = True
-                                break
-
+                    stop_training = run_epoch_callbacks(all_callbacks, epoch, fold_idx, epoch_logs)
+                    save_checkpoints(epoch_logs, _save)
                     if stop_training:
                         break
 
-                # Final evaluation
-                final_metrics = _evaluate_adapter(fold_model, val_data, loss_fn, metrics)
+                best = best_weights_to_restore(all_callbacks)
+                if best is not None:
+                    if self.framework == "jax":
+                        state = best
+                    elif self.framework == "tensorflow":
+                        fold_model.set_weights(best)
+                    else:
+                        fold_model.load_state_dict(best)
+                selection["epochs_trained"] = epochs_trained
+                selection["restored_best_weights"] = best is not None
+                model_selection.append(selection)
+                if report_heldout_per_epoch:
+                    heldout_curves.append(curve)
+
+                # Score the held-out fold once
+                final_metrics = _evaluate_adapter(fold_model, val_data, loss_fn, metrics, state)
+                if self.framework == "jax":
+                    fold_model = state  # the trained parameters live in the state
 
             else:
                 # Traditional ML training (single fit)
@@ -680,6 +753,10 @@ class UniversalCVRunner:
 
         if epochs is not None:
             results.metadata["epochs"] = epochs
+        if model_selection:
+            results.metadata["model_selection"] = model_selection
+        if report_heldout_per_epoch:
+            results.metadata["heldout_curves"] = heldout_curves
 
         # Print summary if verbose
         if self.verbose >= 1:
