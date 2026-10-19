@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..core.base import CVResults
+from ._labels import split_labels
 from .pytorch import PyTorchAdapter
 
 
@@ -517,7 +518,7 @@ class MONAICVRunner:
 
         # Cross-validation loop
         for fold_idx, (train_idx, val_idx) in enumerate(
-            self.cv_splitter.split(range(n_samples), groups=groups)
+            self.cv_splitter.split(np.arange(n_samples), split_labels(data_dicts), groups=groups)
         ):
             print(f"\n{'='*50}")
             print(f"Fold {fold_idx + 1}/{n_splits}")

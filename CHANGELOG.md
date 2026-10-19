@@ -2,6 +2,17 @@
 
 All notable changes to trustcv are documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- `TorchCVRunner` and `MONAICVRunner` called the splitter without labels, so stratified splitters (`StratifiedGroupKFold`, `RepeatedKFold(stratify=True)`, ...) failed with "missing y". They now pass labels from a `(X, y)` tuple, a dataset's `targets`/`labels` attribute, or scalar MONAI `label` values, without loading items.
+
+### Changed
+
+- Documentation moves to MkDocs Material, with a generated API reference, `api-schema.json` and `llms.txt`; documentation code snippets run in CI. Several docstrings that contradicted their signatures are fixed.
+- `trustcv.checks.OVERALL_STATUSES` lists the overall status values.
+
 ## [1.2.1] - 2026-10-17
 
 ### Fixed

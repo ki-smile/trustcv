@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..core.base import CVResults, FrameworkAdapter
+from ._labels import split_labels
 
 try:
     import torch
@@ -470,7 +471,8 @@ class TorchCVRunner:
 
         # Cross-validation loop
         for fold_idx, (train_idx, val_idx) in enumerate(
-            self.cv_splitter.split(range(n_samples), groups=groups)
+            # labels let stratified splitters work; None for splitters that ignore them
+            self.cv_splitter.split(np.arange(n_samples), split_labels(dataset), groups=groups)
         ):
             # Trigger fold start callbacks
             for callback in callbacks:
