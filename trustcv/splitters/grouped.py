@@ -301,12 +301,10 @@ class LeaveOneGroupOut:
     """
     Leave-One-Group-Out Cross-Validation (LOGOCV)
 
-    Each group (e.g., patient, hospital) is used once as test set.
-    Provides unbiased estimate for new group generalization.
+    Each group (e.g., patient, hospital) is used once as test set, which
+    estimates performance on a group the model has never seen.
 
-    Parameters
-    ----------
-    None
+    Takes no parameters; pass ``groups`` to :meth:`split`.
 
     Examples
     --------

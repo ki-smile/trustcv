@@ -286,7 +286,9 @@ class LPOCV(BaseCrossValidator):
     p : int
         Number of samples to leave out in each iteration
 
-    Warning: Combinatorial explosion for large p
+    Warnings
+    --------
+    The number of splits grows combinatorially with ``p`` and the sample size.
     """
 
     def __init__(self, p: int):

@@ -29,6 +29,9 @@ LEAKAGE_RELEVANT_KEYS = (
     "target_leakage_features",
 )
 
+# Values of ValidationResult.overall_status, most severe first.
+OVERALL_STATUSES = ("FAILED", "NEEDS_REVIEW", "NOT_FULLY_VERIFIED", "PASSED")
+
 VALID_CHECK_STATUSES = {
     "PASSED",
     "FAILED",

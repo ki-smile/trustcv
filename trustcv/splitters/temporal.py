@@ -423,8 +423,9 @@ class ExpandingWindowCV:
 
     Parameters
     ----------
-    min_train_size : int
-        Minimum training set size
+    initial_train_size : int, default=10
+        Number of samples in the first training window (the deprecated
+        names ``min_train_size`` and ``initial_size`` are still accepted)
     step_size : int, default=1
         Step size for expanding window
     forecast_horizon : int, default=1

@@ -62,6 +62,7 @@ docs = [
     "mkdocstrings[python]>=0.26",
     "mkdocs-redirects>=1.2",
     "mkdocs-llmstxt>=0.2",
+    "pymdown-extensions>=10.14,<11",  # 12.x breaks mkdocstrings 1.0 highlighting
 ]
 viz = [
     "bokeh>=2.4.0",

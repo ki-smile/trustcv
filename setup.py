@@ -97,6 +97,7 @@ setup(
             "mkdocstrings[python]>=0.26",
             "mkdocs-redirects>=1.2",
             "mkdocs-llmstxt>=0.2",
+            "pymdown-extensions>=10.14,<11",
         ],
     },
     keywords=[

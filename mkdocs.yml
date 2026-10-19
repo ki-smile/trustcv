@@ -84,8 +84,44 @@ validation:
     not_found: warn
     anchors: warn
 
+hooks:
+  - docs/hooks/schema.py
+
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            allow_inspection: false
+            docstring_style: numpy
+            docstring_section_style: table
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            members_order: source
+            filters: ["!^_"]
+            heading_level: 3
+  - llmstxt:
+      markdown_description: >-
+        trustcv is a Python toolkit for trustworthy cross-validation in medical
+        and regulated machine learning: leakage-aware splitters, integrity
+        checks with an overall status (PASSED, NEEDS_REVIEW, NOT_FULLY_VERIFIED,
+        FAILED), corrected confidence intervals and documentation support.
+      full_output: llms-full.txt
+      sections:
+        Reference:
+          - reference/api.md
+          - reference/changelog.md
 
 nav:
   - Home: index.md
+  - Reference:
+      - API: reference/api.md
+      - Changelog: reference/changelog.md
+      - License: reference/license.md
