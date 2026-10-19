@@ -4,7 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'website/**'
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'trustcv/**'
+      - 'CHANGELOG.md'
+      - 'LICENSE'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-website.yml'
   workflow_dispatch:  # allows manual trigger
 
 permissions:
@@ -26,21 +32,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install docs toolchain
+        run: python -m pip install -e ".[docs]"
+
+      - name: Build site (strict)
+        run: mkdocs build --strict
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './website'
+          path: './site'
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Purge CDN cache
-        run: |
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/pages/builds"
-          echo "Cache purge requested"
