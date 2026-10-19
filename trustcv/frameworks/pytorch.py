@@ -11,6 +11,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..core.base import CVResults, FrameworkAdapter
+from ..core.selection import (
+    best_weights_to_restore,
+    fold_selection_split,
+    run_epoch_callbacks,
+    save_checkpoints,
+)
 from ._labels import split_labels
 
 try:
@@ -431,6 +437,10 @@ class TorchCVRunner:
         scheduler_fn: Optional[Callable] = None,
         callbacks: Optional[List[Any]] = None,
         groups: Optional[np.ndarray] = None,
+        inner_validation: float = 0.0,
+        inner_validation_strategy: str = "auto",
+        inner_random_state: Optional[int] = 0,
+        report_heldout_per_epoch: bool = False,
     ) -> CVResults:
         """
         Run cross-validation with PyTorch model
@@ -443,6 +453,16 @@ class TorchCVRunner:
             scheduler_fn: Function that takes optimizer and returns scheduler
             callbacks: List of callbacks
             groups: Group labels for grouped CV
+            inner_validation: Fraction of each training fold set aside for model
+                selection. Per-epoch ``val_*`` metrics (for EarlyStopping and
+                ModelCheckpoint) are computed on it; the held-out fold is only
+                scored once, after training. 0 trains for the full epochs with
+                no ``val_*`` metrics.
+            inner_validation_strategy: "auto" (group, then stratified, then
+                random), "group", "stratified" or "random".
+            inner_random_state: Seed for the inner split (offset by the fold index).
+            report_heldout_per_epoch: Also record held-out loss per epoch in
+                ``metadata["heldout_curves"]``, for plotting only. Callbacks never see it.
 
         Returns:
             CVResults object with scores and models
@@ -456,6 +476,9 @@ class TorchCVRunner:
         all_models = []
         all_predictions = []
         all_indices = []
+        model_selection = []
+        heldout_curves = []
+        warned = {}
 
         # Get dataset size for splitting
         if isinstance(dataset, tuple):
@@ -463,6 +486,7 @@ class TorchCVRunner:
             n_samples = len(X)
         else:
             n_samples = len(dataset)
+        labels = split_labels(dataset)
 
         # Trigger CV start callbacks
         n_splits = self.cv_splitter.get_n_splits()
@@ -472,7 +496,7 @@ class TorchCVRunner:
         # Cross-validation loop
         for fold_idx, (train_idx, val_idx) in enumerate(
             # labels let stratified splitters work; None for splitters that ignore them
-            self.cv_splitter.split(np.arange(n_samples), split_labels(dataset), groups=groups)
+            self.cv_splitter.split(np.arange(n_samples), labels, groups=groups)
         ):
             # Trigger fold start callbacks
             for callback in callbacks:
@@ -483,46 +507,55 @@ class TorchCVRunner:
             optimizer = optimizer_fn(model)
             scheduler = scheduler_fn(optimizer) if scheduler_fn else None
 
-            # Create data loaders
-            train_loader, val_loader = self.adapter.create_data_splits(dataset, train_idx, val_idx)
+            # Model selection uses only rows of the training fold
+            fit_idx, select_idx, selection = fold_selection_split(
+                train_idx, labels, groups,
+                inner_validation=inner_validation, strategy=inner_validation_strategy,
+                random_state=inner_random_state, fold_idx=fold_idx, warned=warned,
+            )
+            train_loader, val_loader = self.adapter.create_data_splits(dataset, fit_idx, val_idx)
+            select_loader = None
+            if select_idx is not None:
+                select_loader = self.adapter.create_data_splits(dataset, select_idx, select_idx)[1]
 
-            # Training loop
-            fold_history = {"train_loss": [], "val_loss": [], "val_acc": []}
+            def snapshot():
+                return {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
 
+            curve = []
+            epochs_trained = 0
             for epoch in range(epochs):
                 # Trigger epoch start callbacks
                 for callback in callbacks:
                     callback.on_epoch_start(epoch, fold_idx)
 
-                # Train epoch
                 train_metrics = self.adapter.train_epoch(
                     model, train_loader, optimizer, loss_fn, scheduler
                 )
+                epochs_trained = epoch + 1
+                logs = {**train_metrics, "model": model, "snapshot": snapshot}
+                if select_loader is not None:
+                    select_metrics = self.adapter.evaluate(model, select_loader, loss_fn)
+                    logs.update({k: v for k, v in select_metrics.items() if k.startswith("val_")})
+                if report_heldout_per_epoch:
+                    heldout = self.adapter.evaluate(model, val_loader, loss_fn)
+                    curve.append({"epoch": epoch, "loss": heldout["val_loss"], "acc": heldout.get("val_acc")})
 
-                # Evaluate
-                val_metrics = self.adapter.evaluate(model, val_loader, loss_fn)
-
-                # Store history
-                fold_history["train_loss"].append(train_metrics.get("train_loss", 0))
-                fold_history["val_loss"].append(val_metrics.get("val_loss", 0))
-                fold_history["val_acc"].append(val_metrics.get("val_acc", 0))
-
-                # Prepare logs for callbacks
-                logs = {**train_metrics, **val_metrics, "model": model}
-
-                # Trigger epoch end callbacks
-                stop_training = False
-                for callback in callbacks:
-                    result = callback.on_epoch_end(epoch, fold_idx, logs)
-                    if result == "stop":
-                        stop_training = True
-                        break
-
+                stop_training = run_epoch_callbacks(callbacks, epoch, fold_idx, logs)
+                save_checkpoints(logs, lambda path: self.adapter.save_model(model, path))
                 if stop_training:
                     print(f"Early stopping at epoch {epoch}")
                     break
 
-            # Final evaluation
+            best = best_weights_to_restore(callbacks)
+            if best is not None:
+                model.load_state_dict(best)
+            selection["epochs_trained"] = epochs_trained
+            selection["restored_best_weights"] = best is not None
+            model_selection.append(selection)
+            if report_heldout_per_epoch:
+                heldout_curves.append(curve)
+
+            # Score the held-out fold once
             final_metrics = self.adapter.evaluate(model, val_loader, loss_fn)
 
             # Store results
@@ -543,7 +576,7 @@ class TorchCVRunner:
                 del optimizer
                 if scheduler is not None:
                     del scheduler
-            del train_loader, val_loader
+            del train_loader, val_loader, select_loader
             import gc
             gc.collect()
             # Clear CUDA cache if available
@@ -560,5 +593,10 @@ class TorchCVRunner:
             models=all_models if self.store_models else None,
             predictions=all_predictions if all_predictions else None,
             indices=all_indices,
-            metadata={"framework": "pytorch", "epochs": epochs},
+            metadata={
+                "framework": "pytorch",
+                "epochs": epochs,
+                "model_selection": model_selection,
+                **({"heldout_curves": heldout_curves} if report_heldout_per_epoch else {}),
+            },
         )

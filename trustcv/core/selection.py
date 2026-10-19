@@ -5,6 +5,7 @@ restoration and checkpoints use an inner selection split of the training
 fold, or nothing at all.
 """
 
+import os
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -54,8 +55,8 @@ def fold_selection_split(
     fit_idx, select_idx = split
     return fit_idx, select_idx, {
         "strategy": f"inner_validation:{reason}",
-        "n_fit": int(len(fit_idx)),
-        "n_select": int(len(select_idx)),
+        "n_inner_train": int(len(fit_idx)),
+        "n_inner_val": int(len(select_idx)),
     }
 
 
@@ -72,6 +73,15 @@ def run_epoch_callbacks(callbacks: List[Any], epoch: int, fold_idx: int, logs: D
         if hasattr(callback, "on_epoch_end") and callback.on_epoch_end(epoch, fold_idx, logs) == "stop":
             stop = True
     return stop
+
+
+def save_checkpoints(logs: Dict[str, Any], save_fn: Any) -> None:
+    """Write the checkpoints the callbacks requested this epoch with ``save_fn(path)``."""
+    for path in logs.get("checkpoints", []):
+        parent = os.path.dirname(path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        save_fn(path)
 
 
 def best_weights_to_restore(callbacks: List[Any]) -> Any:
