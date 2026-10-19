@@ -109,7 +109,7 @@ Record split choices and uncertainty for clinical and regulatory review.
 <div class="tcv-card" markdown>
 **The reproducibility problem in medical AI** · 21:50 · AI-generated audio about data leakage and validation in clinical settings.
 
-<audio controls preload="none" src="https://github.com/ki-smile/trustcv/raw/main/website/trustcv.mp3" style="width: 100%"></audio>
+<audio controls preload="none" src="https://github.com/ki-smile/trustcv/releases/download/v1.3.0/trustcv.mp3" style="width: 100%"></audio>
 </div>
 
 <small>Developed at [SMAILE](https://smile.ki.se), Karolinska Institutet's core facility for AI. trustcv supports documentation of validation choices; it does not make a model or device compliant with any regulation.</small>
