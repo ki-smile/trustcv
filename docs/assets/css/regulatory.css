@@ -1,0 +1,28 @@
+/* Report draft tool. Uses Material colour variables so light and dark schemes both work. */
+.tcv-form fieldset { border: 1px solid var(--md-default-fg-color--lighter); border-radius: var(--tcv-radius, 10px); padding: 0.8rem 1rem 0.4rem; margin: 0 0 1.2rem; min-width: 0; }
+.tcv-form legend { font-weight: 700; padding: 0 0.3rem; }
+.tcv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0 1rem; }
+.tcv-grid--4 { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); }
+.tcv-field { display: flex; flex-direction: column; margin: 0 0 0.8rem; min-width: 0; }
+.tcv-field label { font-size: 0.75rem; font-weight: 600; margin-bottom: 0.2rem; }
+.tcv-form input, .tcv-form select, .tcv-form textarea {
+  font: inherit; font-size: 0.8rem; color: var(--md-default-fg-color); background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--light); border-radius: 6px; padding: 0.35rem 0.5rem; width: 100%; box-sizing: border-box; min-width: 0;
+}
+.tcv-form textarea { resize: vertical; }
+.tcv-form input:focus-visible, .tcv-form select:focus-visible, .tcv-form textarea:focus-visible, .tcv-report h2:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color); outline-offset: 2px;
+}
+.tcv-form [aria-invalid="true"] { border: 2px solid var(--tcv-fail, #b3261e); }
+[data-md-color-scheme="slate"] .tcv-form [aria-invalid="true"] { border-color: #ff8a80; }
+.tcv-hint { font-size: 0.72rem; margin: 0.2rem 0 0.6rem; color: var(--md-default-fg-color--light); }
+.tcv-table-wrap { overflow-x: auto; max-width: 100%; }
+.md-typeset .tcv-perf { width: 100%; font-size: 0.75rem; }
+.md-typeset .tcv-perf th, .md-typeset .tcv-perf td { padding: 0.3rem; }
+.tcv-perf input { min-width: 3.5rem; }
+.tcv-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.4rem 0 1.5rem; }
+.tcv-actions .md-button { margin: 0; cursor: pointer; }
+.tcv-actions .md-button:disabled { opacity: 0.6; cursor: not-allowed; }
+.tcv-status-msg { min-height: 1.4em; font-weight: 600; }
+.tcv-report { border-top: 2px solid var(--md-default-fg-color--lighter); padding-top: 0.5rem; }
+.tcv-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
