@@ -168,11 +168,11 @@ print(saved["validation"]["method"], saved["validation"]["overall_status"])
 print(saved["validation"]["cv_results"]["scores"])
 ```
 
-Prefer `format="json"` as the record. The HTML format in 1.2.1 has known limitations; edit its output before sharing it:
+Prefer `format="json"` as the record. The HTML format has known limitations; edit its output before sharing it:
 
 - it shows 0 for sensitivity, specificity, AUC and the confusion matrix unless `calculate_clinical_metrics` was called;
 - it labels the summary score "Mean Accuracy" whichever metric was recorded, and shows no confidence interval for it;
-- it contains a fixed "Regulatory Compliance" sentence stating that the report complies with the chosen standard. Remove it: neither trustcv nor this report can establish compliance. From the next release this section is replaced by a scope statement saying exactly that, and the approval block becomes a review and sign-off section.
+- before 1.2.2 it contained a fixed sentence stating that the report complies with the chosen standard. Remove it from reports made with older versions: neither trustcv nor this report can establish compliance. Since 1.2.2 that section is a scope statement saying exactly that.
 
 To draft a summary from numbers you already have, see the [report draft tool](report-draft.md).
 

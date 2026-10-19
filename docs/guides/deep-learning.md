@@ -88,7 +88,7 @@ print(f"{results.mean_score['val_acc']:.3f}")
 
 The score keys start with `val_` (`val_loss`, `val_acc`), but they are computed on the held-out CV fold.
 
-From the next release, `TorchCVRunner` and `MONAICVRunner` pass labels to the splitter, so stratified splitters such as `StratifiedGroupKFold` work. Labels are taken from an `(X, y)` tuple, a dataset's `targets` or `labels` attribute, or scalar MONAI `label` values, without loading any item. In 1.2.1 these runners call the splitter without labels, and stratified splitters fail with a "missing y" error; use `GroupKFoldMedical` there.
+Since 1.2.2, `TorchCVRunner` and `MONAICVRunner` pass labels to the splitter, so stratified splitters such as `StratifiedGroupKFold` work. Labels are taken from an `(X, y)` tuple, a dataset's `targets` or `labels` attribute, or scalar MONAI `label` values, without loading any item. In 1.2.1 these runners call the splitter without labels, and stratified splitters fail with a "missing y" error; use `GroupKFoldMedical` there.
 
 ## TensorFlow and Keras
 

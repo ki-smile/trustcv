@@ -6,7 +6,7 @@ description: Short tutorials with code that runs - data leakage from repeated pa
 
 # Tutorials
 
-Six short tutorials, from the most common mistake to the specialised cases. Every code block on this page runs as written with trustcv 1.2.1 and scikit-learn, and finishes in a few seconds.
+Six short tutorials, from the most common mistake to the specialised cases. Every code block on this page runs as written with the current trustcv release and scikit-learn (each is executed on every documentation build), and finishes in a few seconds.
 
 | Tutorial | Level | You will learn |
 | --- | --- | --- |

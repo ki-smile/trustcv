@@ -15,7 +15,7 @@ The repository has fifteen Jupyter notebooks in [`notebooks/`](https://github.co
 
     and run it. Several notebooks have no install cell of their own (the "Installs trustcv" column below), and they fail at the first `import trustcv` without it. Notebooks that need extra libraries say so near the top.
 
-Some notebooks were written for earlier releases (from 1.0.5 to 1.1.0) and their text mentions those versions. If a cell fails with trustcv 1.2.1, please [open an issue](https://github.com/ki-smile/trustcv/issues).
+Some notebooks were written for earlier releases (from 1.0.5 to 1.1.0) and their text mentions those versions. If a cell fails with the current release, please [open an issue](https://github.com/ki-smile/trustcv/issues).
 
 ## All notebooks
 

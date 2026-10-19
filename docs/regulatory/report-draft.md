@@ -57,7 +57,7 @@ The tool computes nothing. Point estimates and confidence intervals appear exact
 <option>NOT_FULLY_VERIFIED</option>
 <option>FAILED</option>
 </select></div>
-<div class="tcv-field"><label for="f-tcvversion">trustcv version</label><input id="f-tcvversion" name="tcvversion" type="text" value="1.2.1" autocomplete="off"></div>
+<div class="tcv-field"><label for="f-tcvversion">trustcv version</label><input id="f-tcvversion" name="tcvversion" type="text" value="" placeholder="output of: trustcv --version" autocomplete="off"></div>
 </div>
 <div class="tcv-field"><label for="f-justification">Why this split suits the data</label><textarea id="f-justification" name="justification" rows="2"></textarea></div>
 <div class="tcv-field"><label for="f-leakage">Leakage controls and integrity check notes</label><textarea id="f-leakage" name="leakage" rows="2" aria-describedby="f-leakage-hint"></textarea><p id="f-leakage-hint" class="tcv-hint">For example: preprocessing inside the pipeline, tuning in nested CV, checks that were not run and why.</p></div>
