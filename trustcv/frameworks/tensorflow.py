@@ -284,8 +284,9 @@ class KerasCVRunner:
     """
     High-level cross-validation runner for Keras models
 
-    Simplifies running cross-validation with Keras models while
-    ensuring best practices and regulatory compliance.
+    Runs cross-validation with Keras models: a fresh model per fold, the
+    held-out fold used only for scoring, and per-fold results that can
+    support documentation.
     """
 
     def __init__(

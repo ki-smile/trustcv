@@ -95,7 +95,7 @@
 
   // The draft as a list of sections; rendered both to Markdown and to HTML.
   function buildDoc() {
-    var level = val("f-cilevel") || "95";
+    var level = val("f-cilevel");  // "" means the user did not state it; never assume 95%
     var doc = { title: "Validation summary (draft): " + val("f-name") + " " + val("f-version"), sections: [],
       file: "validation-summary-" + slug(val("f-name") + "-" + val("f-version")) };
     function section(title, blocks) { doc.sections.push({ title: title, blocks: blocks }); }
@@ -123,14 +123,14 @@
         ["Grouping unit", or(val("f-group"))],
         ["Random seed", or(val("f-seed"))],
         ["Interval method", CI_METHODS[val("f-cimethod")] || NOT_PROVIDED],
-        ["Interval level", level + "%"],
+        ["Interval level", level ? level + "%" : "not provided"],
         ["trustcv overall status", or(val("f-status"))],
         ["trustcv version", or(val("f-tcvversion"))]] },
       para("Why this split suits the data: " + (val("f-justification") || NOT_PROVIDED)),
       para("Leakage controls and integrity check notes: " + (val("f-leakage") || NOT_PROVIDED))
     ]);
 
-    var rows = [["Metric", "Estimate", level + "% confidence interval"]];
+    var rows = [["Metric", "Estimate", level ? level + "% confidence interval" : "Confidence interval (level not provided)"]];
     METRICS.forEach(function (m) {
       var est = val("f-" + m[0] + "-est"), lo = val("f-" + m[0] + "-lo"), hi = val("f-" + m[0] + "-hi");
       if (est !== "") rows.push([m[1], est, lo !== "" ? lo + " to " + hi : NOT_PROVIDED]);

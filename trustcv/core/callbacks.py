@@ -273,7 +273,7 @@ class ProgressLogger(CVCallback):
     """
     Log progress during cross-validation
 
-    Provides detailed logging for regulatory compliance and debugging.
+    Provides detailed logging for documentation and debugging.
     """
 
     def __init__(
@@ -664,10 +664,10 @@ class LeakageDetectionCallback(CVCallback):
 
 class RegulatoryComplianceLogger(CVCallback):
     """
-    Specialized logger for regulatory compliance
+    Log run metadata and per-fold results to a JSON file
 
-    Ensures all necessary information for FDA/CE MDR compliance
-    is properly logged and documented.
+    The log can support regulatory documentation; it records what was run,
+    not whether any regulation's requirements are met.
     """
 
     def __init__(
@@ -678,10 +678,10 @@ class RegulatoryComplianceLogger(CVCallback):
         include_model_details: bool = True,
     ):
         """
-        Initialize regulatory compliance logger
+        Initialize the run logger
 
         Parameters:
-            output_dir: Directory for compliance logs
+            output_dir: Directory for the JSON logs
             study_name: Name of the study/experiment
             include_data_characteristics: Log data distribution info
             include_model_details: Log model architecture details
@@ -718,7 +718,7 @@ class RegulatoryComplianceLogger(CVCallback):
             self.compliance_log["folds"][fold_idx]["results"] = results
 
     def on_cv_end(self, all_results: List[Dict[str, Any]]) -> None:
-        """Generate compliance report"""
+        """Write the run log (metadata and per-fold results) to a JSON file"""
         import datetime
 
         self.compliance_log["end_time"] = datetime.datetime.now().isoformat()
@@ -728,4 +728,4 @@ class RegulatoryComplianceLogger(CVCallback):
         with open(log_path, "w") as f:
             json.dump(self.compliance_log, f, indent=2, default=str)
 
-        print(f"\nRegulatory compliance log saved to {log_path}")
+        print(f"\nValidation log saved to {log_path}")

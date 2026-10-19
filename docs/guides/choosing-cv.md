@@ -16,7 +16,7 @@ The structure of the data decides the family. Sample size and class balance only
 | Several rows per patient (visits, images, slides) | Patient | Grouped | `StratifiedGroupKFold` |
 | Several sites, hospitals or scanners | Site | Grouped | `LeaveOneGroupOut` or `GroupKFoldMedical` on site IDs |
 | Patients nested in hospitals | The level you want to generalise to | Grouped | `HierarchicalGroupKFold` |
-| Time order matters (forecasting, drift) | Future period | Temporal | `TimeSeriesSplit`, `PurgedKFoldCV` |
+| Time order matters (forecasting, drift) | Future period | Temporal | Forward-only: `TimeSeriesSplit`, `ExpandingWindowCV`, `RollingWindowCV` |
 | Repeated patients over time | Patient and future period | Temporal | `PurgedGroupTimeSeriesSplit(group_exclusive=True)` |
 | Locations or spatially correlated samples | Region | Spatial | `SpatialBlockCV`, `BufferedSpatialCV` |
 | Several labels per row | Row (or patient) | Multilabel | `MultilabelStratifiedKFold`, `MultilabelStratifiedGroupKFold` |
@@ -56,14 +56,14 @@ Use these only when every row is a different patient and nothing links rows (no 
 | `LOOCV` | Close to unbiased | High | n fits | Very small datasets with cheap models; not a variance remedy |
 | `LPOCV` | Close to unbiased | High | Combinatorial | Tiny datasets only |
 | `MonteCarloCV` | Pessimistic, depending on `test_size` | Moderate | `n_iterations` fits | Flexible train/test ratio |
-| `BootstrapValidation(estimator=".632+")` | `.632` corrects the optimism of training error; `.632+` also handles overfitted models | Low | `n_iterations` fits | Small datasets |
+| `BootstrapValidation` | Through `validate()`: the plain out-of-bag mean (pessimistic). The `.632`/`.632+` corrections are not applied automatically | Low | `n_iterations` fits | Small datasets |
 | `NestedCV` | Less biased when hyperparameters are tuned | Moderate | outer × inner × grid fits | Any tuning: see [Best practices](best-practices.md#tune-inside-the-training-folds) |
 
 Stratify classification folds (`StratifiedKFoldMedical`, or `RepeatedKFold(stratify=True)`) so every fold has both classes in similar proportion. This matters most for rare outcomes.
 
 **How many folds.** Five or ten folds is the usual choice. More folds train each model on more data, so the estimate is less pessimistic, at the cost of more fits; the variance of the estimate does not reliably fall as k grows. To reduce the variance that comes from one particular partition, repeat k-fold with different seeds rather than increasing k. With very few events, use fewer folds so each test fold still holds enough positives to compute the metrics you report.
 
-**Bootstrap .632 is a point estimate.** It gives a corrected performance value, not a confidence interval. For intervals, use trustcv's `ci_method` (default `corrected_t`); intervals built naively from overlapping folds or resamples are too narrow. See [Confidence intervals](confidence-intervals.md).
+**Bootstrap .632 is a point estimate, computed separately.** `validate()` reports the out-of-bag mean whatever `estimator` you choose. To get the `.632` or `.632+` value, collect training and out-of-bag errors yourself and call `BootstrapValidation.compute_error(train_errors, test_errors)`. The result is a corrected point estimate, not a confidence interval. For intervals, use trustcv's `ci_method` (default `corrected_t`); intervals built naively from overlapping folds or resamples are too narrow. See [Confidence intervals](confidence-intervals.md).
 
 ## Grouped data
 
@@ -92,7 +92,7 @@ When the model will predict the future, test on periods after the training data.
 | `RollingWindowCV` | Fixed-size training window that slides forward | `window_size`, `gap` in samples |
 | `ExpandingWindowCV` | Training window grows from `initial_train_size` | `gap` in samples |
 | `BlockedTimeSeries` | Contiguous blocks by `block_size` | An integer is a number of samples; `"day"` or `"week"` uses `timestamps=` |
-| `PurgedKFoldCV` | K-fold over time with purged samples around each test fold and an embargo after it | `purge_gap` in samples; `embargo_size` a fraction |
+| `PurgedKFoldCV` | K-fold over time with purged samples around each test fold and an embargo after it. **Not forward-only**: it also trains on data after the test fold, so do not use it to estimate forecasting performance | `purge_gap` in samples; `embargo_size` a fraction |
 | `CombinatorialPurgedCV` | Several test blocks per split, purged | `purge_gap` in samples |
 | `PurgedGroupTimeSeriesSplit` | Forward splits with patient exclusion (`group_exclusive=True`) | `purge_gap` in samples |
 | `NestedTemporalCV` | Nested CV with temporal outer and inner splitters | As its splitters |

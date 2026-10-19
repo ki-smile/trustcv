@@ -397,8 +397,8 @@ class TorchCVRunner:
     """
     High-level cross-validation runner for PyTorch models
 
-    Simplifies running cross-validation with PyTorch models while
-    ensuring best practices and regulatory compliance.
+    Runs cross-validation with PyTorch models: a fresh model per fold,
+    group-aware splitting and per-fold results that can support documentation.
     """
 
     def __init__(

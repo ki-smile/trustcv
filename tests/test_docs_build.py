@@ -87,3 +87,40 @@ def test_old_urls_redirect_to_their_new_pages(site):
         assert (site / new).is_file(), new
     home = (site / "index.html").read_text(encoding="utf-8")
     assert 'http-equiv="refresh"' not in home  # Home is never a redirect
+
+
+def test_every_documented_constructor_matches_its_runtime_signature(site):
+    import importlib
+    import inspect
+    import json
+
+    schema = json.loads((site / "api-schema.json").read_text())
+    checked = 0
+    for item in schema["api"]:
+        if item["kind"] != "class":
+            continue
+        module, _, name = item["path"].rpartition(".")
+        try:
+            cls = getattr(importlib.import_module(module), name)
+        except ImportError:  # optional framework not installed
+            continue
+        if cls.__init__ is object.__init__:  # no constructor of its own
+            runtime = []
+        else:
+            runtime = [p for p in inspect.signature(cls.__init__).parameters if p != "self"]
+        assert [p["name"] for p in item["parameters"]] == runtime, item["path"]
+        checked += 1
+    assert checked >= 40
+
+
+def test_generated_text_makes_no_compliance_claims(site):
+    import re
+
+    negations = ("not ", "no ", "never", "cannot", "neither")
+    for path in ("reference/api.html", "llms-full.txt", "llms.txt"):
+        text = re.sub(r"<[^>]+>", " ", (site / path).read_text(encoding="utf-8"))
+        for sentence in re.split(r"(?<=[.!?])\s+", text):
+            # the word, not identifiers such as RegulatoryComplianceLogger or compliance_standard
+            # (also skips the docstring heading of a parameter named "compliance")
+            if re.search(r"(?<![A-Za-z_])complian(?!ce_)(?!ce\s*:)|FDA[- ]approved|meets .{0,40}requirements", sentence, re.I):
+                assert any(n in sentence.lower() for n in negations), (path, sentence.strip()[:200])

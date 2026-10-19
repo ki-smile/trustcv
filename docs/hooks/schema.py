@@ -47,11 +47,12 @@ def build_schema(repo_root):
         if obj.is_function:
             record["parameters"] = _params(obj)
         elif obj.is_class:
-            init = obj.members.get("__init__")
+            members = obj.all_members  # includes inherited members (e.g. a base-class __init__)
+            init = members.get("__init__")
             record["parameters"] = _params(init) if init is not None and init.is_function else []
             record["methods"] = [
                 {"name": m.name, "parameters": _params(m), "summary": _summary(m)}
-                for m in obj.members.values()
+                for m in members.values()
                 if m.is_function and not m.name.startswith("_")
             ]
         items.append(record)

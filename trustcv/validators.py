@@ -639,7 +639,10 @@ class TrustCVValidator:
         n_permutations : int
             Number of shuffled-label CV runs.
         compliance : str
-            Regulatory compliance mode ('FDA', 'CE', None)
+            Report label used by ``fit_validate`` ('FDA' writes a JSON
+            documentation file, 'CE' prints a placeholder, None does nothing).
+            It does not check or establish regulatory compliance, and
+            ``validate()`` ignores it.
         holdout_test_size : float or int
             Fraction or absolute count for hold-out validation when ``method='holdout'``
         holdout_stratify : bool
