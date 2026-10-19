@@ -36,7 +36,7 @@
 }
 
 /* Fluid type scale */
-.md-typeset h1 { font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; }
+.md-typeset h1 { font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.02em; color: var(--md-default-fg-color); }
 .md-typeset h2 { font-size: clamp(1.35rem, 1.15rem + 0.7vw, 1.7rem); font-weight: 650; letter-spacing: -0.01em; }
 .md-typeset h3 { font-size: clamp(1.1rem, 1rem + 0.35vw, 1.3rem); font-weight: 600; }
 .md-typeset { font-size: 0.82rem; line-height: 1.7; }
@@ -54,18 +54,22 @@
 
 /* Hero on the home page */
 .tcv-hero { padding: 1.5rem 0 0.5rem; }
-.tcv-hero h1 { margin-bottom: 0.4rem; }
+.tcv-hero h1 { margin-bottom: 0.4rem; font-size: clamp(2.1rem, 1.5rem + 2.4vw, 3.1rem); }
+[data-md-color-scheme="default"] .tcv-hero h1 { color: var(--tcv-plum-ink); }
 .tcv-hero .tcv-lede { font-size: 1.05rem; max-width: 46rem; opacity: 0.9; }
 
 /* Card grid that reflows without orphans */
-.tcv-cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); margin: 1.2rem 0; }
+/* Card sets have 4 cards: 1 column on phones, 2x2 on tablets, 4 across on wide screens (no orphans) */
+.tcv-cards { display: grid; gap: 1rem; grid-template-columns: 1fr; margin: 1.2rem 0; }
+@media (min-width: 40em) { .tcv-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 76em) { .tcv-cards { grid-template-columns: repeat(4, 1fr); } }
 .tcv-card {
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: var(--tcv-radius);
   padding: 1rem 1.1rem;
   background: var(--md-default-bg-color);
 }
-.tcv-card h3 { margin-top: 0.2rem; }
+.tcv-card h3 { margin-top: 0.2rem; font-size: 1rem; line-height: 1.35; }
 .tcv-card p { margin-bottom: 0; }
 
 /* Status pills for overall_status */
